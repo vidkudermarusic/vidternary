@@ -1,0 +1,80 @@
+---
+title: "Introduction to Vidternary"
+author: "[VAŠE_IME VAŠ_PRIIMEK]"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to Vidternary}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Introduction to Vidternary
+
+Vidternary is a comprehensive R package for creating ternary plots with advanced filtering and multivariate analysis capabilities. This vignette provides a quick introduction to the package's main features.
+
+## Installation
+
+```{r install, eval=FALSE}
+# Install required packages first
+install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally", "Ternary", "PlotTools", "robustbase", "isotree"))
+
+# Install from GitHub
+devtools::install_github("VAŠ_USERNAME/vidternary")
+
+# Or load locally for development
+source("R/app.R")
+```
+
+## Basic Usage
+
+### Interactive Application
+```{r basic-usage, eval=FALSE}
+library(vidternary)
+
+# Run the full interactive Shiny application
+run_app()
+
+# Or create app object for custom deployment
+app <- create_app()
+shiny::runApp(app)
+```
+
+### Programmatic Usage
+```{r programmatic-usage, eval=FALSE}
+library(vidternary)
+
+# Initialize packages (loads all dependencies)
+initialize_packages()
+
+# Create a ternary plot programmatically
+result <- general_ternary_plot(
+  xlsx_file = "data.xlsx",
+  element_A = list(col = "SiO2", filter = NULL),
+  element_B = list(col = "Al2O3", filter = NULL),
+  element_C = list(col = "Fe2O3", filter = NULL),
+  output_dir = "output/",
+  color_palette = "viridis"
+)
+```
+
+## Key Features
+
+- **Ternary Plot Generation**: Create publication-ready ternary plots
+- **Advanced Filtering**: Statistical and multivariate filtering methods (Mahalanobis, Isolation Forest)
+- **Interactive Interface**: User-friendly Shiny application
+- **Export Capabilities**: Multiple output formats
+- **Modular Architecture**: Easy to extend and maintain
+
+## Getting Help
+
+For more information, see the package documentation or visit the GitHub repository.

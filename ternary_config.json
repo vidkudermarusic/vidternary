@@ -1,0 +1,25 @@
+{
+  "directories": {
+    "working_dir": "C:/Users/Dan/mag_naloga_R",
+    "output_dir": "C:/Users/Dan/mag_naloga_R/output"
+  },
+  "plotting": {
+    "default_color_palette": "viridis",
+    "default_point_size": 2,
+    "default_alpha": 0.7,
+    "max_samples_preview": 10000
+  },
+  "analysis": {
+    "default_lambda": 1,
+    "default_omega": 0,
+    "default_contamination": 0.1,
+    "iqr_multiplier": 1.5,
+    "zscore_threshold": 3,
+    "mad_threshold": 3
+  },
+  "ui": {
+    "theme": "default",
+    "language": "en",
+    "auto_save": true
+  }
+}
