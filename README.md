@@ -1,7 +1,10 @@
-<<<<<<< HEAD
+
 # Vidternary: Modular Ternary Plot Analysis Tool
 
-A comprehensive R package for creating ternary plots with advanced filtering and multivariate analysis capabilities. Built with a modular architecture for maintainability and extensibility.
+> **⚠️ In Development**  
+> Currently only the **Ternary plot** tab and **Multiple ternary plots** tab have full functionality. Other features are under development.
+
+A comprehensive R package for creating ternary plots with advanced filtering and multivariate analysis capabilities. Built with a modular architecture for maintainability and extensibility. 
 
 ## 🏗️ Modular Architecture
 
