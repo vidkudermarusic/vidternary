@@ -1,3 +1,17 @@
+# =============================================================================
+# LEGACY FILE: test9.r
+# =============================================================================
+# 
+# Description: Legacy test file with enhanced performance limits
+# Status: DEPRECATED - Use the modular R package structure instead
+# 
+# This file contains test code with increased performance limits that have been
+# integrated into the modular vidternary package structure.
+# 
+# Dependencies: See package requirements below
+# 
+# =============================================================================
+
 # ---- Libraries ----
 # PERFORMANCE LIMITS: All processing limits have been increased by 10x for large dataset support
 # - Max rows: 100,000 (was 10,000)

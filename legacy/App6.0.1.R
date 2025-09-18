@@ -1,3 +1,18 @@
+# =============================================================================
+# LEGACY FILE: App6.0.1.R
+# =============================================================================
+# 
+# Description: Legacy Shiny application for ternary plot analysis
+# Version: 6.0.1
+# Status: DEPRECATED - Use the modular R package structure instead
+# 
+# This file contains the original monolithic Shiny application that has been
+# refactored into the modular vidternary package structure.
+# 
+# Dependencies: See package requirements below
+# 
+# =============================================================================
+
 # ---- Libraries ----
 required_packages <- c("openxlsx", "Ternary", "PlotTools", "shiny", "shinyFiles", 
                        "shinyjqui", "shinyBS", "ggplot2", "GGally", "rmarkdown", 

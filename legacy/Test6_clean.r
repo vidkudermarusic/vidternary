@@ -1,3 +1,17 @@
+# =============================================================================
+# LEGACY FILE: Test6_clean.r
+# =============================================================================
+# 
+# Description: Legacy test and development file for ternary plot analysis
+# Status: DEPRECATED - Use the modular R package structure instead
+# 
+# This file contains test code and development scripts that have been
+# integrated into the modular vidternary package structure.
+# 
+# Dependencies: See package requirements below
+# 
+# =============================================================================
+
 # ---- Libraries ----
 required_packages <- c(
   "openxlsx","Ternary","PlotTools","shiny","shinyFiles","shinyjqui","shinyBS",

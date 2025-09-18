@@ -1,3 +1,17 @@
+# =============================================================================
+# LEGACY FILE: ternary_plot_old.R
+# =============================================================================
+# 
+# Description: Legacy ternary plot generation functions
+# Status: DEPRECATED - Use R/ternary_plot.R instead
+# 
+# This file contains the original ternary plot functions that have been
+# refactored and improved in the modular R package structure.
+# 
+# Dependencies: See package requirements in main app files
+# 
+# =============================================================================
+
 # ---- Main Ternary Plot Function Module ----
 # This module contains the core ternary plot generation functionality
 
