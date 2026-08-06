@@ -6,6 +6,17 @@
 
 A comprehensive R package for creating ternary plots with advanced filtering and multivariate analysis capabilities. Built with a modular architecture for maintainability and extensibility. 
 
+## Citation
+
+If you use this toolkit in your research, please cite:
+
+```
+Kuder Marušič, V. (2025). Programska orodja za vrednotenje nekovinskih vključkov v jeklih : magistrsko delo [Master’s thesis, V. Kuder Marušič]. Repository of the University of Ljubljana. https://hdl.handle.net/20.500.12556/RUL-175488
+
+Kuder Marušič, V. (2025). PROGRAM-TOOLS-FOR-THE-EVALUATION-OF-NON-METALLIC-INCLUSIONS-IN-STEELS. 
+GitHub Repository. Retrieved from https://github.com/vidkudermarusic/PROGRAM-TOOLS-FOR-THE-EVALUATION-OF-NON-METALLIC-INCLUSIONS-IN-STEELS
+```
+
 ## 🏗️ Modular Architecture
 
 The package is organized into logical modules, each handling specific functionality:
