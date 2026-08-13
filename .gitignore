@@ -1,0 +1,56 @@
+# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+.Rproj
+
+# Output files
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.tiff
+*.csv
+*.xlsx
+*.rds
+*.json
+*.zip
+
+# Temporary files
+*~
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Package building
+*.tar.gz
+*.tgz
+*.zip
+*.gz
+
+# Cache
+cache/
+.cache/
+
+# Logs
+*.log
+
+# Environment
+.env
+.Renviron
