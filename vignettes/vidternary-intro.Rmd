@@ -1,6 +1,6 @@
 ---
 title: "Introduction to Vidternary"
-author: "[VAŠE_IME VAŠ_PRIIMEK]"
+author: "Vid Kuder Marušič"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -29,7 +29,7 @@ Vidternary is a comprehensive R package for creating ternary plots with advanced
 install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally", "Ternary", "PlotTools", "robustbase", "isotree"))
 
 # Install from GitHub
-devtools::install_github("VAŠ_USERNAME/vidternary")
+devtools::install_github("vidkudermarusic/vidternary")
 
 # Or load locally for development
 source("R/app.R")
@@ -70,7 +70,9 @@ result <- general_ternary_plot(
 ## Key Features
 
 - **Ternary Plot Generation**: Create publication-ready ternary plots
-- **Advanced Filtering**: Statistical and multivariate filtering methods (Mahalanobis, Isolation Forest)
+- **Advanced Filtering**: Statistical (IQR, Z-score, MAD - positive/high-value outliers only) and multivariate filtering methods (Mahalanobis, Isolation Forest)
+- **Hexagonal Ternary Diagrams**: Composite 6 triangular plots sharing a central element/combination into one image
+- **Plot Builder**: Build custom violin/box/bar/histogram/scatter charts from any column, with saved presets
 - **Interactive Interface**: User-friendly Shiny application
 - **Export Capabilities**: Multiple output formats
 - **Modular Architecture**: Easy to extend and maintain
