@@ -17,6 +17,8 @@ export(generate_plot_summary)
 export(create_scatter_plots)
 export(create_histograms)
 export(create_box_plots)
+export(build_custom_plot)
+export(create_hex_ternary_diagram)
 
 # Multivariate analysis functions
 export(compute_mahalanobis_distance)
@@ -97,9 +99,17 @@ export(initialize_config)
 
 # UI components
 export(create_main_ui)
+export(create_hex_ternary_tab)
+export(create_plot_builder_tab)
 
 # Server logic
 export(create_server_logic)
+export(create_server_hex_ternary)
+export(create_server_plot_builder)
+
+# Plot builder presets
+export(load_builder_presets)
+export(save_builder_presets)
 
 # Import required packages
 import(shiny)
@@ -125,6 +135,9 @@ import(fs)
 import(htmlwidgets)
 import(moments)
 import(digest)
+import(magick)
+import(png)
+import(rlang)
 import(viridisLite)
 import(colourpicker)
 import(devtools)

@@ -58,7 +58,9 @@ create_server_logic <- function(input, output, session) {
     group_counts_1 = NULL,      # Group counts for dataset 1
     group_counts_2 = NULL,      # Group counts for dataset 2
     is_categorical_group_1 = FALSE,  # Whether dataset 1 optional param 2 is categorical
-    is_categorical_group_2 = FALSE   # Whether dataset 2 optional param 2 is categorical
+    is_categorical_group_2 = FALSE,  # Whether dataset 2 optional param 2 is categorical
+    # Plot Builder presets (loaded from plot_builder_presets.json)
+    plot_presets = load_builder_presets()
   )
   
   # Add error handling and user feedback
@@ -89,7 +91,13 @@ create_server_logic <- function(input, output, session) {
   
   # Import plot types functions
   plot_types <- create_server_plot_types(input, output, session, rv, show_message, log_operation, directory_management)
-  
+
+  # Import hexagonal ternary diagram functions
+  hex_ternary <- create_server_hex_ternary(input, output, session, rv, show_message, log_operation, directory_management)
+
+  # Import plot builder functions
+  plot_builder <- create_server_plot_builder(input, output, session, rv, show_message, log_operation, directory_management)
+
   # Ternary core functionality now integrated into server_ternary_plots
   
   # Import UI coordination functions

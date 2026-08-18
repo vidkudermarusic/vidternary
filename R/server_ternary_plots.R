@@ -265,7 +265,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       statistical_methods <- c(statistical_methods, "IQR Filter")
       report_lines <- c(report_lines, "📊 IQR FILTER:")
       report_lines <- c(report_lines, "  • Method: Interquartile Range")
-      report_lines <- c(report_lines, "  • Formula: Outliers < Q1-1.5×IQR or > Q3+1.5×IQR")
+      report_lines <- c(report_lines, "  • Formula: Outliers > Q3+1.5×IQR (high values only)")
       report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_iqr) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }
@@ -274,7 +274,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       statistical_methods <- c(statistical_methods, "Z-Score Filter")
       report_lines <- c(report_lines, "📈 Z-SCORE FILTER:")
       report_lines <- c(report_lines, "  • Method: Standardized scores")
-      report_lines <- c(report_lines, "  • Formula: Outliers |z-score| > 3")
+      report_lines <- c(report_lines, "  • Formula: Outliers z-score > 3 (high values only)")
       report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_zscore) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }
@@ -283,7 +283,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       statistical_methods <- c(statistical_methods, "MAD Filter")
       report_lines <- c(report_lines, "📏 MAD FILTER:")
       report_lines <- c(report_lines, "  • Method: Median Absolute Deviation")
-      report_lines <- c(report_lines, "  • Formula: Outliers < median-3×MAD or > median+3×MAD")
+      report_lines <- c(report_lines, "  • Formula: Outliers > median+3×MAD (high values only)")
       report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_mad) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }

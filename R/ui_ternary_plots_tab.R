@@ -245,19 +245,19 @@ create_ternary_plots_tab <- function() {
               checkboxInput("use_iqr_filter", "Use IQR Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📊 Uses Interquartile Range. Outliers: < Q1-1.5×IQR or > Q3+1.5×IQR")
+                  "📊 Uses Interquartile Range. Outliers: > Q3+1.5×IQR (high values only)")
               ),
 
               checkboxInput("use_zscore_filter", "Use Z-Score Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📈 Standardized scores. Outliers: |z-score| > 3 (3 standard deviations)")
+                  "📈 Standardized scores. Outliers: z-score > 3 (3 standard deviations above mean, high values only)")
               ),
 
               checkboxInput("use_mad_filter", "Use MAD Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📏 Median Absolute Deviation. Outliers: < median-3×MAD or > median+3×MAD")
+                  "📏 Median Absolute Deviation. Outliers: > median+3×MAD (high values only)")
               ),
 
               # Advanced IQR parameters

@@ -6,7 +6,7 @@ required_packages <- c(
   "openxlsx", "Ternary", "PlotTools", "shiny", "shinyFiles", "shinyjqui", "shinyBS",
   "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
   "robustbase", "isotree", "plotly", "writexl", "jsonlite", "zip", "fs", "htmlwidgets",
-  "moments", "digest", "viridisLite", "devtools"
+  "moments", "digest", "viridisLite", "devtools", "magick", "png", "rlang"
 )
 
 # Essential packages that must be loaded for core functionality

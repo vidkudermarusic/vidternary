@@ -8,6 +8,8 @@
 #   ui_data_comparison_tab.R     - create_data_comparison_tab()
 #   ui_multiple_plot_types_tab.R - create_multiple_plot_types_tab()
 #   ui_multiple_ternary_tab.R    - create_multiple_ternary_tab()
+#   ui_hex_ternary_tab.R         - create_hex_ternary_tab()
+#   ui_plot_builder_tab.R        - create_plot_builder_tab()
 #   ui_data_export_tab.R         - create_data_export_tab()
 #   ui_analysis_log_tab.R        - create_analysis_log_tab()
 
@@ -90,6 +92,8 @@ create_main_ui <- function() {
       create_data_comparison_tab(),
       create_multiple_plot_types_tab(),
       create_multiple_ternary_tab(),
+      create_hex_ternary_tab(),
+      create_plot_builder_tab(),
       create_data_export_tab(),
       create_analysis_log_tab()
     ),  # Close main tabsetPanel

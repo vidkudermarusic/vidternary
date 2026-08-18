@@ -37,7 +37,10 @@ Imports:
     moments,
     digest,
     viridisLite,
-    devtools
+    devtools,
+    magick,
+    png,
+    rlang
 Suggests: 
     testthat,
     knitr,
