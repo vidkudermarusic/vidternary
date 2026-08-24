@@ -15,7 +15,7 @@ create_analysis_log_tab <- function() {
 
             h4("Log Controls"),
             actionButton("clear_log", "Clear Log", class = "btn-warning"),
-            actionButton("export_log", "Export Log", class = "btn-info"),
+            downloadButton("export_log", "Export Log", class = "btn-info"),
             actionButton("save_log", "Save Log to File", class = "btn-success")
           ),
           column(4,

@@ -37,10 +37,6 @@ create_server_logic <- function(input, output, session) {
     filtered_data2 = NULL,
     last_filter_config1 = NULL,
     last_filter_config2 = NULL,
-    # Plot storage for Multiple Plot Types
-    scatter_plot = NULL,
-    histogram_plot = NULL,
-    boxplot_plot = NULL,
     # Export functionality storage
     last_export_results = NULL,
     last_export_folder = NULL,
@@ -88,15 +84,21 @@ create_server_logic <- function(input, output, session) {
   
   # Import export functions
   export_functions <- create_server_export(input, output, session, rv, show_message, log_operation, directory_management)
-  
-  # Import plot types functions
-  plot_types <- create_server_plot_types(input, output, session, rv, show_message, log_operation, directory_management)
 
   # Import hexagonal ternary diagram functions
   hex_ternary <- create_server_hex_ternary(input, output, session, rv, show_message, log_operation, directory_management)
 
   # Import plot builder functions
   plot_builder <- create_server_plot_builder(input, output, session, rv, show_message, log_operation, directory_management)
+
+  # Import extreme value analysis functions
+  evs <- create_server_evs(input, output, session, rv, show_message, log_operation, directory_management)
+
+  # Import spatial clustering analysis functions
+  spatial <- create_server_spatial(input, output, session, rv, show_message, log_operation, directory_management)
+
+  # Import compositional data analysis functions
+  coda <- create_server_coda(input, output, session, rv, show_message, log_operation, directory_management)
 
   # Ternary core functionality now integrated into server_ternary_plots
   
@@ -107,7 +109,7 @@ create_server_logic <- function(input, output, session) {
   status_outputs <- create_server_status_outputs(input, output, session, rv)
   
   # Import analysis log functions
-  analysis_log <- create_server_analysis_log(input, output, session, rv, show_message, log_operation)
+  analysis_log <- create_server_analysis_log(input, output, session, rv, show_message, log_operation, directory_management)
   
   # Import help system functions
   help_system <- create_server_help_system(input, output, session)

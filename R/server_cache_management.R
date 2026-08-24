@@ -20,9 +20,12 @@ create_server_cache_management <- function(input, output, session, rv, show_mess
       # Get current time
       current_time <- Sys.time()
       
-      # Check if cache directory exists
+      # Check if cache directory exists (rv$working_dir is character(0)
+      # until the user picks a working directory - file.path()/dir.exists()
+      # on an empty path vector would otherwise throw "argument is of
+      # length zero" on every tick of the cleanup timer)
       cache_dir <- file.path(rv$working_dir, "cache")
-      if (!dir.exists(cache_dir)) {
+      if (length(cache_dir) == 0 || !dir.exists(cache_dir)) {
         return()
       }
       

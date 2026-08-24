@@ -16,8 +16,13 @@ build_custom_plot <- function(data, type, x, y = NULL, color_by = "none",
 
   p <- switch(type,
     "violin" = ggplot2::ggplot(data, ggplot2::aes(x = !!rlang::sym(x), y = !!rlang::sym(y), fill = !!rlang::sym(fill_var))) +
-      ggplot2::geom_violin(alpha = 0.7, scale = "width") +
-      ggplot2::geom_boxplot(width = 0.1, alpha = 0.5) +
+      # geom_violin defaults to position "dodge" and geom_boxplot to "dodge2" -
+      # two different dodge algorithms that don't share x-offsets when there
+      # are multiple fill groups per x category, so the boxplots drift out of
+      # alignment with their violins unless both are pinned to the same
+      # explicit dodge width.
+      ggplot2::geom_violin(alpha = 0.7, scale = "width", position = ggplot2::position_dodge(width = 0.9)) +
+      ggplot2::geom_boxplot(width = 0.1, alpha = 0.5, position = ggplot2::position_dodge(width = 0.9)) +
       ggplot2::labs(x = x, y = y, fill = fill_var),
     "box" = ggplot2::ggplot(data, ggplot2::aes(x = !!rlang::sym(x), y = !!rlang::sym(y), fill = !!rlang::sym(fill_var))) +
       ggplot2::geom_boxplot(alpha = 0.7) +
