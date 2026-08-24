@@ -12,6 +12,33 @@
 # Note: MIN_POINT_SIZE and MAX_POINT_SIZE constants are defined in options.R
 
 # Enhanced logging system with structured logging and performance optimization
+#
+# log_operation() is defined at package top level but is called from deep
+# inside every create_server_*() factory function, where `rv` is a local
+# parameter - and sometimes from plain helper functions that those
+# observers/renderers call synchronously (e.g. read_dataset_file()).
+# `rv` is never reachable via plain `exists("rv")` (that resolves through
+# log_operation's own *lexical* scope - the package namespace - not the
+# caller's). Instead, walk the live call stack: for each active frame,
+# look up `rv` via ordinary (lexical) scoping starting from that frame.
+# A direct call from an observer/renderer finds `rv` immediately (the
+# handler expression is lexically nested inside its create_server_*()
+# closure); a call via an intermediate helper function finds it once the
+# walk reaches that still-executing observer's own frame further up the
+# stack. Every access is wrapped in shiny::isolate() - reading a
+# reactiveValues field from an *active* reactive context (e.g. the
+# observer that ends up calling log_operation()) registers a read
+# dependency for that context; the subsequent write to the same field
+# would then invalidate that same context, which re-runs, calls
+# log_operation() again, and so on - a self-sustaining infinite reactive
+# loop (this was hit and confirmed during development: a call site that
+# errors on every invocation produced 10000+ log_operation() calls in
+# seconds). isolate() suppresses dependency registration for whichever
+# context happens to be calling log_operation(), while the write still
+# correctly invalidates unrelated, already-subscribed consumers (e.g. the
+# Analysis Log tab's own display). Also guarded with tryCatch since
+# log_operation() is sometimes called from non-reactive contexts, where
+# reactiveValues access throws outright.
 log_operation <- function(level, message, details = NULL) {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   log_entry <- list(
@@ -21,15 +48,30 @@ log_operation <- function(level, message, details = NULL) {
     details = details
   )
 
-  # Store in global analysis log if available
-  if (exists("rv") && !is.null(rv$analysis_log)) {
-    rv$analysis_log <- c(rv$analysis_log, list(log_entry))
-
-    # Keep only last 10000 log entries for performance
-    if (length(rv$analysis_log) > 10000) {
-      rv$analysis_log <- rv$analysis_log[-(1:(length(rv$analysis_log) - 10000))]
+  tryCatch({
+    n <- sys.nframe()
+    if (n > 1) {
+      for (i in rev(seq_len(n - 1))) {
+        frame_env <- sys.frame(i)
+        if (exists("rv", envir = frame_env, inherits = TRUE)) {
+          rv_obj <- get("rv", envir = frame_env, inherits = TRUE)
+          logged <- shiny::isolate({
+            current_log <- tryCatch(rv_obj$analysis_log, error = function(e) NULL)
+            if (!is.null(current_log)) {
+              rv_obj$analysis_log <- c(current_log, list(log_entry))
+              if (length(rv_obj$analysis_log) > 10000) {
+                rv_obj$analysis_log <- rv_obj$analysis_log[-(1:(length(rv_obj$analysis_log) - 10000))]
+              }
+              TRUE
+            } else {
+              FALSE
+            }
+          })
+          if (isTRUE(logged)) break
+        }
+      }
     }
-  }
+  }, error = function(e) NULL)
 
   # Console output for debugging
   cat(sprintf("[%s] %s: %s\n", timestamp, level, message))

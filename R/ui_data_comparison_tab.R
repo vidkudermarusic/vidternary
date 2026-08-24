@@ -20,7 +20,9 @@ create_data_comparison_tab <- function() {
             actionButton("compute_stats2", "Compute Stats Dataset 2", class = "btn-primary"),
             actionButton("compare_stats", "Compare Both Datasets", class = "btn-success"),
             br(), br(),
-            verbatimTextOutput("descriptive_stats_output")
+            uiOutput("descriptive_stats_cards"),
+            br(),
+            DT::dataTableOutput("descriptive_stats_output")
           ),
           column(6,
             h4("Correlation Analysis"),
@@ -28,7 +30,9 @@ create_data_comparison_tab <- function() {
             actionButton("compute_correlations2", "Correlations Dataset 2", class = "btn-info"),
             actionButton("compare_correlations", "Compare Correlations", class = "btn-warning"),
             br(), br(),
-            verbatimTextOutput("correlation_output")
+            plotOutput("correlation_heatmap", height = "400px"),
+            br(),
+            DT::dataTableOutput("correlation_output")
           )
         ),
 
