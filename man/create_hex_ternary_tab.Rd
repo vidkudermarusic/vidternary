@@ -4,7 +4,11 @@
 \alias{create_hex_ternary_tab}
 \title{Build the "Hexagonal Ternary Diagram" tab's UI}
 \usage{
-create_hex_ternary_tab()
+create_hex_ternary_tab(id)
+}
+\arguments{
+\item{id}{Module namespace id - must match the id passed to
+\code{moduleServer()} for this tab in \code{server_logic.R}.}
 }
 \value{
 A \code{shiny::tabPanel()}.

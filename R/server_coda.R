@@ -86,13 +86,31 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
             res$n, length(res$parts), sum(res$pca$var_explained[1:2]))
   })
 
+  # geom_point()'s `size` is a fixed physical size (mm), not relative to
+  # the plot - matching the preview device's aspect ratio/inches to the
+  # download's 9x7in avoids a preview/download point-size mismatch. See
+  # server_spatial.R for the full explanation, including why
+  # renderPlot()'s width/height must stay close to plotOutput's actual
+  # on-screen size (they also set the browser's literal display size, not
+  # just the internal device resolution) - height must match
+  # ui_coda_tab.R's plotOutput(..., height=) exactly; width is derived
+  # from the same 9:7 ratio as the download. (480px, up from the
+  # original 450px, per a user request to size these plots up slightly -
+  # capped by the actual rendered width of its column(6) container at a
+  # typical desktop viewport, ~632px measured, minus a safety margin; the
+  # 9:7 ratio in a half-width column leaves less headroom than the other
+  # 3 tabs, so this one grows less.)
+  coda_plot_height_px <- 480
+  coda_plot_width_px <- round(coda_plot_height_px * 9 / 7)
+  coda_plot_res <- coda_plot_height_px / 7
+
   output$coda_biplot <- renderPlot({
     print(create_coda_biplot(result()$pca))
-  })
+  }, width = coda_plot_width_px, height = coda_plot_height_px, res = coda_plot_res)
 
   output$coda_biplot_ilr <- renderPlot({
     print(create_coda_biplot(result()$pca_ilr))
-  })
+  }, width = coda_plot_width_px, height = coda_plot_height_px, res = coda_plot_res)
 
   output$coda_variance_table <- renderTable({
     pca <- result()$pca

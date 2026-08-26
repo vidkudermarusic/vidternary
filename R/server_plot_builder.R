@@ -38,7 +38,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
   output$builder_dataset_selector_ui <- renderUI({
     req(input$builder_files)
     names_available <- builder_file_names()
-    selectizeInput("builder_selected_files", "Datasets to include:",
+    selectizeInput(session$ns("builder_selected_files"), "Datasets to include:",
       choices = names_available, selected = names_available, multiple = TRUE)
   })
 
@@ -95,43 +95,43 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     all_cols <- union(cat_cols, num_cols)
     switch(input$builder_type,
       "violin" = tagList(
-        selectInput("builder_x", "X axis (group)", choices = all_cols),
+        selectInput(session$ns("builder_x"), "X axis (group)", choices = all_cols),
         # A plain multi-select selectizeInput starts with no selection by
         # default (unlike single-select, which auto-picks the first choice) -
         # without an explicit default, req(input$builder_y) below would block
         # forever on first load until the user manually multi-selects
         # something, so nothing ever renders out of the box.
-        selectizeInput("builder_y", "Y axis (value(s))", choices = num_cols,
+        selectizeInput(session$ns("builder_y"), "Y axis (value(s))", choices = num_cols,
           selected = if (length(num_cols) > 0) num_cols[1] else NULL, multiple = TRUE),
         helpText("Select two or more columns (e.g. several elements' Wt%) to compare them side by side within each X group - each selected column becomes its own sub-group, and overrides the Color / group by selection below.")
       ),
       "box" = tagList(
-        selectInput("builder_x", "X axis (group)", choices = all_cols),
+        selectInput(session$ns("builder_x"), "X axis (group)", choices = all_cols),
         # A plain multi-select selectizeInput starts with no selection by
         # default (unlike single-select, which auto-picks the first choice) -
         # without an explicit default, req(input$builder_y) below would block
         # forever on first load until the user manually multi-selects
         # something, so nothing ever renders out of the box.
-        selectizeInput("builder_y", "Y axis (value(s))", choices = num_cols,
+        selectizeInput(session$ns("builder_y"), "Y axis (value(s))", choices = num_cols,
           selected = if (length(num_cols) > 0) num_cols[1] else NULL, multiple = TRUE),
         helpText("Select two or more columns (e.g. several elements' Wt%) to compare them side by side within each X group - each selected column becomes its own sub-group, and overrides the Color / group by selection below.")
       ),
       "bar" = tagList(
-        selectInput("builder_x", "X axis (category)", choices = all_cols),
-        uiOutput("builder_bar_value_selector"),
-        checkboxInput("builder_percent", "Show percentages instead of counts", value = FALSE)
+        selectInput(session$ns("builder_x"), "X axis (category)", choices = all_cols),
+        uiOutput(session$ns("builder_bar_value_selector")),
+        checkboxInput(session$ns("builder_percent"), "Show percentages instead of counts", value = FALSE)
       ),
       "hist" = tagList(
-        selectInput("builder_x", "Variable", choices = num_cols),
-        numericInput("builder_hist_bins", "Number of bins", value = 30, min = 2, max = 200, step = 1)
+        selectInput(session$ns("builder_x"), "Variable", choices = num_cols),
+        numericInput(session$ns("builder_hist_bins"), "Number of bins", value = 30, min = 2, max = 200, step = 1)
       ),
       "scatter" = tagList(
-        selectInput("builder_x", "X axis", choices = num_cols),
-        selectInput("builder_y", "Y axis", choices = num_cols)
+        selectInput(session$ns("builder_x"), "X axis", choices = num_cols),
+        selectInput(session$ns("builder_y"), "Y axis", choices = num_cols)
       ),
       "rose" = tagList(
-        selectInput("builder_x", "Direction column (degrees)", choices = num_cols),
-        numericInput("builder_rose_bin_width", "Bin width (degrees)", value = 10, min = 1, max = 90, step = 1),
+        selectInput(session$ns("builder_x"), "Direction column (degrees)", choices = num_cols),
+        numericInput(session$ns("builder_rose_bin_width"), "Bin width (degrees)", value = 10, min = 1, max = 90, step = 1),
         helpText("Values are binned into fixed-width sectors around a full 0-360 circle. Log-scale X/Y below don't apply to a polar axis and are ignored. 'Color / group by' shows one rose diagram per category (side by side) instead of coloring within a single plot. ",
           cite_link("Mardia & Jupp, 2000", "https://doi.org/10.1002/9780470316979"))
       )
@@ -157,7 +157,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     req(filter_col %in% names(d))
     vals <- sort(unique(as.character(d[[filter_col]])))
     label <- if (has_color) paste0("Categories to show (", input$builder_color_by, "):") else "Categories to show:"
-    selectizeInput("builder_bar_values", label,
+    selectizeInput(session$ns("builder_bar_values"), label,
       choices = vals, selected = vals, multiple = TRUE)
   })
 
@@ -181,13 +181,31 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     )
   })
 
+  # geom_point()'s `size` is a fixed physical size (mm), not relative to
+  # the plot - matching the preview device's aspect ratio/inches to the
+  # download's 10x7in avoids a preview/download point-size mismatch
+  # (affects the "scatter" chart type; matching the whole device also
+  # keeps line widths/text sizing consistent across all chart types). See
+  # server_spatial.R for the full explanation, including why
+  # renderPlot()'s width/height must stay close to plotOutput's actual
+  # on-screen size (they also set the browser's literal display size, not
+  # just the internal device resolution) - height must match
+  # ui_plot_builder_tab.R's plotOutput(..., height=) exactly; width is
+  # derived from the same 10:7 ratio as the download. (580px - actually
+  # slightly BELOW the original 600px: at a 10:7 aspect ratio, the
+  # mainPanel(width=8) container only measures ~843px wide at a typical
+  # desktop viewport, which caps height at ~590px before overflowing:
+  # the original 600px/857px pairing was already marginally overflowing
+  # its column before this change, just not enough to have been
+  # noticed. 580px is the largest height that fits without overflow.)
+  builder_plot_height_px <- 580
   output$builder_plot <- renderPlot({
     tryCatch({
       print(current_plot())
     }, error = function(e) {
       shiny::validate(paste("Error rendering plot:", e$message))
     })
-  })
+  }, width = round(builder_plot_height_px * 10 / 7), height = builder_plot_height_px, res = builder_plot_height_px / 7)
 
   output$builder_download <- downloadHandler(
     filename = function() paste0("plot_builder_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),

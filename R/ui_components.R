@@ -113,14 +113,14 @@ create_main_ui <- function() {
     # Main Tabset Panel
     tabsetPanel(
       create_ternary_plots_tab(),
-      create_data_comparison_tab(),
+      create_data_comparison_tab("data_comparison"),
       create_multiple_ternary_tab(),
-      create_hex_ternary_tab(),
-      create_plot_builder_tab(),
-      create_evs_tab(),
-      create_spatial_tab(),
-      create_coda_tab(),
-      create_analysis_log_tab()
+      create_hex_ternary_tab("hex_ternary"),
+      create_plot_builder_tab("plot_builder"),
+      create_evs_tab("evs"),
+      create_spatial_tab("spatial"),
+      create_coda_tab("coda"),
+      create_analysis_log_tab("analysis_log")
     ),  # Close main tabsetPanel
 
     # Directory Settings Section

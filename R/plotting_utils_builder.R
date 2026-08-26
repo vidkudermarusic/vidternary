@@ -94,7 +94,7 @@ build_custom_plot <- function(data, type, x, y = NULL, color_by = "none",
     "scatter" = {
       p0 <- ggplot2::ggplot(data, ggplot2::aes(x = !!rlang::sym(x), y = !!rlang::sym(y)))
       if (has_color) p0 <- p0 + ggplot2::aes(color = !!rlang::sym(color_by))
-      p0 + ggplot2::geom_point(alpha = 0.6) +
+      p0 + ggplot2::geom_point(alpha = 0.6, size = 1.2) +
         ggplot2::labs(x = x, y = y, color = color_by)
     },
     "bar" = {

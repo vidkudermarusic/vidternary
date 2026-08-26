@@ -118,10 +118,23 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     )
   })
 
+  # geom_point()'s `size` is a fixed physical size (mm), not relative to
+  # the plot - matching the preview device's aspect ratio/inches to the
+  # download's 10x7in avoids a preview/download point-size mismatch. See
+  # server_spatial.R for the full explanation, including why
+  # renderPlot()'s width/height must stay close to plotOutput's actual
+  # on-screen size (they also set the browser's literal display size, not
+  # just the internal device resolution) - height must match
+  # ui_evs_tab.R's plotOutput(..., height=) exactly; width is derived
+  # from the same 10:7 ratio as the download. (575px, up from the
+  # original 500px, per a user request to size these plots up slightly -
+  # capped by the actual rendered width of its column(8) container at a
+  # typical desktop viewport, ~843px measured, minus a safety margin.)
+  evs_plot_height_px <- 575
   output$evs_plot <- renderPlot({
     fit <- fit_result()
     print(create_gumbel_plot(fit, prediction()))
-  })
+  }, width = round(evs_plot_height_px * 10 / 7), height = evs_plot_height_px, res = evs_plot_height_px / 7)
 
   output$evs_summary_table <- renderTable({
     fit <- fit_result()

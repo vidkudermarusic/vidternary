@@ -130,7 +130,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
       # box while the page layout still treated the container as only
       # 700px tall - the Directory Settings section right after it in the
       # page ended up visually overlapping the middle of the image.
-      imageOutput("hex_plot", height = "auto")
+      imageOutput(session$ns("hex_plot"), height = "auto")
     }
   })
 

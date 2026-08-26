@@ -16,8 +16,13 @@ display purposes.}
 \code{NULL}, invisibly.
 }
 \description{
-Console-only progress tracking used by \code{run_comprehensive_analysis()}.
-Flat/single-operation state (see \code{progress_tracker}) - calling this
-again for a new step overwrites the previous one's tracking, it does
-not track multiple steps concurrently.
+Console-only progress tracking. Its only caller was the now-deleted
+\code{run_comprehensive_analysis()}, so this (and \code{update_progress()}) are
+themselves currently unreachable from anywhere in the package - kept
+rather than removed in the same pass, since unlike that function's own
+now-orphaned helpers, this one is more general-purpose and still a
+reasonable console-progress primitive for any future programmatic
+(non-Shiny) entry point. Flat/single-operation state (see
+\code{progress_tracker}) - calling this again for a new step overwrites the
+previous one's tracking, it does not track multiple steps concurrently.
 }

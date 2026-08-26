@@ -96,15 +96,35 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   # depending on the device's physical width/height in inches, regardless
   # of pixel resolution (verified empirically: identical inches at very
   # different DPI give an identical point-to-width fraction; different
-  # inches at the same DPI don't). Without an explicit width/height/res
-  # here, Shiny sizes the live-preview device from the plotOutput's CSS
-  # box (which varies with the browser's actual width), while the download
-  # below is a fixed 8x7in via ggsave() - so the same point renders at a
-  # different relative size in each, worse the narrower the browser
-  # window is. Matching the preview device to the SAME 8x7in as the
-  # downloads fixes this; the on-screen display size is still governed by
-  # the plotOutput CSS box regardless (the browser just scales the image).
-  spatial_plot_dim <- list(width = 8 * 150, height = 7 * 150, res = 150)
+  # inches at the same DPI don't). The download is a fixed 8x7in via
+  # ggsave(), so matching the *ratio* of preview width:height:res to that
+  # is what keeps a point's relative size consistent between preview and
+  # download.
+  #
+  # IMPORTANT: unlike ggsave(), renderPlot()'s width/height args are NOT
+  # just a device-sizing input - Shiny sends that same number to the
+  # browser as the <img> width/height attributes, i.e. they ALSO set the
+  # literal on-screen CSS display size (confirmed by reading shiny's own
+  # drawPlot()/resizeSavedPlot() source: `img$width <- width`, unscaled).
+  # An earlier version of this fix used width=8*150=1200/height=7*150=1050
+  # to get 8x7in at a "nice" 150 DPI - correct for the inches ratio, but
+  # it also told the browser to display the plot at literal 1200x1050 CSS
+  # pixels, wildly oversized next to the ~600px-wide column it sits in.
+  # Fix: anchor on plotOutput's height (must match ui_spatial_tab.R's
+  # plotOutput(..., height=) exactly), derive a width in the *same* 8:7
+  # ratio as the download, and set res so width_px/res and height_px/res
+  # both equal the download's inches - same physical aspect ratio, at a
+  # sane on-screen pixel size. (517px, up from the original 450px, per a
+  # user request to size these plots up slightly - capped by the actual
+  # rendered width of its column(6) container at a typical desktop
+  # viewport, ~632px measured, minus a safety margin, so the plot doesn't
+  # overflow its column.)
+  spatial_plot_height_px <- 517
+  spatial_plot_dim <- list(
+    width = round(spatial_plot_height_px * 8 / 7),
+    height = spatial_plot_height_px,
+    res = spatial_plot_height_px / 7
+  )
 
   output$spatial_scatter_plot <- renderPlot({
     res <- result()

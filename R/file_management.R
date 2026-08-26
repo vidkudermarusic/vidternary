@@ -164,25 +164,6 @@ create_analysis_output_dir <- function(
   return(analysis_folder)
 }
 
-#' Create a directory if it doesn't already exist, without erroring
-#'
-#' @param dir_path Path to create.
-#' @param recursive Whether to create intermediate directories too. Default `TRUE`.
-#' @return `TRUE` on success (including if the directory already existed),
-#'   `FALSE` if creation failed (with a warning raised).
-#' @export
-safe_create_directory <- function(dir_path, recursive = TRUE) {
-  tryCatch({
-    if (!dir.exists(dir_path)) {
-      dir.create(dir_path, recursive = recursive, showWarnings = FALSE)
-    }
-    return(TRUE)
-  }, error = function(e) {
-    warning("Failed to create directory '", dir_path, "': ", e$message)
-    return(FALSE)
-  })
-}
-
 #' Delete output subdirectories older than a given age
 #'
 #' @param base_dir Directory whose immediate subdirectories are checked.

@@ -155,8 +155,12 @@ validate_inputs <- function(inputs) {
 #' Reports missing/infinite values, zero-variance and constant columns,
 #' and IQR outliers for each dataset's common numeric columns, plus an
 #' overall 0-100 quality score and letter grade per dataset (via
-#' `calculate_quality_score()`). Used by the Data Comparison tab's
-#' Missing/Outlier Summary and by `run_comprehensive_analysis()`.
+#' `calculate_quality_score()`). Not currently reachable from the live
+#' app - its only callers are `analyze_data1()`/`analyze_data2()`
+#' (`helpers_multivariate.R`), which themselves have no caller; the Data
+#' Comparison tab's own Missing/Outlier Summary feature (a previous
+#' version of this doc comment claimed otherwise) has a separate,
+#' independent implementation.
 #'
 #' @param data1 First dataset, as a data frame.
 #' @param data2 Second dataset, as a data frame.

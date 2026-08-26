@@ -183,12 +183,12 @@ create_spatial_scatter_plot <- function(x, y, color_by = NULL, color_label = "Va
   if (!is.null(color_by)) {
     df$color_by <- color_by
     p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, color = color_by)) +
-      ggplot2::geom_point(alpha = 0.6, size = 1.5) +
+      ggplot2::geom_point(alpha = 0.6, size = 0.8) +
       ggplot2::labs(color = color_label)
     if (is.numeric(color_by)) p <- p + ggplot2::scale_color_viridis_c()
   } else {
     p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y)) +
-      ggplot2::geom_point(alpha = 0.6, size = 1.5, color = "#357ABD")
+      ggplot2::geom_point(alpha = 0.6, size = 0.8, color = "#357ABD")
   }
   p + ggplot2::coord_fixed() +
     ggplot2::labs(title = "Spatial Distribution of Points", x = "X", y = "Y") +

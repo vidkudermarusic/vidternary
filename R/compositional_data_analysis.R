@@ -178,7 +178,7 @@ create_coda_biplot <- function(pca_result, scale_loadings = NULL) {
   loadings_scaled$label <- rownames(loadings)
 
   ggplot2::ggplot() +
-    ggplot2::geom_point(data = scores, ggplot2::aes(x = PC1, y = PC2), alpha = 0.5, color = "#357ABD") +
+    ggplot2::geom_point(data = scores, ggplot2::aes(x = PC1, y = PC2), alpha = 0.5, size = 0.8, color = "#357ABD") +
     ggplot2::geom_segment(data = loadings_scaled, ggplot2::aes(x = 0, y = 0, xend = PC1, yend = PC2),
                            arrow = ggplot2::arrow(length = ggplot2::unit(0.2, "cm")), color = "#d32f2f") +
     ggplot2::geom_text(data = loadings_scaled, ggplot2::aes(x = PC1, y = PC2, label = label),
