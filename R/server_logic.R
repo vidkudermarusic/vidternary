@@ -1,6 +1,17 @@
 # ---- Shiny Server Logic Module ----
 # This module contains all the server-side logic for the Shiny application
 
+#' Build the full Shiny server function
+#'
+#' The app's top-level server orchestrator: creates the shared `rv`
+#' reactive-values object, then calls each tab's `create_server_*()`
+#' factory function in turn, wiring every tab into one shared reactive graph.
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @return The shared `rv` `reactiveValues` object.
+#' @export
 create_server_logic <- function(input, output, session) {
   
   # Default directories
@@ -31,23 +42,14 @@ create_server_logic <- function(input, output, session) {
     correlation2 = NULL,
     df1 = NULL,
     df2 = NULL,
+    comparison_data = list(),  # Data Comparison tab's own N-file data source (independent of df1/df2)
     mahalanobis_result = NULL,
-    # Filtered data storage for export functionality
-    filtered_data1 = NULL,
-    filtered_data2 = NULL,
-    last_filter_config1 = NULL,
-    last_filter_config2 = NULL,
-    # Export functionality storage
-    last_export_results = NULL,
-    last_export_folder = NULL,
-    export_history = NULL,
     # Analysis log
     analysis_log = list(),
     xlsx_file1 = NULL,  # Added this line
     xlsx_file2 = NULL,  # Added this line
     # Enhanced features storage
     advanced_plot_data = NULL,
-    export_files = list(),
     # Group selection management
     group_selections_1 = NULL,  # Persistent selections for dataset 1
     group_selections_2 = NULL,  # Persistent selections for dataset 2
@@ -82,9 +84,6 @@ create_server_logic <- function(input, output, session) {
   # Import ternary plot functions
   ternary_plots <- create_server_ternary_plots(input, output, session, rv, show_message, log_operation, filter_management, directory_management)
   
-  # Import export functions
-  export_functions <- create_server_export(input, output, session, rv, show_message, log_operation, directory_management)
-
   # Import hexagonal ternary diagram functions
   hex_ternary <- create_server_hex_ternary(input, output, session, rv, show_message, log_operation, directory_management)
 
@@ -116,10 +115,6 @@ create_server_logic <- function(input, output, session) {
   
   # Import data comparison functions
   data_comparison <- create_server_data_comparison(input, output, session, rv, show_message, log_operation)
-  
-  # Import multiple ternary creator functions
-  # multiple_ternary <- create_server_multiple_ternary(input, output, session, rv, show_message, log_operation, directory_management)
-  # NOTE: Disabled old handler - new handler in server_ternary_plots.R is working correctly
   
   # Advanced plot functionality moved to server_plot_types.R module
   # Analysis log functionality moved to server_analysis_log.R module
@@ -155,15 +150,7 @@ create_server_logic <- function(input, output, session) {
   
   # ---- Multiple Ternary Creator Functionality ----
   # Multiple ternary creator functionality moved to server_multiple_ternary.R module
-  
-  # ---- Export Functionality ----
-  # Export functionality moved to server_export.R module
-  
-  # Comprehensive Export All Functionality
-  # Comprehensive export functionality moved to server_export.R module
-  
-  # Export selected items functionality moved to server_export.R module
-  
+
     # ---- Cache Management ----
   # Cache functionality moved to server_cache_management.R module
   
@@ -182,7 +169,6 @@ create_server_logic <- function(input, output, session) {
   
   # Dynamic color inputs moved to server_plot_types.R module
   # Plot functionality moved to server_plot_types.R module
-  # Export functionality moved to server_export.R module
 
   # ---- Enhanced Directory Settings ----
   # Directory management functionality moved to server_directory_management.R module
@@ -192,9 +178,6 @@ create_server_logic <- function(input, output, session) {
   # Robust Mahalanobis functions removed
   # Compute_isolation_forest_outliers function is now in multivariate.R to avoid duplication
 
-  # ---- Complete Filtering Pipeline for Export ----
-  # Export functionality moved to server_export.R module
-  
   # ---- Return reactive values ----
   return(rv)
 }

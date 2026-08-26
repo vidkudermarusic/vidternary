@@ -39,6 +39,21 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
   # ---- Ternary Plot Previews ----
 
+  # renderPlot()'s default width/height = "auto" reads straight from
+  # session$clientData with no floor - if the client reports 0 (e.g. the
+  # browser hasn't finished laying out the tab yet), Shiny opens the PNG
+  # device at 0 width/height and crashes in graphics::plot.new() with
+  # "figure margins too large", *inside Shiny's own device setup*, before
+  # this reactive's body (and its req() guards) ever runs. A req()/tryCatch
+  # inside the render expression can't help - the fix has to supply
+  # width/height with a real fallback instead.
+  safe_plot_dim <- function(output_id, suffix, fallback) {
+    function() {
+      d <- session$clientData[[paste0("output_", output_id, "_", suffix)]]
+      if (is.null(d) || !is.finite(d) || d <= 0) fallback else d
+    }
+  }
+
   # Dataset 1 ternary preview
   output$ternary_preview1 <- renderPlot({
     req(input$xlsx_file1)
@@ -84,7 +99,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     })
 
     if (getOption("ternary.debug", FALSE)) cat("=== PREVIEW 1 DEBUGGING END ===\n\n")
-  })
+  }, width = safe_plot_dim("ternary_preview1", "width", 450), height = safe_plot_dim("ternary_preview1", "height", 500))
 
   # Dataset 2 ternary preview
   output$ternary_preview2 <- renderPlot({
@@ -134,7 +149,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     })
 
     if (getOption("ternary.debug", FALSE)) cat("=== PREVIEW 2 DEBUGGING END ===\n\n")
-  })
+  }, width = safe_plot_dim("ternary_preview2", "width", 450), height = safe_plot_dim("ternary_preview2", "height", 500))
 
   # ---- Batch and group-selection handlers (sibling modules) ----
   register_ternary_plots_batch_handlers(input, output, session, rv, show_message, log_operation, directory_management)

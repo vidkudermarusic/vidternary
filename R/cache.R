@@ -17,9 +17,16 @@ cache_timeout <- 300  # 5 minutes in seconds
 # Can be toggled via UI checkbox or set programmatically
 options(ternary.debug = FALSE)
 
-# Helper function for debug logging
-# Usage: debug_log("Processing %d items", length(items))
-# All verbose output is now gated behind this flag for production cleanliness
+#' Print a debug message when debug mode is enabled
+#'
+#' Wraps `cat(sprintf(...))`, gated behind `getOption("ternary.debug", FALSE)`,
+#' so verbose diagnostic output can be toggled on/off without removing the
+#' calls. Usage: `debug_log("Processing %d items", length(items))`.
+#'
+#' @param message A `sprintf()`-style format string.
+#' @param ... Values to interpolate into `message`.
+#' @return `NULL`, invisibly. Called for its `cat()` side effect.
+#' @export
 debug_log <- function(message, ...) {
   if (getOption("ternary.debug", FALSE)) {
     cat(sprintf(message, ...), "\n")
@@ -45,7 +52,15 @@ generate_cache_key <- function(data_hash, filters, elements, plot_styling = NULL
   digest::digest(key_data)
 }
 
-# Function to get cached result
+#' Look up a value in the in-memory result cache
+#'
+#' Returns the cached value for `key` if present and not yet expired
+#' (`cache_timeout`, 5 minutes); otherwise removes the stale entry and
+#' returns `NULL`.
+#'
+#' @param key Cache key string, typically produced by `digest::digest()`.
+#' @return The cached value, or `NULL` on a cache miss/expiry.
+#' @export
 get_cached_result <- function(key) {
   if (exists(key, envir = ternary_cache)) {
     cached_item <- ternary_cache[[key]]
@@ -60,7 +75,12 @@ get_cached_result <- function(key) {
   return(NULL)
 }
 
-# Function to cache result
+#' Store a value in the in-memory result cache
+#'
+#' @param key Cache key string to store `result` under.
+#' @param result The value to cache.
+#' @return `NULL`, invisibly. Called for its side effect of populating the cache.
+#' @export
 cache_result <- function(key, result) {
   ternary_cache[[key]] <- list(
     result = result,
@@ -93,7 +113,13 @@ cache_plot_result <- function(plot_key, plot_data, plot_type = "ternary", plot_s
   debug_log("DEBUG: Cached plot result for: %s - %s...", plot_type, substr(plot_key, 1, 8))
 }
 
-# Function to clear expired cache
+#' Remove expired entries from the result cache
+#'
+#' Called on a 5-minute timer from `create_server_logic()` as well as once
+#' at app startup.
+#'
+#' @return `NULL`, invisibly.
+#' @export
 clear_expired_cache <- function() {
   current_time <- Sys.time()
   keys_to_remove <- character(0)
@@ -109,12 +135,22 @@ clear_expired_cache <- function() {
   }
 }
 
-# Function to clear all cache
+#' Remove every entry from the result cache, expired or not
+#'
+#' @return `NULL`, invisibly.
+#' @export
 clear_all_cache <- function() {
   rm(list = ls(ternary_cache), envir = ternary_cache)
 }
 
-# Function to get cache statistics (unified)
+#' Summarize current cache usage as human-readable text
+#'
+#' Reports entry counts (total/active/expired), an efficiency percentage,
+#' estimated memory usage, and the age range of cached entries. Displayed
+#' on the app's Cache Management panel.
+#'
+#' @return A single formatted character string.
+#' @export
 get_cache_stats <- function() {
   cache_size <- length(ls(ternary_cache))
   if (cache_size == 0) {
@@ -166,7 +202,17 @@ get_cache_stats <- function() {
   return(result)
 }
 
-# Function to check if plot result is cached
+#' Check whether a plot result is already cached
+#'
+#' Part of the plot-result caching layer; not currently called from any
+#' render path in the app (see `get_cached_plot()`).
+#'
+#' @param plot_key Identifier for the plot (e.g. a data/parameter hash).
+#' @param plot_type Plot type label included in the cache key. Default `"ternary"`.
+#' @param plot_styling Optional list of visual styling parameters included
+#'   in the cache key, so a styling change is treated as a cache miss.
+#' @return `TRUE` if a matching, unexpired cache entry exists, else `FALSE`.
+#' @export
 is_plot_cached <- function(plot_key, plot_type = "ternary", plot_styling = NULL) {
   # Generate the same cache key that would be used for caching
   plot_cache_key <- digest::digest(list(
@@ -180,7 +226,17 @@ is_plot_cached <- function(plot_key, plot_type = "ternary", plot_styling = NULL)
   return(!is.null(cached_result))
 }
 
-# Function to get cached plot result
+#' Retrieve a cached plot result, if any
+#'
+#' Part of the plot-result caching layer; not currently called from any
+#' render path in the app.
+#'
+#' @param plot_key Identifier for the plot (e.g. a data/parameter hash).
+#' @param plot_type Plot type label included in the cache key. Default `"ternary"`.
+#' @param plot_styling Optional list of visual styling parameters included
+#'   in the cache key, so a styling change is treated as a cache miss.
+#' @return The cached plot result, or `NULL` on a cache miss.
+#' @export
 get_cached_plot <- function(plot_key, plot_type = "ternary", plot_styling = NULL) {
   # Generate the same cache key that would be used for caching
   plot_cache_key <- digest::digest(list(
@@ -215,7 +271,18 @@ create_plot_styling_cache_key <- function(color_palette, point_size, point_type,
 
 # Progress and performance monitoring functions moved to cache_performance.R
 
-# Function to get cached data or load from file
+#' Read an Excel file's Sheet 1, caching by path/size/modification time
+#'
+#' Computes a cache key from the file's path, size, and modification time
+#' (plus the caller-supplied `cache_key`) so an edited file is
+#' automatically treated as a cache miss.
+#'
+#' @param file_path Path to the `.xlsx` file to read.
+#' @param cache_key Additional caller-supplied key component (e.g. a
+#'   dataset label), mixed into the cache key alongside the file's own
+#'   path/size/mtime.
+#' @return A data frame (Sheet 1 of `file_path`), from cache or freshly read.
+#' @export
 get_cached_data <- function(file_path, cache_key) {
   # Generate a proper cache key based on file path and modification time
   file_info <- file.info(file_path)

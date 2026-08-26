@@ -87,20 +87,16 @@ create_multiple_ternary_tab <- function() {
         fluidRow(
           column(12, style = "text-align: center; margin: 15px 0;",
             div(style = "background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;",
-              h5("📋 Two-Step Workflow", style = "margin-top: 0; color: #495057;"),
-              p("1. Click 'Create All Ternary Plots' to preview your plots without saving", style = "margin: 5px 0; color: #6c757d;"),
-              p("2. Click 'Save All Plots to Subfolder' to save all plots to your output directory", style = "margin: 5px 0; color: #6c757d;")
+              h5("📋 Workflow", style = "margin-top: 0; color: #495057;"),
+              p("Upload files, choose Elements A/B/C (and any optional parameters), then click the button below - each file's ternary plot is generated and saved directly to a timestamped subfolder under your configured output directory.", style = "margin: 5px 0; color: #6c757d;")
             )
           )
         ),
 
-        # Action buttons
+        # Action button
         fluidRow(
           column(12, style = "text-align: center; margin-top: 20px;",
-            actionButton("create_multiple_ternary", "Create All Ternary Plots",
-              class = "btn-primary btn-lg", style = "font-size: 18px;"),
-            br(), br(),
-            actionButton("save_multiple_ternary", "Save All Plots to Subfolder",
+            actionButton("create_save_multiple_ternary", "Create & Save all ternary plots to subfolder",
               class = "btn-success btn-lg", style = "font-size: 18px;")
           )
         ),
@@ -108,12 +104,6 @@ create_multiple_ternary_tab <- function() {
         # Progress and output
         fluidRow(
           column(12,
-            div(style = "background-color: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #2196F3;",
-              h6("💡 Preview Mode Information", style = "margin-top: 0; color: #1976D2;"),
-              p("• Preview mode creates plots in memory without saving to disk", style = "margin: 2px 0; font-size: 12px; color: #424242;"),
-              p("• Use this to test your settings before processing all files", style = "margin: 2px 0; font-size: 12px; color: #424242;"),
-              p("• No output directory is needed for preview mode", style = "margin: 2px 0; font-size: 12px; color: #424242;")
-            ),
             verbatimTextOutput("multiple_ternary_status"),
             uiOutput("multiple_ternary_output")
           )

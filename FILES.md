@@ -21,7 +21,6 @@ Kratek opis vsake datoteke v paketu, urejen po funkcionalnih sklopih. Za podrobn
 | `R/ui_evs_tab.R` | Zavihek **Extreme Value Analysis** – Murakami/ASTM E2283 statistika ekstremnih vrednosti za napoved velikosti vključkov. |
 | `R/ui_spatial_tab.R` | Zavihek **Spatial Clustering** – Clark-Evans test naključnosti prostorske razporeditve vključkov (spacing/gručenje). |
 | `R/ui_coda_tab.R` | Zavihek **Compositional Analysis** – CLR/ILR log-ratio transformacije in PCA za sestavne (Wt%) kemijske podatke. |
-| `R/ui_data_export_tab.R` | Zavihek **Data Export** – izvoz celovite analize, status filtriranih podatkov, zgodovina izvozov. |
 | `R/ui_analysis_log_tab.R` | Zavihek **Analysis Log** – filtriran/iskalen dnevnik dejavnosti aplikacije. |
 
 ## Server moduli (`server_*.R`)
@@ -44,8 +43,6 @@ Kratek opis vsake datoteke v paketu, urejen po funkcionalnih sklopih. Za podrobn
 | `R/server_analysis_log.R` | Beleženje in prikaz dnevnika dejavnosti, shranjevanje/izvoz dnevnika v datoteko. |
 | `R/server_cache_management.R` | Periodično čiščenje predpomnilnika in ročne akcije upravljanja predpomnilnika. |
 | `R/server_directory_management.R` | Upravljanje delovnega direktorija in direktorija za izhodne datoteke. |
-| `R/server_export.R` | Registrira izvozne handlerje (dejanska logika je v `server_export_reports.R`). |
-| `R/server_export_reports.R` | Status/zgodovina izvozov in gumb "Export Comprehensive Analysis". |
 | `R/server_file_handlers.R` | Nalaganje/prenos datotek in kopiranje parametrov med datasetoma. |
 | `R/server_filter_management.R` | Zbiranje vrednosti filtrov iz UI in generiranje dinamičnega UI za filtre. |
 | `R/server_help_system.R` | Pomoč in dokumentacija znotraj aplikacije. |
@@ -84,7 +81,7 @@ Kratek opis vsake datoteke v paketu, urejen po funkcionalnih sklopih. Za podrobn
 | `R/helpers_filters.R` | Zbiranje filtrov iz Shiny vnosov (`input`) in njihova uporaba na podatkih. |
 | `R/helpers_validation.R` | Preverjanje kakovosti in veljavnosti podatkov. |
 | `R/helpers_multivariate.R` | Orkestracija multivariatnih analiz (ovojnica okoli `multivariate.R`). |
-| `R/helpers_reporting.R` | Generiranje poročil/nadzornih plošč, statistični in korelacijski povzetki, centralizirano branje datotek. |
+| `R/helpers_reporting.R` | Generiranje poročil/nadzornih plošč (uporablja `comprehensive_analysis.R`) - korelacijske toplotne karte, distribucijski grafi. |
 
 ## Konfiguracija, predpomnjenje, izvoz in ostalo
 

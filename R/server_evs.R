@@ -9,6 +9,23 @@
 # with jsonlite::validate (a JSON schema validator), as discovered while
 # building the Plot Builder tab.
 
+#' Wire up the Extreme Value Analysis tab's server logic
+#'
+#' Registers the observers/renderers for the "Extreme Value Analysis" tab:
+#' file upload/combine, area/group column auto-detection, and the
+#' Murakami/Gumbel fit pipeline (`compute_block_maxima()`/
+#' `fit_evs_gumbel()`/`gumbel_goodness_of_fit()`/`predict_evs_max()`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @param directory_management Optional directory-management module (unused
+#'   by this tab, accepted for interface consistency with other tabs).
+#' @return A list with `module_name`.
+#' @export
 create_server_evs <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
   combined_data <- reactive({

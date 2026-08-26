@@ -3,6 +3,27 @@
 # all existing functions for complete data analysis and reporting
 
 # Comprehensive Analysis Pipeline
+#' Run the full programmatic analysis pipeline on two datasets
+#'
+#' Orchestrates data-quality assessment, correlation/distribution
+#' visualizations, descriptive statistics, multivariate analysis
+#' (Mahalanobis, Isolation Forest), CSV export, and an HTML report - all in
+#' one call. This is a programmatic entry point only: it is not wired into
+#' the Shiny app's UI (no tab or button calls it), so it must be invoked
+#' directly from R, e.g. `run_comprehensive_analysis(df1, df2)`.
+#'
+#' @param data1 First dataset, as a data frame.
+#' @param data2 Second dataset, as a data frame.
+#' @param analysis_config Optional list of analysis configuration, stored
+#'   on the result but not currently read by this function.
+#' @param output_dir Directory to write generated files into. Defaults to
+#'   `analysis_output/` under the current working directory; created if
+#'   missing.
+#' @return A list of results: `quality_report`, `quality_dashboard`,
+#'   `visualizations`, `statistics`, `mahalanobis_standard`,
+#'   `isolation_forest`, `export_files`, and `final_report` (path to the
+#'   generated HTML report).
+#' @export
 run_comprehensive_analysis <- function(data1, data2, analysis_config = NULL, output_dir = NULL) {
   if (is.null(output_dir)) {
     output_dir <- file.path(getwd(), "analysis_output")
@@ -171,6 +192,12 @@ run_comprehensive_analysis <- function(data1, data2, analysis_config = NULL, out
 }
 
 # Generate comprehensive report
+#' Render a `run_comprehensive_analysis()` result as an HTML report
+#'
+#' @param results The list returned by `run_comprehensive_analysis()`.
+#' @param output_dir Directory to write `comprehensive_analysis_report.html` into.
+#' @return The path to the written HTML report file.
+#' @export
 generate_comprehensive_report <- function(results, output_dir) {
   report_html <- paste0(
     "<!DOCTYPE html>",
@@ -260,6 +287,19 @@ generate_comprehensive_report <- function(results, output_dir) {
 }
 
 # Quick Analysis Function (Simplified version)
+#' Run a lighter-weight version of `run_comprehensive_analysis()`
+#'
+#' Data-quality check and descriptive statistics only (no visualizations,
+#' multivariate analysis, or HTML report), with results also written to
+#' CSV. Like `run_comprehensive_analysis()`, this is a programmatic entry
+#' point not wired into the Shiny app's UI.
+#'
+#' @param data1 First dataset, as a data frame.
+#' @param data2 Second dataset, as a data frame.
+#' @param output_dir Directory to write generated CSVs into. Defaults to
+#'   `quick_analysis/` under the current working directory; created if missing.
+#' @return A list with `quality_report`, `stats1`, and `stats2`.
+#' @export
 run_quick_analysis <- function(data1, data2, output_dir = NULL) {
   if (is.null(output_dir)) {
     output_dir <- file.path(getwd(), "quick_analysis")

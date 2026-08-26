@@ -10,7 +10,72 @@
 #   ternary_plot_save.R      - opens a file device, redraws, and saves, when
 #                               !preview && !is.null(output_dir)
 
-# Main ternary plot function
+#' Create (and optionally save) a ternary diagram from an Excel file
+#'
+#' The package's main entry point: loads `xlsx_file`, sums the columns for
+#' each of elements A/B/C, applies any per-element filters plus at most one
+#' statistical/multivariate outlier method (if more than one `use_*` flag
+#' is `TRUE`, only the highest-priority one is kept - see this function's
+#' inline comment for the priority order), computes ternary coordinates,
+#' draws the plot to the active graphics device, and - unless `preview =
+#' TRUE` or `output_dir` is `NULL` - saves it to a file.
+#'
+#' @param xlsx_file Path to the input `.xlsx` file (Sheet 1 is read).
+#' @param working_dir Working directory to `setwd()` into for the duration
+#'   of the call (restored on exit). Default `getwd()`.
+#' @param output_dir Directory to save the plot into. If `NULL` or
+#'   `preview = TRUE`, no file is saved.
+#' @param element_A A list `list(col = <column name(s)>, filter = <optional filter string>)` for vertex A.
+#' @param element_B Same shape as `element_A`, for vertex B.
+#' @param element_C Same shape as `element_A`, for vertex C.
+#' @param optional_param1 Optional list `list(col = ..., filter = ...)`
+#'   controlling point size or shape (see `optional_param1_representation`).
+#' @param optional_param2 Optional list `list(col = ..., filter = ...)` controlling point color.
+#' @param color_palette Color palette name for `optional_param2`. Default `"blue"`.
+#' @param xlsx_display_name Optional original filename, used for plot
+#'   titles/saved filenames instead of `xlsx_file`'s (often temp) basename.
+#' @param preview If `TRUE`, draw only (no file saved), regardless of `output_dir`. Default `FALSE`.
+#' @param use_mahalanobis Apply a Mahalanobis-distance outlier filter. Default `FALSE`.
+#' @param reference_data Reference dataset for Mahalanobis/Isolation
+#'   Forest when `mahalanobis_reference` is `"dataset1"`/`"dataset2"`; must
+#'   be supplied by the caller in that case.
+#' @param optional_param1_representation How to render `optional_param1`:
+#'   `"point_size"` or a point-shape mode. Default `"point_size"`.
+#' @param output_format Saved file format: `"png"`, `"jpeg"`, `"pdf"`, or `"tiff"`. Default `"png"`.
+#' @param use_isolation_forest Apply an Isolation Forest outlier filter. Default `FALSE`.
+#' @param use_iqr_filter Apply an IQR outlier filter. Default `FALSE`.
+#' @param use_zscore_filter Apply a Z-score outlier filter. Default `FALSE`.
+#' @param use_mad_filter Apply a MAD outlier filter. Default `FALSE`.
+#' @param lambda Sensitivity parameter for the automatic Mahalanobis threshold. Default 1.
+#' @param omega Leniency parameter for the automatic Mahalanobis threshold. Default 0.
+#' @param keep_outliers_mahalanobis If `TRUE`, keep only Mahalanobis
+#'   outliers instead of removing them. Default `FALSE`.
+#' @param keep_outliers_isolation If `TRUE`, keep only Isolation Forest
+#'   outliers instead of removing them. Default `FALSE`.
+#' @param keep_outliers_iqr If `TRUE`, keep only IQR outliers instead of removing them. Default `FALSE`.
+#' @param keep_outliers_zscore If `TRUE`, keep only Z-score outliers instead of removing them. Default `FALSE`.
+#' @param keep_outliers_mad If `TRUE`, keep only MAD outliers instead of removing them. Default `FALSE`.
+#' @param individual_filters_A Named list of per-column filter strings for element A's column(s).
+#' @param individual_filters_B Named list of per-column filter strings for element B's column(s).
+#' @param individual_filters_C Named list of per-column filter strings for element C's column(s).
+#' @param custom_mdthresh Manual Mahalanobis distance threshold, used when `mdthresh_mode == "manual"`.
+#' @param mdthresh_mode Either `"auto"` (default) or `"manual"`.
+#' @param mahalanobis_reference Reference dataset for Mahalanobis/Isolation
+#'   Forest: `"self"`, `"dataset1"`, or `"dataset2"`. Default `"dataset2"`.
+#' @param selected_columns Character vector of numeric columns used by the
+#'   statistical/multivariate filter methods.
+#' @param include_plot_notes Whether to include filter/parameter notes on
+#'   the plot. Default `TRUE`.
+#' @param use_manual_point_size Override the automatic point size. Default `FALSE`.
+#' @param manual_point_size Point size used when `use_manual_point_size = TRUE`. Default 1.0.
+#' @param selected_groups Character vector restricting which categories of
+#'   a categorical `optional_param2` are plotted.
+#' @param is_categorical_group Whether `optional_param2` should be treated
+#'   as categorical (drives group coloring/legend). Default `FALSE`.
+#' @return The path to the saved plot file (invisibly, from
+#'   `save_ternary_plot_to_file()`), or `NULL` in preview mode / when no
+#'   `output_dir` is set.
+#' @export
 general_ternary_plot <- function(
     xlsx_file,
     working_dir = getwd(),

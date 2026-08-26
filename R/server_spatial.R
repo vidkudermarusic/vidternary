@@ -8,6 +8,22 @@
 # with jsonlite::validate, as discovered while building the Plot Builder
 # tab.
 
+#' Wire up the Spatial Clustering tab's server logic
+#'
+#' Registers the observers/renderers for the "Spatial Clustering" tab: file
+#' upload/combine, X/Y coordinate column auto-detection, and the
+#' Clark-Evans test pipeline (`clark_evans_test()`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @param directory_management Optional directory-management module (unused
+#'   by this tab, accepted for interface consistency with other tabs).
+#' @return A list with `module_name`.
+#' @export
 create_server_spatial <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
   combined_data <- reactive({
@@ -57,7 +73,12 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
       color_by <- d[[input$spatial_color_col]][valid]
     }
 
-    ce <- tryCatch(clark_evans_test(x[valid], y[valid]),
+    nn_method <- if (!is.null(input$spatial_nn_method) && input$spatial_nn_method == "matrix") "matrix" else "kdtree"
+    n_sim <- if (!is.null(input$spatial_n_sim) && is.finite(input$spatial_n_sim) && input$spatial_n_sim >= 10) {
+      round(input$spatial_n_sim)
+    } else NULL
+
+    ce <- tryCatch(clark_evans_test(x[valid], y[valid], n_sim = n_sim, nn_method = nn_method),
                     error = function(e) { shiny::validate(paste("Error running spatial analysis:", e$message)) })
     list(ce = ce, x = x[valid], y = y[valid], color_by = color_by, color_label = input$spatial_color_col)
   })
@@ -66,19 +87,34 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     res <- tryCatch(result(), error = function(e) NULL)
     if (is.null(res)) return("Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\".")
     ce <- res$ce
-    sprintf("n = %d points | R = %.3f | Asymptotic p = %.4f | Monte Carlo p = %.4f (n_sim = %d)\n%s",
-            ce$n, ce$R, ce$p_value_asymptotic, ce$p_value_monte_carlo, ce$n_sim, ce$verdict)
+    sprintf("n = %d points | R = %.3f | Asymptotic p = %.4f | Monte Carlo p = %.4f (n_sim = %d, %s method)\n%s",
+            ce$n, ce$R, ce$p_value_asymptotic, ce$p_value_monte_carlo, ce$n_sim, ce$nn_method, ce$verdict)
   })
+
+  # geom_point()'s `size` is a fixed *physical* size (mm), not relative to
+  # the plot - so a point occupies a different FRACTION of the image
+  # depending on the device's physical width/height in inches, regardless
+  # of pixel resolution (verified empirically: identical inches at very
+  # different DPI give an identical point-to-width fraction; different
+  # inches at the same DPI don't). Without an explicit width/height/res
+  # here, Shiny sizes the live-preview device from the plotOutput's CSS
+  # box (which varies with the browser's actual width), while the download
+  # below is a fixed 8x7in via ggsave() - so the same point renders at a
+  # different relative size in each, worse the narrower the browser
+  # window is. Matching the preview device to the SAME 8x7in as the
+  # downloads fixes this; the on-screen display size is still governed by
+  # the plotOutput CSS box regardless (the browser just scales the image).
+  spatial_plot_dim <- list(width = 8 * 150, height = 7 * 150, res = 150)
 
   output$spatial_scatter_plot <- renderPlot({
     res <- result()
     print(create_spatial_scatter_plot(res$x, res$y, res$color_by, res$color_label))
-  })
+  }, width = spatial_plot_dim$width, height = spatial_plot_dim$height, res = spatial_plot_dim$res)
 
   output$spatial_nnd_histogram <- renderPlot({
     res <- result()
     print(create_nnd_histogram(res$ce))
-  })
+  }, width = spatial_plot_dim$width, height = spatial_plot_dim$height, res = spatial_plot_dim$res)
 
   output$spatial_summary_table <- renderTable({
     ce <- result()$ce
@@ -86,11 +122,11 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
       Metric = c("Points (n)", "Bounding-box area", "Density (points/area)",
                  "Observed mean NND", "Expected mean NND (Donnelly-corrected)",
                  "R statistic", "Z (asymptotic)", "p-value (asymptotic)",
-                 "p-value (Monte Carlo)"),
+                 "p-value (Monte Carlo)", "Monte Carlo simulations", "Nearest-neighbour method"),
       Value = c(sprintf("%d", ce$n), sprintf("%.4g", ce$area), sprintf("%.6g", ce$density),
                 sprintf("%.4f", ce$Dobs), sprintf("%.4f", ce$Dkevin),
                 sprintf("%.4f", ce$R), sprintf("%.3f", ce$Z), sprintf("%.4f", ce$p_value_asymptotic),
-                sprintf("%.4f", ce$p_value_monte_carlo))
+                sprintf("%.4f", ce$p_value_monte_carlo), sprintf("%d", ce$n_sim), ce$nn_method)
     )
   })
 

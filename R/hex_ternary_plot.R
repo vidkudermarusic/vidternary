@@ -16,6 +16,22 @@
 # statistical-filter/optional-parameter machinery of the main ternary tab -
 # this feature only needs raw element selection and plotting.
 
+#' Build a composite hexagonal diagram of 6 ternary sub-plots
+#'
+#' Composites 6 triangular ternary plots, sharing a common central
+#' element/combination (position C, the 3rd of the 7 `...` slots), into
+#' one hexagonal image.
+#'
+#' @param xlsx_file Path to the input `.xlsx` file (Sheet 1 is read).
+#' @param output_dir Directory to write the composite PNG into.
+#' @param working_dir Optional working directory to `setwd()` into first
+#'   (must be passed by name - see this file's header note on positional
+#'   matching with `...`).
+#' @param ... Exactly 7 element strings (slots A-G), each one or more
+#'   column names joined with `+` (e.g. `"SiO2.(Wt%)+Al2O3.(Wt%)"`) to sum
+#'   into that vertex.
+#' @return The path to the written composite PNG.
+#' @export
 create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL, ...) {
   if (!requireNamespace("Ternary", quietly = TRUE)) stop("Ternary package is required.")
   if (!requireNamespace("magick", quietly = TRUE)) stop("magick package is required.")

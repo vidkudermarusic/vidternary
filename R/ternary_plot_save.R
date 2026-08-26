@@ -99,7 +99,17 @@ save_ternary_plot_to_file <- function(pd) {
     if (!is.null(optional_param1) && !use_manual_point_size) {
       # Legend for optional parameter 1 (point size) - top right
       if (length(optional_param1$col) == 1 && optional_param1_representation == "point_size") {
-        if (requireNamespace("PlotTools", quietly = TRUE)) {
+        if (!any(is.finite(param1_values))) {
+          # No non-NA values for the size parameter in this dataset -
+          # min/max(na.rm=TRUE) would return -Inf/Inf here, and seq()/
+          # SizeLegend() on a non-finite range fails with "'from' must be
+          # a finite number". Note it instead of crashing the whole plot.
+          legend("topright",
+                 title = paste(optional_param1$col, collapse = "+"),
+                 legend = "No data",
+                 bty = "n",
+                 cex = 0.7)
+        } else if (requireNamespace("PlotTools", quietly = TRUE)) {
           PlotTools::SizeLegend(
             "topright",
             width = c(MIN_POINT_SIZE, MAX_POINT_SIZE),

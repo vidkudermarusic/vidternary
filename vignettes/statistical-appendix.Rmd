@@ -1,0 +1,678 @@
+---
+title: "Statistical Appendix: Methods, Formulas & Worked Examples"
+author: "Vid Kuder Marušič"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    mathjax: default
+vignette: >
+  %\VignetteIndexEntry{Statistical Appendix: Methods, Formulas & Worked Examples}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 6,
+  fig.height = 5,
+  warning = FALSE
+)
+library(vidternary)
+```
+
+# Purpose of this document
+
+This appendix documents every mathematical/statistical method used in the
+**vidternary** application: what question it answers, the exact formula
+implemented, the assumptions it relies on, how to read the result, and —
+critically — **when the result cannot be trusted**. Every worked example
+below runs the *actual* package functions on a small, hand-built ("toy")
+dataset, so the numbers you see are not hand-typed illustrations - they are
+live output, guaranteed to match what the app itself computes. If a formula
+in the app ever changes, this document's numbers change with it the next
+time it is rebuilt.
+
+For a practical, click-by-click guide to the application's tabs, see the
+companion **User Guide** vignette. This document assumes you already know
+*where* each method lives in the interface and focuses purely on the
+*statistics*.
+
+Companion glossary terms used throughout: **NMI** = non-metallic inclusion,
+**ECD** = equivalent circle diameter (the diameter of a circle with the
+same area as the inclusion), **Wt%** = weight percent (chemical
+composition), **control area** = one SEM field-of-view (or an artificial
+equal-sized slice of the data, see §6).
+
+---
+
+# Ternary coordinates (barycentric normalization)
+
+**What it answers:** how does a data point's composition split across
+three chosen quantities (e.g. three oxide groups), positioned inside a
+triangle where each corner represents 100% of one quantity?
+
+**Formula:** for values $A$, $B$, $C$ (already summed across whichever
+columns were assigned to each corner),
+
+$$a = \frac{A}{A+B+C}, \quad b = \frac{B}{A+B+C}, \quad c = \frac{C}{A+B+C}$$
+
+so that $a+b+c=1$ always, regardless of the original units. This is a
+purely geometric normalization - there is no "significance" to test, and
+no failure mode other than $A+B+C=0$ (undefined; the app drops such rows).
+
+**Worked example**
+
+```{r ternary-example}
+# A fictional inclusion measured at Al2O3 = 20, SiO2 = 50, CaO = 30 (wt%,
+# not required to sum to 100 - the app re-normalizes automatically)
+A <- 20; B <- 50; C <- 30
+total <- A + B + C
+coords <- c(a = A / total, b = B / total, c = C / total)
+coords
+stopifnot(abs(sum(coords) - 1) < 1e-12)
+```
+
+```{r ternary-plot, fig.height=5}
+if (requireNamespace("Ternary", quietly = TRUE)) {
+  Ternary::TernaryPlot(atip = "Al2O3", btip = "SiO2", ctip = "CaO",
+                        grid.lines = 5, grid.lty = "dotted")
+  Ternary::TernaryPoints(list(coords), col = "#357ABD", pch = 16, cex = 1.5)
+}
+```
+
+**Interpreting the result:** the point's position shows relative
+proportions only - a point near the SiO2 corner means SiO2 dominates
+*among these three quantities*, not that SiO2 is high in absolute terms.
+
+**When it can't help you:** if two of the three corner values are
+routinely near zero, all points crowd into one corner and the diagram
+becomes uninformative - reconsider which quantities you assign to A/B/C.
+
+---
+
+# Descriptive statistics & coefficient of variation
+
+**What it answers:** the basic shape of one numeric column's distribution.
+
+**Formulas:** mean $\bar{x}$, median, standard deviation $s$, and the
+coefficient of variation $CV\% = 100 \times s / \bar{x}$ - CV is the one
+non-obvious addition here: it expresses spread *relative to* the mean, so
+variables on very different scales (e.g. a trace element at 0.01 wt% vs.
+Fe at 90 wt%) become comparable.
+
+**Worked example** (five fictional ECD measurements, µm)
+
+```{r desc-stats-example}
+ecd <- c(0.8, 1.2, 0.9, 2.5, 1.1)
+df_toy <- data.frame(ECD = ecd)
+build_descriptive_stats_table(df_toy)
+```
+
+**Interpreting the result:** a CV% above roughly 50-100% signals a
+right-skewed distribution typical of inclusion-size data (most inclusions
+small, a few very large) - this is expected, not a data-quality problem,
+and is exactly why EVS (§9) exists as a dedicated method for the tail
+rather than relying on the mean.
+
+**When it can't help you:** with fewer than ~5-10 observations the mean/SD
+are unstable - treat descriptive statistics on very small groups as
+indicative only, not conclusive.
+
+---
+
+# Correlation analysis (Pearson's r)
+
+**What it answers:** whether two numeric variables move together linearly.
+
+**Formula:**
+
+$$r = \frac{\sum (x_i-\bar{x})(y_i-\bar{y})}{\sqrt{\sum(x_i-\bar{x})^2}\sqrt{\sum(y_i-\bar{y})^2}}, \qquad -1 \le r \le 1$$
+
+**Worked example** (fictional Al vs. Si wt% across six samples, designed to
+show a strong negative relationship)
+
+```{r correlation-example}
+df_corr <- data.frame(Al = c(1.2, 1.8, 2.1, 0.9, 2.6, 1.5),
+                       Si = c(8.5, 6.9, 6.0, 9.2, 5.1, 7.8))
+build_correlation_pairs_table(df_corr)
+```
+
+```{r correlation-plot, fig.height=4}
+invisible(create_correlation_plot(df_corr, title = "Toy example"))
+```
+
+**Interpreting the result:** $|r| > 0.7$ is conventionally "strong",
+$0.3-0.7$ "moderate", below $0.3$ "weak" - but always look at the scatter,
+not just $r$: Pearson's r only captures *linear* relationships and is
+distorted by outliers.
+
+**When it can't help you:** compositional (Wt%) columns are constrained to
+sum to a constant, which mechanically induces spurious negative
+correlations between them (the "closure problem") - see §12 (CoDA) for the
+correct fix before trusting correlations between raw composition columns.
+
+---
+
+# IQR, Z-score and MAD outlier filters
+
+These three appear together in the app's "Statistical Filtering" section
+because they answer the same question - *"is this value unusually high?"*
+- with different assumptions about the data's shape. **All three flag
+positive (high-value) outliers only** in this app, since the target use
+case is spotting unusually large inclusions, not unusually small ones.
+
+## IQR method
+
+**Formula:** flag $x$ if $x > Q_3 + 1.5 \times IQR$, where $IQR = Q_3 - Q_1$.
+Distribution-free (no normality assumption); the classic exploratory-data
+-analysis convention (Tukey, 1977).
+
+## Z-score method
+
+**Formula:** flag $x$ if $z = (x-\bar{x})/s > 3$. Assumes the bulk of the
+data is roughly normal - the mean and SD it's built on are themselves
+pulled around by the very outliers being searched for.
+
+## MAD method
+
+**Formula:** flag $x$ if $x > \text{median} + 3 \times 1.4826 \times MAD$,
+where $MAD = \text{median}(|x_i - \text{median}(x)|)$ and $1.4826$ rescales
+MAD to be comparable to SD under normality. Unlike the Z-score, both the
+median and MAD are themselves robust to outliers, so this method doesn't
+suffer the same self-distortion.
+
+**Worked example** (six fictional ECD values with one obvious outlier)
+
+```{r outlier-filters-example}
+ecd2 <- c(0.50, 0.60, 0.55, 0.62, 0.58, 5.20)
+df_out <- data.frame(ECD = ecd2)
+
+cat("IQR flags:   ", get_iqr_outlier_flags(df_out, "ECD"), "\n")
+cat("Z-score flags:", get_zscore_outlier_flags(df_out, "ECD"), "\n")
+cat("MAD flags:    ", get_mad_outlier_flags(df_out, "ECD"), "\n")
+
+q3 <- quantile(ecd2, 0.75); iqr <- IQR(ecd2)
+cat(sprintf("IQR upper bound: %.3f\n", q3 + 1.5 * iqr))
+cat(sprintf("Z-score of the outlier: %.2f\n", (5.20 - mean(ecd2)) / sd(ecd2)))
+cat(sprintf("MAD upper bound: %.3f\n", median(ecd2) + 3 * mad(ecd2)))
+```
+
+**Interpreting the result:** all three agree on this obvious case. They
+diverge most on *moderate* outliers in small samples - if the three
+methods disagree, that itself is informative (the point is borderline, not
+unambiguously anomalous).
+
+**When they can't help you:** with $n<10$ or so, $Q_1$/$Q_3$/SD are too
+unstable to trust literally; and none of the three know anything about
+*multiple* variables jointly - a point can be unremarkable on every single
+column and still be a joint outlier (see Mahalanobis / Isolation Forest,
+next).
+
+---
+
+# Mahalanobis distance
+
+**What it answers:** how far is a point from a reference distribution's
+center, accounting for the correlation structure between variables (unlike
+Euclidean distance, which treats every variable as independent and
+equally scaled)?
+
+**Formula:**
+
+$$MD(x) = \sqrt{(x-\mu)^\top \Sigma^{-1} (x-\mu)}$$
+
+where $\mu$ and $\Sigma$ are the mean vector and covariance matrix of the
+*reference* dataset. Squared Mahalanobis distance of multivariate-normal
+data asymptotically follows a $\chi^2$ distribution with $p$ degrees of
+freedom ($p$ = number of variables) - this gives the classic 95%/99%
+thresholds reported alongside the app's own threshold.
+
+**App-specific threshold:** rather than the classic $\chi^2$ cutoff, the
+default automatic threshold uses
+
+$$MD_{thresh} = MD_{mean} + \sqrt{\frac{100}{100+\lambda-\omega}} \times MD_{std}$$
+
+where $\lambda$ (strictness) and $\omega$ (leniency) are tunable
+sensitivity parameters from Vode et al., 2022
+(<https://doi.org/10.3390/ma15020684>).
+
+**Worked example** (two toy chemistry columns; reference cluster around
+Al≈2, Si≈5, plus one target point far outside it)
+
+```{r mahalanobis-example}
+set.seed(1)
+reference <- data.frame(Al = rnorm(30, 2, 0.4), Si = rnorm(30, 5, 0.6))
+target <- data.frame(Al = c(2.1, 1.9, 2.3, 8.5), Si = c(5.2, 4.8, 5.5, 1.0))
+# row 4 is the planted outlier
+
+res_md <- compute_mahalanobis_distance(
+  target, reference, lambda = 1, omega = 0,
+  selected_columns = c("Al", "Si"), mdthresh_mode = "auto"
+)
+data.frame(row = 1:4, MD = round(res_md$distances, 2),
+           flagged_as_outlier = res_md$outlier_indices)
+cat(sprintf("\nThreshold (auto, λ=1, ω=0): %.2f\n", res_md$MDthresh))
+cat(sprintf("95%% chi-square reference threshold (df=%d): %.2f\n",
+            res_md$df, qchisq(0.95, df = res_md$df)))
+```
+
+**Interpreting the result:** the planted outlier's MD is far above both
+the app's threshold and the classic $\chi^2_{0.95}$ reference - the other
+three rows, drawn from the same distribution as the reference, correctly
+stay below threshold.
+
+**When it can't help you:**
+
+- Needs at least $2\times$ as many observations as variables in *both*
+  target and reference (the app enforces this).
+- Assumes the reference data is roughly elliptically distributed
+  (multivariate-normal-*ish*); a reference set that's itself bimodal or
+  contains its own outliers will distort $\mu$ and $\Sigma$, making the
+  distance measure unreliable for everyone.
+- Highly correlated (>0.9) selected columns make the covariance matrix
+  near-singular - the app warns about this during validation.
+
+---
+
+# Isolation Forest
+
+**What it answers:** the same "is this point anomalous?" question as
+Mahalanobis, but without assuming any particular distribution shape or
+linear correlation structure - it works by how *easily* a point can be
+isolated by random splits (Liu, Ting & Zhou, 2008,
+<https://doi.org/10.1109/ICDM.2008.17>).
+
+**How it works (conceptually):** many random binary-split trees are built
+on the reference data. Points that sit in sparse regions of the data get
+isolated (separated into their own leaf) after very few splits; points
+embedded in dense regions take many splits. Average path length across all
+trees becomes the anomaly score - short average path = anomalous.
+
+**Worked example** (same toy chemistry data as the Mahalanobis example)
+
+```{r isolation-forest-example}
+res_if <- compute_isolation_forest(target, reference, selected_columns = c("Al", "Si"),
+                                    contamination = 0.10, seed = 1)
+data.frame(row = 1:4, score = round(res_if$scores, 3),
+           flagged_as_outlier = res_if$outlier_indices)
+cat(sprintf("\nThreshold (top %.0f%% of reference scores): %.3f\n",
+            res_if$contamination * 100, res_if$threshold))
+```
+
+**Interpreting the result:** the same planted outlier scores clearly above
+threshold, matching Mahalanobis here - agreement between the two methods
+is reassuring; when they *disagree*, it usually means the anomaly is
+non-linear/non-elliptical (something Mahalanobis can miss but Isolation
+Forest can catch).
+
+**When it can't help you:** the `contamination` parameter is essentially a
+prior belief about what fraction of the reference is "normal" - set it too
+high and normal points get flagged; too low and real anomalies slip
+through. With very small reference samples (well under 100 rows) tree
+splits become unstable and scores noisy.
+
+---
+
+# Extreme Value Statistics (Murakami's √area method)
+
+**What it answers:** given the sizes of the *largest* inclusion in each of
+several inspected regions, what size of inclusion should be expected if a
+much larger area were inspected? Standard method for steel cleanliness
+rating, standardized in ASTM E2283 and originating with
+Murakami, 1994 (<https://doi.org/10.6028/jres.099.032>).
+
+**Method:**
+
+1. Split the inspected area into $n$ equal **control areas** $S_0$.
+2. Take the largest inclusion (by $\sqrt{\text{Area}}$) in each - the
+   **block maximum**.
+3. Assign each of the $n$ sorted block maxima a plotting position
+   $F_j = j/(n+1)$ and a reduced Gumbel variate $y_j = -\ln(-\ln F_j)$.
+4. Fit a straight line $\sqrt{Area} = a + b\cdot y$ by least squares.
+5. To predict the expected largest inclusion over $T$ control areas (the
+   **return period**), solve for $y_T = -\ln(-\ln(1-1/T))$ and read off
+   the fitted line, with a 95% prediction interval.
+
+**Worked example** (six fictional control areas, each with a few
+inclusions; sizes in µm)
+
+```{r evs-example}
+set.seed(2)
+toy_incl <- data.frame(
+  field = rep(1:6, times = c(4, 3, 5, 4, 3, 4)),
+  sqrt_area = c(runif(4, 2, 8), runif(3, 2, 9), runif(5, 2, 7),
+                runif(4, 2, 10), runif(3, 2, 6), runif(4, 2, 9))
+)
+block_max <- compute_block_maxima(toy_incl, area_col = "sqrt_area", group_col = "field")
+# NB: compute_block_maxima expects an AREA column (it takes sqrt() itself);
+# here sqrt_area is already sqrt(area)-like for a compact toy example, so
+# square it first to demonstrate the real input contract:
+toy_incl$area <- toy_incl$sqrt_area^2
+block_max <- compute_block_maxima(toy_incl, area_col = "area", group_col = "field")
+block_max
+
+fit <- fit_evs_gumbel(block_max$sqrt_area_max)
+cat(sprintf("Fitted line: sqrt(Area) = %.3f + %.3f * y   (R^2 = %.3f)\n",
+            fit$intercept, fit$slope, fit$r_squared))
+
+pred <- predict_evs_max(fit, return_period = 50)
+cat(sprintf("Predicted largest inclusion over T=50 control areas: %.2f um [%.2f, %.2f] 95%% PI\n",
+            pred$predicted, pred$lower, pred$upper))
+```
+
+```{r evs-plot}
+print(create_gumbel_plot(fit, pred))
+```
+
+**Interpreting the result:** $R^2$ close to 1 means the block maxima line
+up well on the Gumbel probability plot - a good sign the extreme-value
+model fits. The prediction interval widens quickly as $T$ grows (predicting
+far beyond the inspected area is inherently uncertain) - report the
+interval, not just the point prediction.
+
+**When it can't help you:**
+
+- Needs **at least 3 control area groups** to fit anything at all, and
+  realistically wants many more (10+) for a stable line.
+- $R^2$ alone doesn't prove Gumbel-appropriateness - see §10
+  (Anderson-Darling) for a real goodness-of-fit test.
+- **$T$'s physical meaning depends entirely on how control areas were
+  defined**: if grouped by a real field/frame-of-view ID, $T=100$ means a
+  real area 100× one field. If groups were an artificial "split into N
+  equal chunks" fallback (no real field ID available), $T=100$ only means
+  "100× as many statistical groups" - not a calibrated physical area. The
+  app surfaces this distinction explicitly in the EVS tab.
+
+---
+
+# Anderson-Darling goodness-of-fit test (for the Gumbel fit)
+
+**What it answers:** do the block maxima *actually* follow a Gumbel
+distribution, or does the EVS line above merely look straight-ish while
+hiding real deviation (e.g. two inclusion populations with different size
+distributions mixed together)?
+
+**Formula:** the Anderson-Darling statistic
+
+$$A^2 = -n - \frac{1}{n}\sum_{i=1}^{n}(2i-1)\big[\ln F(x_i) + \ln(1-F(x_{n+1-i}))\big]$$
+
+weights deviations in the *tails* of the distribution more heavily than
+the middle - exactly where an inclusion-rating extrapolation is most
+sensitive to mismatch.
+
+**Why this app doesn't use tabulated critical values:** published A-D
+critical values for the Gumbel distribution
+(Anderson & Darling, 1952,
+<https://doi.org/10.1214/aoms/1177729437>; Stephens, 1977,
+<https://doi.org/10.1093/biomet/64.3.583>) assume the Gumbel parameters
+were fit by maximum likelihood. This app instead fits by least-squares
+regression on the probability plot (§9) - a different estimator with a
+different null distribution for $A^2$. Using the MLE-calibrated table
+directly was checked empirically (1000 simulated true-Gumbel samples) and
+over-rejected a true Gumbel fit at ~15% instead of the intended 5%.
+Instead, the app **simulates the correct null distribution directly** by a
+parametric bootstrap: repeatedly generate synthetic samples from the
+*fitted* Gumbel model, refit each the same least-squares way, and see
+where the observed $A^2$ falls among them.
+
+**Worked example** (reusing the EVS fit above)
+
+```{r ad-test-example}
+gof <- gumbel_goodness_of_fit(fit, n_sim = 999, seed = 42)
+cat(sprintf("A^2 = %.3f, bootstrap p-value %s\n", gof$statistic, gof$p_value_bracket))
+cat(sprintf("Reject Gumbel fit at 5%% level? %s\n", gof$reject_at_05))
+```
+
+**Interpreting the result:** $p \ge 0.05$ (the toy example's, since the
+data really was generated close to uniform block maxima) means no evidence
+against Gumbel - proceed with the EVS prediction. $p<0.05$ means the block
+maxima measurably deviate from a straight Gumbel line - a real warning
+sign, not a false alarm.
+
+**When it can't help you:** with very few control areas (under ~8-10) the
+bootstrap has little power to detect real deviation - a non-significant
+result there is weak reassurance, not strong evidence of a good fit.
+
+---
+
+# Clark-Evans nearest-neighbour test (spatial clustering)
+
+**What it answers:** are inclusions randomly scattered across the
+inspected area, clustered together (e.g. banding, a localized defect
+zone), or more evenly spread than pure chance would produce?
+
+**Formulas** (Clark & Evans, 1954,
+<https://doi.org/10.2307/1931034>; edge correction
+Donnelly, 1978):
+
+$$D_{pois} = \frac{1}{2\sqrt{\lambda}}, \quad \lambda = \frac{n}{\text{area}}
+\qquad D_{Donnelly} = D_{pois} + \left(0.0514 + \frac{0.0412}{\sqrt{n}}\right)\frac{\text{perimeter}}{n}$$
+
+$$R = \frac{D_{obs}}{D_{Donnelly}}, \qquad Z = \frac{R-1}{SE(R)}$$
+
+$R<1$ indicates clustering, $R>1$ indicates a more regular/dispersed
+pattern than random, $R\approx1$ is consistent with complete spatial
+randomness (CSR). The Donnelly edge correction matters because points near
+the boundary of a finite sampling window systematically appear to have
+farther nearest neighbours than they truly do (their real nearest
+neighbour may lie just outside the window) - without it, this app's own
+empirical check found a **24% false "dispersed" rate instead of the
+nominal 5%** on simulated random data.
+
+**Nearest-neighbour computation method:** the app offers two, both exact
+(never approximate - verified to agree to floating-point precision) but
+very different in speed. `"matrix"` builds the full pairwise distance
+matrix ($O(n^2)$ time *and* memory): fine for a few thousand points, but
+at $n=16{,}705$ that's a ~2.2GB matrix rebuilt on *every* Monte Carlo
+simulation, taking on the order of 15-20 minutes for even 99 simulations.
+`"kdtree"` (`RANN::nn2()`, $O(n\log n)$) is ~150-250x faster at a few
+thousand points and the only practical choice much above that - the same
+$n=16{,}705$ case with **999** simulations (10x more than the matrix
+default) finishes in about 20 seconds. `"kdtree"` is the app's default;
+`"matrix"` is kept available alongside it for comparison. The choice only
+affects runtime, never the result.
+
+**Worked example** (twelve fictional points forming three tight groups
+scattered across a 10×10 mm field, mimicking banding / several localized
+defect zones)
+
+```{r clark-evans-example}
+set.seed(3)
+cx <- c(1, 8, 4); cy <- c(1, 2, 8)  # three defect-zone centers
+x <- unlist(lapply(cx, function(c) rnorm(4, c, 0.25)))
+y <- unlist(lapply(cy, function(c) rnorm(4, c, 0.25)))
+
+ce <- clark_evans_test(x, y, n_sim = 499, seed = 3)
+cat(sprintf("R = %.3f  (R<1 = clustered)\n", ce$R))
+cat(sprintf("Asymptotic p-value: %.4f\n", ce$p_value_asymptotic))
+cat(sprintf("Monte Carlo p-value: %.4f\n", ce$p_value_monte_carlo))
+cat(ce$verdict, "\n")
+```
+
+```{r clark-evans-plot, fig.height=4}
+print(create_spatial_scatter_plot(x, y))
+```
+
+**Interpreting the result:** $R \ll 1$ with a small p-value here confirms
+the deliberately clustered toy data really is detected as clustered - both
+the asymptotic and Monte Carlo p-values agree, which is what a confident
+call looks like. Note that Clark-Evans only ever sees the *bounding box of
+the points themselves* as the sampling window - a single tight blob just
+shrinks the window to match and can look no different from CSR. Real
+clustering signal comes from nearest neighbours being close *relative to
+the full spread of the data*, as with the three separated groups here.
+
+**When it can't help you:**
+
+- Needs at least 3 points (the app enforces this), but the asymptotic test
+  is known to still over-reject somewhat at small $n$ (~15% instead of 5%
+  around $n=40$, checked empirically) - **trust the Monte Carlo p-value
+  over the asymptotic one when they disagree**, especially for small point
+  counts.
+- The Monte Carlo p-value is *not* fully exact either, and the reason is
+  structural: the simulated null point sets are drawn inside the observed
+  data's own bounding box, but that box is tautologically as large as the
+  real sample's own range, while a freshly-simulated null sample of the
+  same size will (in expectation) have a *smaller* realized range - making
+  the real data look artificially spread toward the edges relative to the
+  simulations. Checked empirically (1000+ simulated truly-random point
+  sets per $n$): at $n=15$ this gives a false "significantly dispersed"
+  rate of ~18% (Monte Carlo) vs the nominal 5%, dropping to ~7-8% by
+  $n=100$. Crucially, the bias is **asymmetric**: at the same $n=15$, a
+  false "significantly clustered" verdict occurred in well under 1% of
+  trials - i.e. *under* the nominal rate. In practice: a **clustered/
+  banding** verdict from this test is trustworthy (if anything,
+  conservative) even at small $n$; treat a **regular/dispersed** verdict
+  below ~40 points with real skepticism, regardless of which p-value it's
+  based on.
+- Only tests spatial randomness in *position* - it says nothing about
+  whether inclusion *size* correlates with location (combine with a
+  size-colored scatter plot, available in the same tab, to check that
+  visually).
+- A rectangular bounding box is assumed; if your actual sampled region is
+  a very different shape (e.g. an irregular polished section), the edge
+  correction's accuracy degrades.
+
+---
+
+# Compositional Data Analysis: CLR / ILR transforms + PCA
+
+**What it answers:** ordinary statistics (correlation, PCA, distance)
+assume data lives in ordinary Euclidean space. Wt% chemistry columns are
+**compositional** - constrained to sum to a constant - so they instead live
+on a simplex. Applying ordinary methods directly is technically
+inappropriate (the "closure problem": e.g. spurious negative correlations
+are induced purely by the sum constraint, see §3). The fix is a log-ratio
+transform first (Aitchison, 1986).
+
+**CLR (centered log-ratio):**
+$$clr_i = \ln(x_i) - \overline{\ln(x)} = \ln\!\left(\frac{x_i}{g(x)}\right)$$
+where $g(x)$ is the row's geometric mean. Each CLR coordinate still maps
+to one original element, so loadings/biplots stay directly interpretable -
+but the $D$ CLR coordinates always sum to exactly 0, so their covariance
+matrix is singular.
+
+**ILR (isometric log-ratio,** Egozcue et al., 2003,
+<https://doi.org/10.1023/A:1023818214614>**):** an orthonormal-basis
+re-expression to $D-1$ coordinates with a non-singular covariance matrix.
+Coordinate $j$ contrasts the (geometric) mean of the first $j$ parts
+against part $j+1$:
+$$ilr_j = \sqrt{\frac{j}{j+1}}\left(\overline{\ln(x_{1..j})} - \ln(x_{j+1})\right)$$
+ILR is an *isometry* of CLR (distance- and angle-preserving), so PCA on
+either basis gives identical variance-explained and scores - only the
+loadings' interpretation differs (per-element for CLR, an abstract
+"balance" for ILR).
+
+**Worked example** (four fictional elements, six samples)
+
+```{r coda-example}
+df_coda <- data.frame(
+  Al = c(1.2, 1.5, 0.9, 2.1, 1.8, 1.1),
+  Si = c(6.5, 5.8, 7.2, 4.9, 5.5, 6.8),
+  Fe = c(85, 87, 83, 88, 86, 84),
+  Mn = c(0.8, 0.6, 1.1, 0.5, 0.7, 0.9)
+)
+parts <- c("Al", "Si", "Fe", "Mn")
+
+clr <- clr_transform(df_coda, parts)
+round(clr, 3)
+cat("\nRow sums (should all be ~0):\n")
+print(round(rowSums(clr), 12))
+
+ilr_res <- ilr_transform(df_coda, parts)
+round(ilr_res$ilr, 3)
+
+pca <- compositional_pca(clr)
+cat(sprintf("\nPC1 + PC2 explain %.1f%% of the (Aitchison) variance\n",
+            sum(pca$var_explained[1:2])))
+```
+
+```{r coda-plot, fig.height=5}
+print(create_coda_biplot(pca))
+```
+
+**Interpreting the result:** the CLR row sums confirm the transform is
+correct (defining property: always ≈0). The biplot's arrows show which
+elements drive the main directions of variation, in Aitchison
+(log-ratio) geometry rather than raw-percentage geometry - two samples
+close together in the biplot are compositionally similar even if their
+raw percentages differ a lot in absolute terms.
+
+**When it can't help you:**
+
+- Needs **at least 3 compositional parts** and, per row, no more than a
+  few genuine zeros - each zero gets replaced with a small pseudo-count
+  (half the smallest positive value found), a simplified version of the
+  standard approach (Martín-Fernández et al., 2003,
+  <https://doi.org/10.1023/A:1023866030544>) that doesn't fully account
+  for a detection-limit-per-element, since this app's data doesn't carry
+  one.
+- If the selected parts are only a small subset of the *true* full
+  composition (e.g. 4 elements out of a 15-element analysis), the
+  log-ratios are relative to that subset's own geometric mean, not the
+  true whole - reasonable for comparing samples to each other, but not a
+  substitute for the real full-composition analysis if it's available.
+
+---
+
+# Rose diagrams (directional statistics)
+
+**What it answers:** how are inclusion *orientation/direction* values
+distributed around the full circle - useful for detecting a preferred
+elongation direction (e.g. from rolling), which plain histograms obscure
+because they treat 359° and 1° as maximally different instead of adjacent
+(Mardia & Jupp, 2000).
+
+**Method:** direction values are binned into fixed-width sectors on a
+0-360° grid (independent of the data's own range - many orientation
+measurements are only recorded 0-180°, since a line has no front/back;
+the empty half of the resulting rose is expected, not an error), counted
+per bin, and drawn as radial bars.
+
+**Worked example** (eight fictional directions, degrees, clustered around
+20-40°)
+
+```{r rose-example}
+set.seed(4)
+directions <- data.frame(dir = c(rnorm(6, mean = 30, sd = 8), 150, 165))
+p_rose <- build_custom_plot(directions, "rose", x = "dir", rose_bin_width = 15)
+print(p_rose)
+```
+
+**Interpreting the result:** a rose diagram is a descriptive
+visualization, not a hypothesis test on its own - a visibly dominant
+sector suggests a preferred orientation, but formally testing that
+(e.g. a Rayleigh test of circular uniformity) isn't implemented in this
+app. Use it to decide whether directional structure is worth
+investigating further, not as a p-value.
+
+**When it can't help you:** with very few points, individual
+measurements dominate single sectors and the diagram can look
+"directional" purely by chance - as with any histogram, don't over-read a
+rose diagram built from a handful of points.
+
+---
+
+# References
+
+- Aitchison, J. (1986). *The Statistical Analysis of Compositional Data*. Chapman and Hall, London.
+- Anderson, T.W., Darling, D.A. (1952). Asymptotic Theory of Certain "Goodness of Fit" Criteria Based on Stochastic Processes. *Annals of Mathematical Statistics*, 23(2), 193-212. <https://doi.org/10.1214/aoms/1177729437>
+- Clark, P.J., Evans, F.C. (1954). Distance to Nearest Neighbor as a Measure of Spatial Relationships in Populations. *Ecology*, 35(4), 445-453. <https://doi.org/10.2307/1931034>
+- Donnelly, K. (1978). Simulations to Determine the Variance and Edge-Effect of Total Nearest-Neighbour Distance. In I. Hodder (Ed.), *Simulation Studies in Archaeology*, pp. 91-95. Cambridge University Press.
+- Egozcue, J.J., Pawlowsky-Glahn, V., Mateu-Figueras, G., Barceló-Vidal, C. (2003). Isometric Logratio Transformations for Compositional Data Analysis. *Mathematical Geology*, 35(3), 279-300. <https://doi.org/10.1023/A:1023818214614>
+- Jolliffe, I.T. (2002). *Principal Component Analysis*, 2nd ed. Springer. <https://doi.org/10.1007/b98835>
+- Leys, C., Ley, C., Klein, O., Bernard, P., Licata, L. (2013). Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology*, 49(4), 764-766. <https://doi.org/10.1016/j.jesp.2013.03.013>
+- Liu, F.T., Ting, K.M., Zhou, Z.-H. (2008). Isolation Forest. *2008 Eighth IEEE International Conference on Data Mining*, 413-422. <https://doi.org/10.1109/ICDM.2008.17>
+- Mardia, K.V., Jupp, P.E. (2000). *Directional Statistics*. Wiley. <https://doi.org/10.1002/9780470316979>
+- Martín-Fernández, J.A., Barceló-Vidal, C., Pawlowsky-Glahn, V. (2003). Dealing with Zeros and Missing Values in Compositional Data Sets Using Nonparametric Imputation. *Mathematical Geology*, 35(3), 253-278. <https://doi.org/10.1023/A:1023866030544>
+- Murakami, Y. (1994). Inclusion Rating by Statistics of Extreme Values and Its Application to Fatigue Strength Prediction and Quality Control of Materials. *Journal of Research of the National Institute of Standards and Technology*, 99(4), 345-351. <https://doi.org/10.6028/jres.099.032>
+- Stephens, M.A. (1977). Goodness of Fit for the Extreme Value Distribution. *Biometrika*, 64(3), 583-588. <https://doi.org/10.1093/biomet/64.3.583>
+- Tukey, J.W. (1977). *Exploratory Data Analysis*. Addison-Wesley, Reading, MA.
+- Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovič, D. (2022). Classification of Hot-Rolled Plates Using the Mahalanobis Distance of NMIs in Ti-Stabilized Austenitic Stainless-Steel Produced by Secondary Metallurgy. *Materials*, 15(2), 684. <https://doi.org/10.3390/ma15020684>
+- ASTM E2283-08(2019). *Standard Practice for Extreme Value Analysis of Nonmetallic Inclusions in Steel and Other Microstructural Features*. ASTM International.

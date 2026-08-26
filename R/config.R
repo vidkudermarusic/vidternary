@@ -29,7 +29,11 @@ default_config <- list(
   )
 )
 
-# Load configuration from file if it exists
+#' Load app configuration from `ternary_config.json`, if present
+#'
+#' @return The parsed configuration as a list, or `NULL` if the file
+#'   doesn't exist or fails to parse.
+#' @export
 load_config <- function() {
   config_file <- "ternary_config.json"
   if (file.exists(config_file)) {
@@ -46,7 +50,11 @@ load_config <- function() {
   return(NULL)
 }
 
-# Save configuration to file
+#' Save app configuration to `ternary_config.json`
+#'
+#' @param config Configuration list to write, in the shape of `default_config`.
+#' @return `NULL`, invisibly. Called for its file-writing side effect.
+#' @export
 save_config <- function(config) {
   tryCatch({
     jsonlite::write_json(config, "ternary_config.json", pretty = TRUE, auto_unbox = TRUE)
@@ -56,7 +64,15 @@ save_config <- function(config) {
   })
 }
 
-# Validate and fix configuration
+#' Validate a configuration list, resetting invalid fields to defaults
+#'
+#' Ensures the configured working/output directories exist (creating them
+#' if needed) and that `lambda`/`omega`/`contamination` hold sane numeric
+#' values, resetting to `default_config`'s values otherwise.
+#'
+#' @param config Configuration list to validate, in the shape of `default_config`.
+#' @return The (possibly corrected) configuration list.
+#' @export
 validate_and_fix_config <- function(config) {
   # Check if directories exist and are writable
   if (!dir.exists(config$directories$working_dir)) {
@@ -99,7 +115,14 @@ validate_and_fix_config <- function(config) {
   return(config)
 }
 
-# Initialize configuration
+#' Load, validate, and apply the app configuration
+#'
+#' Loads `ternary_config.json` (creating it from `default_config` if
+#' missing), validates it, and sets the `default_working_dir`/
+#' `default_output_dir` globals from it.
+#'
+#' @return The loaded (and validated) configuration list.
+#' @export
 initialize_config <- function() {
   # Load or create configuration
   app_config <- load_config()
@@ -118,7 +141,14 @@ initialize_config <- function() {
   return(app_config)
 }
 
-# Get configuration value
+#' Read one value from the global `app_config`
+#'
+#' @param section Top-level config section name (e.g. `"plotting"`).
+#' @param key Key within `section` to read.
+#' @param default Value to return if `app_config`, `section`, or `key`
+#'   don't exist.
+#' @return The configured value, or `default`.
+#' @export
 get_config_value <- function(section, key, default = NULL) {
   if (exists("app_config") && !is.null(app_config[[section]][[key]])) {
     return(app_config[[section]][[key]])
@@ -126,7 +156,17 @@ get_config_value <- function(section, key, default = NULL) {
   return(default)
 }
 
-# Set configuration value
+#' Set one value in the global `app_config`, auto-saving if enabled
+#'
+#' Creates `app_config`/`section` if they don't yet exist. Writes the
+#' updated config to disk via `save_config()` when `ui.auto_save` is true
+#' (the default).
+#'
+#' @param section Top-level config section name (e.g. `"plotting"`).
+#' @param key Key within `section` to set.
+#' @param value Value to store.
+#' @return `NULL`, invisibly.
+#' @export
 set_config_value <- function(section, key, value) {
   if (!exists("app_config")) {
     app_config <<- default_config

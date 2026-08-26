@@ -64,7 +64,18 @@ get_mad_outlier_flags <- function(data, cols, threshold = 3) {
   outlier_indices
 }
 
-# IQR-based outlier filtering (positive outliers only)
+#' Filter rows by IQR outlier status (positive/high-value side only)
+#'
+#' Flags a row as an outlier if any of `cols` exceeds `Q3 + multiplier * IQR`
+#' (Tukey, 1977).
+#'
+#' @param data A data frame.
+#' @param cols Character vector of numeric column names to check.
+#' @param multiplier IQR multiplier for the threshold. Default 1.5.
+#' @param keep_outliers If `TRUE`, keep only the flagged rows; if `FALSE`
+#'   (default), remove them.
+#' @return The filtered data frame.
+#' @export
 apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE) {
   # IQR-based outlier filtering - only considers positive outliers (values > Q3 + multiplier*IQR)
   outlier_indices <- get_iqr_outlier_flags(data, cols, multiplier)
@@ -80,7 +91,17 @@ apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE
   return(filtered_data)
 }
 
-# Z-score based outlier filtering (positive outliers only)
+#' Filter rows by Z-score outlier status (positive/high-value side only)
+#'
+#' Flags a row as an outlier if any of `cols` has a Z-score above `threshold`.
+#'
+#' @param data A data frame.
+#' @param cols Character vector of numeric column names to check.
+#' @param threshold Z-score threshold. Default 3.
+#' @param keep_outliers If `TRUE`, keep only the flagged rows; if `FALSE`
+#'   (default), remove them.
+#' @return The filtered data frame.
+#' @export
 apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
   # Z-score based outlier filtering - only considers positive outliers (z-scores > threshold)
   outlier_indices <- get_zscore_outlier_flags(data, cols, threshold)
@@ -96,7 +117,18 @@ apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE
   return(filtered_data)
 }
 
-# Median Absolute Deviation (MAD) based filtering (positive outliers only)
+#' Filter rows by MAD outlier status (positive/high-value side only)
+#'
+#' Flags a row as an outlier if any of `cols` exceeds
+#' `median + threshold * MAD` (Leys et al., 2013).
+#'
+#' @param data A data frame.
+#' @param cols Character vector of numeric column names to check.
+#' @param threshold MAD multiplier for the threshold. Default 3.
+#' @param keep_outliers If `TRUE`, keep only the flagged rows; if `FALSE`
+#'   (default), remove them.
+#' @return The filtered data frame.
+#' @export
 apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
   # Median Absolute Deviation (MAD) based filtering - only considers positive outliers (values > median + threshold*MAD)
   outlier_indices <- get_mad_outlier_flags(data, cols, threshold)
@@ -122,6 +154,13 @@ apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
 # Note: validate_data function is now in helpers.R as validate_data_enhanced to avoid duplication
 # Use the enhanced version from helpers.R for comprehensive data validation
 
+#' Compute mean/median/SD for a set of columns
+#'
+#' @param df A data frame.
+#' @param cols Character vector of numeric column names.
+#' @return A named list (by `cols`), each entry a list with `mean`,
+#'   `median`, `sd`.
+#' @export
 generate_stats <- function(df, cols) {
   stats <- lapply(cols, function(col) {
     vals <- as.numeric(df[[col]])
@@ -135,6 +174,12 @@ generate_stats <- function(df, cols) {
   return(stats)
 }
 
+#' Compute a Pearson correlation matrix for a set of columns
+#'
+#' @param df A data frame.
+#' @param cols Character vector of numeric column names.
+#' @return A correlation matrix.
+#' @export
 compute_correlation <- function(df, cols) {
   cor(df[, cols], use="complete.obs")
 }

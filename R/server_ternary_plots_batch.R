@@ -1,79 +1,46 @@
 # ---- Server Ternary Plots Module: Batch ("Multiple Ternary Creator") ----
-# Split out of server_ternary_plots.R: the multi-file batch preview/save
-# handlers (as opposed to the single-file preview/save logic in
-# server_ternary_plots.R, or the group-selection UI in
-# server_ternary_plots_groups.R).
+# Split out of server_ternary_plots.R: the multi-file batch handlers (as
+# opposed to the single-file preview/save logic in server_ternary_plots.R,
+# or the group-selection UI in server_ternary_plots_groups.R).
 
 register_ternary_plots_batch_handlers <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
-  # Create multiple ternary plots (preview mode)
-  observeEvent(input$create_multiple_ternary, {
+  # Populate Element A/B/C and Optional Parameter 1/2 choices from the first
+  # uploaded file's columns. This used to only happen as a side effect of
+  # uploading a file to the *main* Ternary Plots tab's Dataset 1 input
+  # (see server_file_handlers.R), so a user going straight to this tab and
+  # uploading files via multiple_xlsx_files found every dropdown empty -
+  # req(input$multiple_element_A, ...) then silently blocked both buttons
+  # below, with no created/saved plots and no error shown.
+  observeEvent(input$multiple_xlsx_files, {
     req(input$multiple_xlsx_files)
-    req(input$multiple_element_A, input$multiple_element_B, input$multiple_element_C)
-
-    if (length(input$multiple_element_A) == 0 || length(input$multiple_element_B) == 0 || length(input$multiple_element_C) == 0) {
-      output$multiple_ternary_status <- renderText("Please select elements A, B, and C for all files")
-      return()
-    }
-
     tryCatch({
-      output$multiple_ternary_status <- renderText("Creating ternary plots in preview mode...")
+      first_file <- input$multiple_xlsx_files$datapath[1]
+      df <- openxlsx::read.xlsx(first_file, sheet = 1)
+      all_columns <- colnames(df)
 
-      file_paths <- input$multiple_xlsx_files$datapath
-      file_names <- input$multiple_xlsx_files$name
-      plots_created <- 0
-      errors <- c()
+      updateSelectizeInput(session, "multiple_element_A", choices = all_columns)
+      updateSelectizeInput(session, "multiple_element_B", choices = all_columns)
+      updateSelectizeInput(session, "multiple_element_C", choices = all_columns)
+      updateSelectizeInput(session, "multiple_optional_param1", choices = c("", all_columns))
+      updateSelectizeInput(session, "multiple_optional_param2", choices = c("", all_columns))
 
-      # Filter collection now handled by extract_ternary_params with multiple_mode = TRUE
-
-      for (i in seq_along(file_paths)) {
-        file_path <- file_paths[i]
-        file_name <- file_names[i]
-
-        tryCatch({
-          # Use unified parameter extraction for multiple ternary preview
-          temp_rv <- list(xlsx_file1 = file_path)
-          params <- extract_ternary_params(input, temp_rv, 1, TRUE, directory_management, multiple_mode = TRUE)
-          params$xlsx_file <- file_path  # Override for multiple files
-          params$output_dir <- tempdir()  # Use temp directory for preview
-          params$xlsx_display_name <- file_name  # Use the original file name for proper plot titles
-
-          # Call the main ternary plot function
-          result <- do.call(general_ternary_plot, params)
-
-          if (!is.null(result)) {
-            plots_created <- plots_created + 1
-          }
-
-        }, error = function(e) {
-          errors <- c(errors, paste(file_name, "-", e$message))
-        })
-      }
-
-      # Update results
-      rv$multiple_ternary_results$plots <- plots_created
-
-      if (plots_created > 0) {
-        output$multiple_ternary_status <- renderText(paste("Successfully created", plots_created, "ternary plots in preview mode"))
-        log_operation("SUCCESS", "Multiple ternary preview completed", paste("Created:", plots_created, "plots"))
-      } else {
-        output$multiple_ternary_status <- renderText("No plots were created successfully")
-      }
-
-      if (length(errors) > 0) {
-        error_msg <- paste("Errors encountered:", paste(errors, collapse = "; "))
-        output$multiple_ternary_status <- renderText(paste("Error creating multiple ternary plots:", error_msg))
-        log_operation("ERROR", "Failed to create multiple ternary plots", error_msg)
-      }
-
+      log_operation("SUCCESS", "Updated column choices for Multiple Ternary Creator",
+                    paste("File:", basename(first_file), "Columns:", length(all_columns)))
     }, error = function(e) {
-      output$multiple_ternary_status <- renderText(paste("Error creating multiple ternary plots:", e$message))
-      log_operation("ERROR", "Failed to create multiple ternary plots", e$message)
+      show_message(paste("Error reading file for column selection:", e$message), "error")
+      log_operation("ERROR", "Failed to read file for column selection", e$message)
     })
   })
 
-  # Save multiple ternary plots to subfolder
-  observeEvent(input$save_multiple_ternary, {
+  # Create AND save one ternary plot per uploaded file, straight to the
+  # output subfolder. Previously this was two separate buttons - "Create All
+  # Ternary Plots" rendered to whatever graphics device happened to be
+  # active (not any Shiny output, since there's no plotOutput/renderPlot for
+  # it), which produced no visible result and stray Rplots.pdf files instead
+  # of a real preview - so it's been folded into the one button that always
+  # saves, matching what "Save All Plots to Subfolder" already did correctly.
+  observeEvent(input$create_save_multiple_ternary, {
     req(input$multiple_xlsx_files)
     req(input$multiple_element_A, input$multiple_element_B, input$multiple_element_C)
 
@@ -83,7 +50,6 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
     }
 
     tryCatch({
-      # Create output directory using user-selected directory and folder name
       timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
       user_output_dir <- if (!is.null(directory_management) && !is.null(directory_management$output_dir)) {
         directory_management$output_dir()
@@ -91,7 +57,6 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
         file.path(getwd(), "output")
       }
 
-      # Use user-provided folder name or default
       folder_name <- if (!is.null(input$multiple_output_folder) && nchar(trimws(input$multiple_output_folder)) > 0) {
         trimws(input$multiple_output_folder)
       } else {
@@ -113,8 +78,6 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
         cat("DEBUG: Files:", paste(file_names, collapse = ", "), "\n")
       }
 
-      # Filter collection now handled by extract_ternary_params with multiple_mode = TRUE
-
       for (i in seq_along(file_paths)) {
         file_path <- file_paths[i]
         file_name <- file_names[i]
@@ -124,14 +87,12 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
         }
 
         tryCatch({
-          # Use unified parameter extraction for multiple ternary
           temp_rv <- list(xlsx_file1 = file_path)
           params <- extract_ternary_params(input, temp_rv, 1, FALSE, directory_management, multiple_mode = TRUE)
-          params$xlsx_file <- file_path  # Override for multiple files
-          params$output_dir <- output_dir  # Use specified output directory
-          params$xlsx_display_name <- file_name  # Use the original file name for unique filenames
+          params$xlsx_file <- file_path
+          params$output_dir <- output_dir
+          params$xlsx_display_name <- file_name
 
-          # Call the main ternary plot function
           result <- do.call(general_ternary_plot, params)
 
           if (!is.null(result)) {
@@ -146,15 +107,19 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
           }
 
         }, error = function(e) {
+          # <<- (not <-) is required: `errors` inside this closure would
+          # otherwise be a new local variable in the closure's own
+          # environment, never reaching the `errors` in the enclosing
+          # observeEvent - so every per-file error was silently discarded
+          # and "Errors encountered" never fired, even when every file failed.
           error_msg <- paste(file_name, "-", e$message)
-          errors <- c(errors, error_msg)
+          errors <<- c(errors, error_msg)
           if (getOption("ternary.debug", FALSE)) {
             cat("DEBUG: Error processing file", file_name, ":", e$message, "\n")
           }
         })
       }
 
-      # Update results
       rv$multiple_ternary_results$plots <- plots_saved
 
       if (plots_saved > 0) {

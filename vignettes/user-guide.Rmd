@@ -1,0 +1,454 @@
+---
+title: "User Guide"
+author: "Vid Kuder Marušič"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{User Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+# About this guide
+
+This document explains **how to use** the vidternary Shiny app, tab by tab:
+what to click, in what order, what each tab expects as input, and what it
+produces. It deliberately stays away from formulas and statistical theory -
+for *why* a method works, when its result can be trusted, and a worked
+numeric example of every calculation, see the companion
+**Statistical Appendix** vignette (`vignette("statistical-appendix",
+package = "vidternary")`). The two documents cross-reference each other
+throughout.
+
+Launch the app with:
+
+```{r launch, eval=FALSE}
+library(vidternary)
+run_app()
+```
+
+# Data requirements and shared settings
+
+## File format
+
+Every tab that accepts data reads an **Excel file** (`.xlsx`, and on most
+tabs also `.xls`) and always reads **Sheet 1 only** - there is no sheet
+picker anywhere in the app, so put your data on the first sheet. Column
+headers become the column names shown in every dropdown, so short,
+consistent, spreadsheet-safe names (e.g. `Al2O3_Wt%`, `ECD_um`,
+`StageX_mm`, `Field`, `Area_mm2`) work best.
+
+## Uploads are per tab, not global
+
+**There is no single "load your data once" step.** Each tab has its own
+independent upload button, and a file uploaded on one tab does not appear
+on any other tab. The table below shows what each tab expects:
+
+| Tab | Upload | How many files? |
+|---|---|---|
+| Ternary Plots | Primary + optional Reference | exactly 1 or 2 |
+| Data Comparison | one upload box | any number |
+| Multiple Ternary Creator | one upload box | any number (one plot per file) |
+| Hexagonal Ternary Diagram | one upload box | exactly 1 |
+| Plot Builder | one upload box | any number (rows combined) |
+| Extreme Value Analysis | one upload box | any number (rows combined) |
+| Spatial Clustering | one upload box | any number (rows combined) |
+| Compositional Analysis | one upload box | any number (rows combined) |
+| Analysis Log | *(none - reads the session's activity log)* | - |
+
+When a tab combines several files, rows get an extra `source_file` column
+so you can tell datasets apart afterwards, and only the columns that are
+**common to every selected file** survive the combine - if two files share
+no column names, you'll see a validation error instead of a partial merge.
+
+## Directory Settings and Cache
+
+Every tab shares one Working Directory / Output Directory panel (native
+folder pickers) at the page level, plus a Cache Management control. Any
+"Save" action across the app writes into the configured Output Directory,
+defaulting to an `output/` subfolder next to the app if you never pick one.
+Set this once at the start of a session.
+
+# Glossary
+
+- **NMI** - Non-Metallic Inclusion: a small oxide/sulfide particle trapped
+  in steel, the object of study throughout the app.
+- **ECD** - Equivalent Circle Diameter: the diameter of a circle with the
+  same area as an (irregularly shaped) inclusion, the standard way to
+  express inclusion "size" as a single number.
+- **Wt%** - weight percent: oxide/element composition columns that sum to
+  (approximately) 100% per inclusion - this constraint is why the
+  Compositional Analysis tab exists (see §8 and the Statistical Appendix).
+- **Control area / field of view** - one SEM scan region; extreme value
+  analysis (§6) works by taking the single largest inclusion found in each
+  control area, not every inclusion in it.
+- **Stage X/Y** - the microscope stage coordinates recorded for each
+  inclusion, used by Spatial Clustering (§7) to test whether inclusions are
+  randomly scattered or clustered (banding).
+- **source_file** - a column the app adds automatically whenever a tab
+  combines more than one uploaded file, recording which file each row came
+  from.
+- **Outlier vs. extreme value** - an *outlier* (IQR/Z-score/MAD/Mahalanobis/
+  Isolation Forest, §3) is a point that looks unusual **within the dataset
+  you have**; an *extreme value* (§6) is a statistical **prediction of a
+  value you have not yet observed**, extrapolated from the pattern of
+  per-area maxima. They answer different questions - see §9.
+
+# Tab-by-tab instructions
+
+## Ternary Plots
+
+**Purpose:** the core single-plot workflow - one ternary diagram (or two,
+side by side) with per-element filters and, optionally, one statistical or
+multivariate outlier method.
+
+**Steps:**
+
+1. Upload your Primary file (and, if you want a side-by-side comparison, a
+   Reference file).
+2. Pick Element A, B and C from the dropdowns. Each is a multi-select - if
+   you pick more than one column for a vertex, they are **summed**.
+3. A filter box appears under each selected element. Type a condition like
+   `> 10`, `<= 5.2`, `== 3` or `!=`; several filters combine with AND.
+4. Optionally set Param 1 (point size or shape) and Param 2 (point color +
+   palette). If Param 2 is a categorical column, a checklist of its
+   categories appears with sample counts, letting you show/hide groups.
+5. Under "🔧 Multivariate Analysis", pick **two or more numeric columns** in
+   the Universal Column Selector. This selection feeds both the
+   multivariate methods and the statistical filters below it.
+6. Tick **at most one** of Mahalanobis / Isolation Forest / IQR / Z-score /
+   MAD - checking one automatically unchecks any other, since the app only
+   ever applies one filter method per plot.
+7. Choose an output format and point size, then click **Save Plot 1 / Plot
+   2 / Both**.
+
+The two live previews update automatically as you change elements or
+filters - no button needed for previewing, only for saving.
+
+**Tips & gotchas:**
+
+- IQR/Z-score/MAD are *not* per-element: they run on the Universal Column
+  Selector set and flag a row if **any** of those columns is an outlier
+  (positive/high-value side only).
+- "📋 Copy Settings from Dataset 1" copies every element/filter/palette/
+  filter-method choice to Dataset 2 in one click - handy once you've tuned
+  Dataset 1 and want a matching Dataset 2 plot.
+- Changing which columns are selected for an element rebuilds that
+  element's filter box, so any text you'd typed into it is lost.
+- Saved images go straight into the Output Directory root (not a
+  timestamped subfolder), named
+  `charge_<originalfilename>_<timestamp>.<format>`.
+
+## Multiple Ternary Creator
+
+**Purpose:** batch-generate one ternary plot per uploaded file, all using
+one shared set of Element A/B/C and optional-parameter settings. There is
+no outlier filtering here - use the Ternary Plots tab per file if you need
+that.
+
+**Steps:**
+
+1. Upload as many files as you like. Column dropdowns populate from the
+   **first** file only, so all files should share the same column names.
+2. Pick an output folder name and format.
+3. Choose Element A/B/C (+ optional filters/Param 1/Param 2), exactly as on
+   the Ternary Plots tab.
+4. Click **Create & Save** - every file is plotted and saved immediately,
+   no preview step.
+
+Errors on individual files are collected and reported together at the end;
+one bad file doesn't stop the rest of the batch. Output goes to
+`<OutputDir>/<folder_name>_<timestamp>/`.
+
+## Hexagonal Ternary Diagram
+
+**Purpose:** composites six triangular ternary plots that share one
+central axis into a single hexagonal image, from one uploaded file.
+
+**Steps:**
+
+1. Upload one file.
+2. Fill in **all seven** element-slot dropdowns (labeled A-G to match the
+   legend diagram shown on the tab) - every slot is required, and slot 3
+   (C) is the shared central axis for all six sub-triangles.
+3. Click **Generate** ("Ustvari heksagonalni diagram") to preview.
+4. Click **Save** ("Shrani v izhodno mapo") to write the final image to
+   `<OutputDir>/<folder_name>_<timestamp>/`.
+
+If any of the seven slots is left empty, both buttons simply show an error
+and do nothing - there's no way to render a partial hexagon.
+
+## Plot Builder
+
+**Purpose:** a generic chart builder - violin, box, bar (counts),
+histogram, scatter, or rose diagram - from any column in your data, with a
+save/load preset system for repeat use.
+
+**Steps:**
+
+1. Upload one or more files; pick which of them to include via the dataset
+   selector (defaults to all).
+2. Choose a chart type. The axis controls rebuild for each type:
+   - **Violin / Box:** X = group column (any type); Y = one or more
+     numeric columns (selecting 2+ compares several elements side by side
+     within each X group, and overrides Color-by).
+   - **Bar (counts):** X = category column, plus a "categories to show"
+     selector (drawn from Color-by if set, else from X), plus a
+     show-percentages toggle.
+   - **Histogram:** one numeric variable + a bin-count field (default 30).
+   - **Scatter:** X and Y, both numeric.
+   - **Rose diagram:** a direction column in degrees + a bin width in
+     degrees (default 10).
+3. Optionally set Color-by (categorical columns only) and Log-X/Log-Y.
+4. The plot re-renders automatically as you change any control - there is
+   no "generate" button.
+5. Use **Download** for a PNG, or **Save/Load/Delete Preset** to store this
+   exact configuration under a name for later sessions (presets are saved
+   to disk, so they persist across app restarts).
+
+**Tips & gotchas:**
+
+- For Violin/Box, the Y selector starts with **nothing chosen** - the plot
+  stays blank until you pick at least one Y column (or load a preset that
+  sets one). This is expected, not a bug.
+- Loading a preset can take a brief moment to fully apply, since the chart
+  type must rebuild its axis controls before the axis values themselves
+  can be restored.
+- Combining multiple files keeps only columns common to all of them.
+
+## Extreme Value Analysis
+
+**Purpose:** fits a Gumbel extreme-value model to per-control-area maximum
+inclusion sizes (Murakami's method) and predicts the largest inclusion
+expected in a larger inspection area. See the Statistical Appendix for the
+formula and the meaning of "return period."
+
+**Steps:**
+
+1. Upload one or more files (rows combined).
+2. Pick the Area column (auto-detected if a column name starts with
+   "area").
+3. Choose how control areas are grouped:
+   - Leave **"use manual groups"** unchecked and pick a real Field/Frame ID
+     column (auto-detected if named `field`) - each distinct value is one
+     physical control area.
+   - Or check it and pick a number of groups (default 20) to split the
+     data into arbitrary equal-size groups when you have no real field ID.
+4. Click **Fit Extreme Value Model**.
+5. Once fitted, set the **Return Period (T)** - the prediction updates live
+   as you change it, no re-fit needed.
+6. Download the plot (PNG) or the raw block-maxima table (XLSX).
+
+**Tips & gotchas:**
+
+- Needs **at least 3 groups** with valid data, or the fit is blocked.
+- With a real Field/Frame ID, T has a physical meaning (T=100 = an area
+  100x one field of view); with the manual-groups fallback, T is a purely
+  statistical multiple with **no physical area interpretation** - the app
+  flags this explicitly.
+- If the Anderson-Darling goodness-of-fit test rejects the single-Gumbel
+  assumption, a warning box appears; the fit line is still drawn, but the
+  tail prediction should be treated cautiously (it may indicate a mixed
+  inclusion population or one outlier control area skewing the fit).
+
+## Spatial Clustering
+
+**Purpose:** the Clark-Evans nearest-neighbour test, checking whether
+inclusion positions are randomly scattered, clustered (e.g. banding), or
+more regular than random.
+
+**Steps:**
+
+1. Upload one or more files (rows combined).
+2. Pick the X and Y stage-coordinate columns (auto-detected if named like
+   `stage...x` / `stage...y`).
+3. Optionally pick a column to color the scatter plot by (this does not
+   affect the statistical test itself).
+4. Leave **Nearest-neighbour method** on "k-d tree" (the default) unless
+   you have a specific reason to compare against "Distance matrix" - both
+   give identical results, but the distance-matrix method can take many
+   minutes on datasets above a few thousand points, while k-d tree stays
+   fast into the tens of thousands.
+5. Adjust **Monte Carlo simulations** if you want a finer-grained p-value
+   than the default 999 (k-d tree) / 299 (distance matrix) - more
+   simulations means a smaller minimum reportable p-value, at the cost of
+   runtime (only meaningfully slow with the distance-matrix method).
+6. Click **Analyze Spatial Pattern**.
+
+**Outputs:** R statistic, both p-values (asymptotic and Monte Carlo),
+verdict text, a colored scatter plot, a nearest-neighbour-distance
+histogram, a summary table (including which method and simulation count
+were used), and three downloads (scatter PNG, histogram PNG, per-point NND XLSX).
+
+**Tips:** when the two p-values disagree, trust the Monte Carlo one,
+especially with fewer points. Below ~40 points, treat a **clustered**
+verdict as trustworthy but a **dispersed/regular** verdict with real
+skepticism - see the Statistical Appendix for why the two directions are
+not equally reliable at small sample sizes.
+
+## Compositional Analysis
+
+**Purpose:** CLR/ILR log-ratio transforms and PCA for Wt% chemistry
+columns, which sum to a constant and therefore need a log-ratio transform
+before ordinary PCA is statistically valid.
+
+**Steps:**
+
+1. Upload one or more files (rows combined).
+2. Pick the compositional columns in "Parts to include" (auto-preselected
+   if three or more columns contain "wt%" in their name).
+3. Click **Transform & Run PCA**.
+
+**Outputs:** a CLR biplot, a variance-explained table, and two loadings
+tables side by side - CLR basis (one row per element, directly
+interpretable) and ILR basis (one row per abstract "balance," not per
+element) - plus downloads for the CLR-transformed data, ILR-transformed
+data, and the biplot image.
+
+**Tips & gotchas:**
+
+- Requires **at least 3 selected parts** and enough complete rows (rows
+  with any missing value among the selected parts are dropped first).
+- Zeros are silently replaced with a small pseudo-count before
+  log-transforming (log(0) is undefined) - there is no toggle to disable
+  this.
+- The ILR loadings depend on the **order** you selected the parts in -
+  reordering them changes what each `ilr_j` balance represents, even
+  though the CLR results and PCA variance-explained stay identical either
+  way (this is expected - see the Statistical Appendix's note on ILR being
+  an isometry of CLR).
+
+## Analysis Log
+
+**Purpose:** a searchable, filterable record of what happened during the
+current session (uploads, saves, analyses, errors) across every tab.
+
+**Steps:** the log fills itself automatically - nothing to configure.
+Use the Level dropdown (All/INFO/WARNING/ERROR) and the search box to
+narrow it down, and **Clear / Save to File / Export** to manage it.
+
+**Tips & gotchas:**
+
+- The log is in-memory only - restarting the app clears it. "Save to File"
+  (writes into the Output Directory) is the only way to keep a permanent
+  copy.
+- "Save to File" and "Export" both save exactly what's currently visible -
+  if you've narrowed the view with a Level filter or search, you'll save a
+  partial log, not the full session history.
+- The Log Statistics counts (top of the tab) always reflect the *entire*
+  session log, even while a filter narrows what's shown below - so the
+  visible entry count and the stats box can legitimately disagree.
+
+# Which method should I use?
+
+| I want to... | Go to |
+|---|---|
+| Plot three elements against each other as a classic ternary diagram | **Ternary Plots** |
+| Produce the same ternary plot, unchanged, across many files | **Multiple Ternary Creator** |
+| Compare descriptive stats/correlations across several datasets side by side | **Data Comparison** |
+| See six related ternary views sharing one axis at a glance | **Hexagonal Ternary Diagram** |
+| Build a violin/box/bar/histogram/scatter/rose chart from any column | **Plot Builder** |
+| Flag unusual values in one or two elements | **Ternary Plots** -> IQR / Z-score / MAD |
+| Flag unusual points across several elements at once | **Ternary Plots** or **Data Comparison** -> Mahalanobis or Isolation Forest |
+| Predict the largest inclusion in a bigger inspection area than you sampled | **Extreme Value Analysis** |
+| Check whether inclusions are clustered/banded in space | **Spatial Clustering** |
+| Run PCA on Wt% chemistry without breaking the sum-to-100% constraint | **Compositional Analysis** |
+| Review or save what happened this session, or debug an error | **Analysis Log** |
+
+For the choice *between* the five outlier-flagging methods (IQR, Z-score,
+MAD, Mahalanobis, Isolation Forest) and how to judge whether a flagged
+point is real, see the Statistical Appendix's per-method "when it can't
+help you" notes.
+
+# A typical end-to-end workflow
+
+Suppose you've collected SEM/EDS data for five steel heats, one Excel file
+per heat, each with columns for oxide composition (`Al2O3_Wt%`,
+`SiO2_Wt%`, `CaO_Wt%`, `MgO_Wt%`, `MnO_Wt%`), `ECD_um`, stage position
+(`StageX_mm`, `StageY_mm`), a `Field` ID, and `Area_mm2`. A reasonable path
+through the app:
+
+1. **Ternary Plots** - upload heat 1 as Primary, plot
+   `Al2O3-SiO2-CaO`, apply a MAD filter over the five oxide columns to spot
+   obviously anomalous inclusions, save the figure.
+2. **Multiple Ternary Creator** - once the settings from step 1 look
+   right, upload all five heat files and generate the same ternary plot
+   for each in one batch.
+3. **Data Comparison** - upload all five files, compute descriptive
+   stats and a correlation heatmap, then run Mahalanobis distance with
+   "Self" as reference on each heat to see which one has the most unusual
+   inclusion population.
+4. **Plot Builder** - build a box plot of `ECD_um` grouped by `Field` (or
+   `source_file`, i.e. heat) to compare inclusion size distributions
+   visually; save this configuration as a preset for next time.
+5. **Spatial Clustering** - using `StageX_mm`/`StageY_mm`, test whether
+   inclusions are randomly scattered or clustered (banding) within each
+   heat.
+6. **Extreme Value Analysis** - using `Area_mm2` grouped by `Field`, fit a
+   Gumbel model and predict the largest inclusion expected in, say, an
+   area 100x a single field of view - relevant for fatigue-critical
+   applications where the largest defect matters most.
+7. **Compositional Analysis** - run CLR/ILR + PCA on the five oxide
+   columns to see which oxides drive the main compositional variation,
+   properly accounting for the sum-to-100% constraint.
+8. **Analysis Log** - review the session's log and save it alongside your
+   results for reproducibility.
+
+Not every analysis is needed for every dataset - pick the tabs relevant to
+the question you're actually asking (see §5 above).
+
+# Troubleshooting / FAQ
+
+**My Plot Builder chart is blank after I pick Violin or Box.**
+Pick at least one column in the Y selector - it starts empty by design
+(see §4.4).
+
+**The Bar (counts) "categories to show" selector isn't there.**
+It only appears once a chart type/column selection makes it relevant;
+check that you've picked an X column (and, if you want it scoped to
+groups, a Color-by column).
+
+**Clicking Generate on the Hexagonal Ternary Diagram tab does nothing.**
+All seven element slots (A-G) must have at least one column selected -
+there's no partial-hexagon mode.
+
+**Extreme Value Analysis or Compositional Analysis refuses to fit/run.**
+EVA needs at least 3 control-area groups with valid data; Compositional
+Analysis needs at least 3 selected parts and enough complete rows (rows
+with no missing values among the selected columns) - both show a
+validation message explaining which condition failed.
+
+**The correlation heatmap disappeared on Data Comparison.** It only draws
+for 1 or exactly 2 selected datasets; with 3+ datasets selected, the
+side-by-side comparison table still works, but narrow your selection to 2
+if you need the heatmap.
+
+**I changed the Mahalanobis lambda/omega settings and they changed on
+another tab too.** The Ternary Plots and Data Comparison tabs share the
+same lambda/omega/threshold-mode inputs by design - they are one setting,
+not two independent ones.
+
+**A filter box I typed into disappeared.** Changing which column(s) are
+selected for an element (Ternary Plots) rebuilds that element's filter
+box, clearing any previously typed text.
+
+**Combining multiple files dropped some of my columns.** Tabs that combine
+files (Plot Builder, Extreme Value Analysis, Spatial Clustering,
+Compositional Analysis, Data Comparison) keep only columns common to every
+selected file. If two files have no columns in common at all, you'll see a
+validation error instead of a partial merge.
+
+# Where to go next
+
+For formulas, assumptions, statistical significance thresholds, and a
+live worked numeric example of every method mentioned above, see
+`vignette("statistical-appendix", package = "vidternary")`.

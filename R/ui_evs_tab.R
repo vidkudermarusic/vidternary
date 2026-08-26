@@ -5,6 +5,10 @@
 # R/extreme_value_analysis.R for the statistics/plotting and
 # R/server_evs.R for the Shiny wiring.
 
+#' Build the "Extreme Value Analysis" tab's UI
+#'
+#' @return A `shiny::tabPanel()`.
+#' @export
 create_evs_tab <- function() {
   tabPanel("Extreme Value Analysis",
     fluidRow(
@@ -20,7 +24,12 @@ create_evs_tab <- function() {
             tags$li("Block maxima are fit to a Gumbel probability plot; the fitted line predicts the largest inclusion over T control areas."),
             tags$li(strong("What T actually means depends on your grouping choice below:"),
               " if you select a real field/frame-of-view ID column, each control area is a known physical SEM area, so T = 100 means a real area 100× one field. ",
-              "If you instead use the 'split into N equal groups' fallback, each group is just an arbitrary slice of rows with no fixed physical size - T = 100 there only means '100× as many statistical groups', not a known physical area.")
+              "If you instead use the 'split into N equal groups' fallback, each group is just an arbitrary slice of rows with no fixed physical size - T = 100 there only means '100× as many statistical groups', not a known physical area."),
+            tags$li("Method: ", cite_link("Murakami, 1994", "https://doi.org/10.6028/jres.099.032"),
+              ", standardized in ", cite_link("ASTM E2283-08(2019)"), ". ",
+              "Goodness-of-fit is tested with the Anderson-Darling statistic (",
+              cite_link("Anderson & Darling, 1952", "https://doi.org/10.1214/aoms/1177729437"), "; ",
+              cite_link("Stephens, 1977", "https://doi.org/10.1093/biomet/64.3.583"), ")")
           )
         ),
 
