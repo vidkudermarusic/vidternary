@@ -25,7 +25,7 @@
 # taking logs (default: half the smallest positive value found across the
 # selected columns). This is a simplified version of the standard
 # multiplicative zero-replacement approach in the CoDA literature (e.g.
-# Martin-Fernandez et al.) - documented here rather than implemented in
+# Martín-Fernández et al.) - documented here rather than implemented in
 # full, since the full method needs a detection-limit per element that
 # this app's data doesn't carry.
 
@@ -43,6 +43,20 @@
 # Centered log-ratio transform. Returns a data frame with one column per
 # selected part, same column names, CLR-transformed values (each row
 # sums to ~0).
+#' Centered log-ratio (CLR) transform of compositional columns
+#'
+#' `clr_i = ln(x_i) - mean(ln(x))`. Each output column still corresponds to
+#' one original element, so loadings/biplots computed from it stay directly
+#' interpretable - but the transformed columns always sum to 0 per row, so
+#' their covariance matrix is singular (see `ilr_transform()`).
+#'
+#' @param data A data frame containing the compositional columns.
+#' @param parts Character vector of column names to transform (at least 2).
+#' @param zero_replacement Value substituted for zero/NA entries before
+#'   taking logs. Defaults to half the smallest positive value found across
+#'   `parts`.
+#' @return A data frame of CLR-transformed values, one column per `parts` entry.
+#' @export
 clr_transform <- function(data, parts, zero_replacement = NULL) {
   if (length(parts) < 2) stop("At least 2 compositional parts (columns) are required.")
   mat <- as.matrix(data[, parts, drop = FALSE])
@@ -59,6 +73,26 @@ clr_transform <- function(data, parts, zero_replacement = NULL) {
 # ("pivot coordinate") basis. Returns a list with the transformed
 # coordinates (D-1 columns, named ilr_1..ilr_(D-1)) and the basis matrix V
 # (D x (D-1)) such that clr = V %*% t(ilr) reconstructs the CLR values.
+#' Isometric log-ratio (ILR) transform of compositional columns
+#'
+#' An orthonormal re-expression of the CLR coordinates into `D-1`
+#' coordinates with a non-singular covariance matrix, using the standard
+#' sequential-binary-partition ("pivot coordinate") basis: coordinate `j`
+#' contrasts the geometric mean of the first `j` parts against part `j+1`.
+#' ILR is an isometry of CLR, so PCA on either basis gives identical
+#' variance-explained and scores (up to sign) - only the loadings'
+#' interpretation differs (per-element for CLR, an abstract balance for ILR).
+#'
+#' @param data A data frame containing the compositional columns.
+#' @param parts Character vector of column names to transform (at least 2).
+#'   The order determines what each `ilr_j` balance represents.
+#' @param zero_replacement Value substituted for zero/NA entries before
+#'   taking logs. Defaults to half the smallest positive value found across
+#'   `parts`.
+#' @return A list with `ilr` (data frame, columns `ilr_1..ilr_(D-1)`),
+#'   `basis` (the `D x (D-1)` orthonormal basis matrix `V` such that
+#'   `clr = V %*% t(ilr)`), and `parts`.
+#' @export
 ilr_transform <- function(data, parts, zero_replacement = NULL) {
   if (length(parts) < 2) stop("At least 2 compositional parts (columns) are required.")
   D <- length(parts)
@@ -98,6 +132,16 @@ ilr_transform <- function(data, parts, zero_replacement = NULL) {
 }
 
 # Thin wrapper around prcomp() for the transformed (CLR or ILR) data.
+#' Run PCA on CLR- or ILR-transformed compositional data
+#'
+#' Thin wrapper around `stats::prcomp()` (centered, unscaled).
+#'
+#' @param transformed_data A data frame of CLR- or ILR-transformed values,
+#'   as returned by `clr_transform()` or `ilr_transform()$ilr`.
+#' @return A list with `pca` (the raw `prcomp` object), `scores` (data
+#'   frame of PC scores), `loadings` (data frame of PC loadings), and
+#'   `var_explained` (numeric vector, percent variance per component).
+#' @export
 compositional_pca <- function(transformed_data) {
   pca <- stats::prcomp(transformed_data, center = TRUE, scale. = FALSE)
   var_explained <- (pca$sdev^2) / sum(pca$sdev^2) * 100
@@ -111,6 +155,14 @@ compositional_pca <- function(transformed_data) {
 
 # PCA biplot: score points (PC1 vs PC2) with loading vectors overlaid,
 # scaled to be visible alongside the scores.
+#' Build a PCA biplot (PC1 vs PC2 scores with loading vectors)
+#'
+#' @param pca_result A result from `compositional_pca()`.
+#' @param scale_loadings Numeric factor to scale loading arrows by, for
+#'   visibility alongside the scores. Defaults to an automatically chosen
+#'   scale (80% of the score range relative to the loading range).
+#' @return A `ggplot` object.
+#' @export
 create_coda_biplot <- function(pca_result, scale_loadings = NULL) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 package is required for plotting")
   scores <- pca_result$scores

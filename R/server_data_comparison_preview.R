@@ -1,175 +1,109 @@
 # ---- Server Data Comparison Module: Validation & Excel Preview ----
-# Split out of server_data_comparison.R: missing-value/outlier summaries,
-# raw Excel previews, and the dynamic analysis-buttons/output-switcher UI.
-#
-# NOTE: output$data_readiness_status is assigned again here, overriding the
-# version in server_data_comparison_stats.R (pre-existing behavior in the
-# original single file - this version re-reads the raw uploaded files
-# directly rather than relying on cached rv$df1/df2). Preserved as-is;
-# register_data_comparison_stats_handlers() must run first in
-# server_data_comparison.R for this override order to hold.
+# Split out of server_data_comparison.R: missing-value/outlier summaries and
+# raw Excel previews for whichever loaded dataset the user picks via
+# comparison_preview_target (populated by server_data_comparison_upload.R).
+# data_readiness_status lives in server_data_comparison_upload.R now - the
+# original single file had it duplicated here and in the stats module (the
+# second registration silently winning); that duplication is gone now that
+# both modules read from the same rv$comparison_data instead of each
+# re-reading xlsx_file1/xlsx_file2 independently.
 
 register_data_comparison_preview_handlers <- function(input, output, session, rv, show_message, log_operation) {
 
-  output$analysis_validation1 <- renderPrint({
-    req(rv$df1)
+  # Per-column outlier counts for one method - mirrors the row-level flag
+  # helpers in statistical_filters.R (get_iqr/zscore/mad_outlier_flags), but
+  # counted per column rather than OR'd across columns into one row flag,
+  # since this report shows "how many outliers did each column contribute"
+  # rather than "which rows are outliers overall". Positive outliers only
+  # (values above the upper bound), matching this app's convention elsewhere.
+  per_column_outlier_counts <- function(df, numeric_cols, method) {
+    sapply(df[, numeric_cols, drop = FALSE], function(x) {
+      if (length(x) < 4 || !is.numeric(x)) return(0)
+      flagged <- switch(method,
+        iqr = {
+          Q1 <- quantile(x, 0.25, na.rm = TRUE)
+          Q3 <- quantile(x, 0.75, na.rm = TRUE)
+          x > Q3 + 1.5 * (Q3 - Q1)
+        },
+        zscore = {
+          z <- as.numeric(scale(x))
+          z > 3
+        },
+        mad = {
+          med <- median(x, na.rm = TRUE)
+          mad_val <- mad(x, na.rm = TRUE)
+          x > med + 3 * mad_val
+        }
+      )
+      sum(flagged, na.rm = TRUE)
+    })
+  }
+
+  missing_outlier_summary <- function(df, label) {
     tryCatch({
-      numeric_cols <- sapply(rv$df1, is.numeric)
+      numeric_cols <- sapply(df, is.numeric)
       if (sum(numeric_cols) == 0) {
-        cat("No numeric columns found in Dataset 1")
-        return()
+        cat("No numeric columns found in", label, "\n")
+        return(invisible())
       }
 
-      cat("=== Dataset 1 Missing/Outlier Summary ===\n")
+      cat("=== ", label, " Missing/Outlier Summary ===\n", sep = "")
 
-      # Missing values summary
-      missing_summary <- sapply(rv$df1[, numeric_cols, drop = FALSE], function(x) sum(is.na(x)))
+      missing_summary <- sapply(df[, numeric_cols, drop = FALSE], function(x) sum(is.na(x)))
       cat("Missing values per column:\n")
       print(missing_summary[missing_summary > 0])
 
-      # Outlier detection using IQR method
-      outlier_summary <- sapply(rv$df1[, numeric_cols, drop = FALSE], function(x) {
-        if (length(x) < 4) return(0)
-        Q1 <- quantile(x, 0.25, na.rm = TRUE)
-        Q3 <- quantile(x, 0.75, na.rm = TRUE)
-        IQR <- Q3 - Q1
-        lower_bound <- Q1 - 1.5 * IQR
-        upper_bound <- Q3 + 1.5 * IQR
-        sum(x < lower_bound | x > upper_bound, na.rm = TRUE)
-      })
+      # All three statistical methods, printed one below another and
+      # clearly labeled, so it's unambiguous which method produced which
+      # counts - each uses the same "positive outliers only" convention and
+      # default threshold as the main Ternary Plots tab's Statistical
+      # Filtering section (IQR: 1.5xIQR, Z-score: 3, MAD: 3xMAD).
+      cat("\n--- Outliers per column: IQR method (> Q3 + 1.5xIQR) ---\n")
+      iqr_summary <- per_column_outlier_counts(df, numeric_cols, "iqr")
+      print(iqr_summary[iqr_summary > 0])
 
-      cat("\nOutliers per column (IQR method):\n")
-      print(outlier_summary[outlier_summary > 0])
+      cat("\n--- Outliers per column: Z-Score method (z-score > 3) ---\n")
+      zscore_summary <- per_column_outlier_counts(df, numeric_cols, "zscore")
+      print(zscore_summary[zscore_summary > 0])
 
-      cat("\n=== Data Quality Summary ===\n")
-      cat("Total rows:", nrow(rv$df1), "\n")
-      cat("Numeric columns:", sum(numeric_cols), "\n")
-      cat("Complete cases:", sum(complete.cases(rv$df1[, numeric_cols, drop = FALSE])), "\n")
-      cat("Complete case percentage:", round(sum(complete.cases(rv$df1[, numeric_cols, drop = FALSE])) / nrow(rv$df1) * 100, 1), "%\n")
-
-    }, error = function(e) {
-      cat("Error computing validation for Dataset 1:", e$message, "\n")
-    })
-  })
-
-  output$excel_preview1 <- DT::renderDataTable({
-    req(input$xlsx_file1)
-    openxlsx::read.xlsx(input$xlsx_file1$datapath, sheet = 1)
-  })
-
-
-  output$analysis_validation2 <- renderPrint({
-    req(rv$df2)
-    tryCatch({
-      numeric_cols <- sapply(rv$df2, is.numeric)
-      if (sum(numeric_cols) == 0) {
-        cat("No numeric columns found in Dataset 2")
-        return()
-      }
-
-      cat("=== Dataset 2 Missing/Outlier Summary ===\n")
-
-      # Missing values summary
-      missing_summary <- sapply(rv$df2[, numeric_cols, drop = FALSE], function(x) sum(is.na(x)))
-      cat("Missing values per column:\n")
-      print(missing_summary[missing_summary > 0])
-
-      # Outlier detection using IQR method
-      outlier_summary <- sapply(rv$df2[, numeric_cols, drop = FALSE], function(x) {
-        if (length(x) < 4) return(0)
-        Q1 <- quantile(x, 0.25, na.rm = TRUE)
-        Q3 <- quantile(x, 0.75, na.rm = TRUE)
-        IQR <- Q3 - Q1
-        lower_bound <- Q1 - 1.5 * IQR
-        upper_bound <- Q3 + 1.5 * IQR
-        sum(x < lower_bound | x > upper_bound, na.rm = TRUE)
-      })
-
-      cat("\nOutliers per column (IQR method):\n")
-      print(outlier_summary[outlier_summary > 0])
+      cat("\n--- Outliers per column: MAD method (> median + 3xMAD) ---\n")
+      mad_summary <- per_column_outlier_counts(df, numeric_cols, "mad")
+      print(mad_summary[mad_summary > 0])
 
       cat("\n=== Data Quality Summary ===\n")
-      cat("Total rows:", nrow(rv$df2), "\n")
+      cat("Total rows:", nrow(df), "\n")
       cat("Numeric columns:", sum(numeric_cols), "\n")
-      cat("Complete cases:", sum(complete.cases(rv$df2[, numeric_cols, drop = FALSE])), "\n")
-      cat("Complete case percentage:", round(sum(complete.cases(rv$df2[, numeric_cols, drop = FALSE])) / nrow(rv$df2) * 100, 1), "%\n")
-
+      cat("Complete cases:", sum(complete.cases(df[, numeric_cols, drop = FALSE])), "\n")
+      cat("Complete case percentage:", round(sum(complete.cases(df[, numeric_cols, drop = FALSE])) / nrow(df) * 100, 1), "%\n")
     }, error = function(e) {
-      cat("Error computing validation for Dataset 2:", e$message, "\n")
+      cat("Error computing validation for", label, ":", e$message, "\n")
     })
+  }
+
+  output$comparison_preview_validation <- renderPrint({
+    req(rv$comparison_data, input$comparison_preview_target)
+    df <- rv$comparison_data[[input$comparison_preview_target]]
+    req(df)
+    missing_outlier_summary(df, input$comparison_preview_target)
   })
 
-  output$excel_preview2 <- DT::renderDataTable({
-    req(input$xlsx_file2)
-    openxlsx::read.xlsx(input$xlsx_file2$datapath, sheet = 1)
+  output$comparison_preview_excel <- DT::renderDataTable({
+    req(rv$comparison_data, input$comparison_preview_target)
+    rv$comparison_data[[input$comparison_preview_target]]
   })
 
-  # Dynamic analysis buttons and outputs
-  selected_analysis <- reactiveVal(NULL)
-  observeEvent(input$show_missing1, { selected_analysis("missing1") })
-  observeEvent(input$show_excel1, { selected_analysis("excel1") })
-  observeEvent(input$show_missing2, { selected_analysis("missing2") })
-  observeEvent(input$show_excel2, { selected_analysis("excel2") })
+  selected_preview <- reactiveVal(NULL)
+  observeEvent(input$show_missing_selected, { selected_preview("missing") })
+  observeEvent(input$show_excel_selected, { selected_preview("excel") })
+  observeEvent(input$comparison_preview_target, { selected_preview(NULL) })
 
-  output$analysis_buttons <- renderUI({
-    req(input$xlsx_file1, input$xlsx_file2)
-    tagList(
-      h4("Dataset 1 Analysis:"),
-      actionButton("show_missing1", "Missing/Outlier Summary 1"),
-      actionButton("show_excel1", "Excel File Preview 1"),
-      br(), br(),
-      h4("Dataset 2 Analysis:"),
-      actionButton("show_missing2", "Missing/Outlier Summary 2"),
-      actionButton("show_excel2", "Excel File Preview 2")
-    )
-  })
-
-  output$dynamic_output <- renderUI({
-    req(input$xlsx_file1, input$xlsx_file2)
-    sel <- selected_analysis()
-    if (is.null(sel) || length(sel) != 1) return(NULL)
+  output$comparison_preview_output <- renderUI({
+    sel <- selected_preview()
+    if (is.null(sel)) return(NULL)
     switch(sel,
-           missing1 = verbatimTextOutput("analysis_validation1"),
-           excel1 = DT::dataTableOutput("excel_preview1"),
-           missing2 = verbatimTextOutput("analysis_validation2"),
-           excel2 = DT::dataTableOutput("excel_preview2"),
+           missing = verbatimTextOutput("comparison_preview_validation"),
+           excel = DT::dataTableOutput("comparison_preview_excel"),
            NULL
     )
-  })
-
-
-  # Enhanced data readiness status
-  output$data_readiness_status <- renderPrint({
-    if (is.null(input$xlsx_file1) || is.null(input$xlsx_file2)) {
-      cat("📋 Please upload both datasets to begin comparison.\n")
-      return()
-    }
-
-    tryCatch({
-      df1 <- openxlsx::read.xlsx(input$xlsx_file1$datapath, sheet=1)
-      df2 <- openxlsx::read.xlsx(input$xlsx_file2$datapath, sheet=1)
-
-      # Basic data validation
-      numeric_cols1 <- sapply(df1, is.numeric)
-      numeric_cols2 <- sapply(df2, is.numeric)
-      common_cols <- intersect(colnames(df1)[numeric_cols1], colnames(df2)[numeric_cols2])
-
-      cat("=== DATA READINESS STATUS ===\n")
-      cat("Dataset 1:", nrow(df1), "rows ×", ncol(df1), "columns\n")
-      cat("Dataset 2:", nrow(df2), "rows ×", ncol(df2), "columns\n")
-      cat("Common numeric columns:", length(common_cols), "\n")
-
-      if (length(common_cols) >= 2) {
-        cat("✅ Ready for multivariate analysis\n")
-        cat("Available columns:", paste(common_cols, collapse = ", "), "\n")
-      } else {
-        cat("❌ Need at least 2 common numeric columns\n")
-        cat("Dataset 1 numeric:", sum(numeric_cols1), "\n")
-        cat("Dataset 2 numeric:", sum(numeric_cols2), "\n")
-      }
-
-    }, error = function(e) {
-      cat("❌ Error reading datasets:", e$message, "\n")
-    })
   })
 }

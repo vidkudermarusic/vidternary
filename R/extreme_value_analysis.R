@@ -13,6 +13,17 @@
 # between hex_ternary_plot.R (plotting) and server_hex_ternary.R (wiring).
 
 # Block maxima: largest sqrt(area) per control-area group.
+#' Compute per-group block maxima of sqrt(area)
+#'
+#' Murakami's method: within each control-area group, take the largest
+#' inclusion by `sqrt(area)`. Non-finite, non-positive, or NA-grouped rows
+#' are dropped first.
+#'
+#' @param data A data frame containing `area_col` and `group_col`.
+#' @param area_col Name of the numeric inclusion-area column.
+#' @param group_col Name of the control-area grouping column.
+#' @return A data frame with one row per group: `group`, `n_inclusions`, `sqrt_area_max`.
+#' @export
 compute_block_maxima <- function(data, area_col, group_col) {
   area <- suppressWarnings(as.numeric(data[[area_col]]))
   group <- data[[group_col]]
@@ -35,6 +46,17 @@ compute_block_maxima <- function(data, area_col, group_col) {
 # Fit the Gumbel probability plot: sqrt_area_max ~ reduced variate y.
 # Plotting position F_j = j/(n+1) (Weibull/mean position, the convention
 # used in Murakami's original papers); reduced variate y = -ln(-ln(F)).
+#' Fit a Gumbel probability plot to block maxima
+#'
+#' Plotting position `F_j = j/(n+1)` (Weibull/mean position), reduced
+#' variate `y = -ln(-ln(F))`, fit by OLS: `sqrt_area_max ~ y`.
+#'
+#' @param sqrt_area_max Numeric vector of block maxima (e.g.
+#'   `compute_block_maxima()$sqrt_area_max`). Requires at least 3 finite,
+#'   positive values.
+#' @return A list: `data` (fit data frame with `rank`/`sqrt_area_max`/`F`/`y`),
+#'   `model` (the `lm` object), `intercept`, `slope`, `r_squared`, `n`.
+#' @export
 fit_evs_gumbel <- function(sqrt_area_max) {
   sqrt_area_max <- sort(sqrt_area_max[is.finite(sqrt_area_max) & sqrt_area_max > 0])
   n <- length(sqrt_area_max)
@@ -76,6 +98,21 @@ fit_evs_gumbel <- function(sqrt_area_max) {
 # nominal 5%. Instead, the null distribution is simulated directly for
 # this exact estimator: simulate many samples from Gumbel(a, b), refit
 # each the same way, and see where the observed statistic falls.
+#' Anderson-Darling goodness-of-fit test for a fitted Gumbel model
+#'
+#' Tests whether the block maxima plausibly come from a single Gumbel
+#' distribution, via a parametric-bootstrap null distribution calibrated
+#' for this exact (least-squares probability-plot) estimator, rather than
+#' the published MLE-calibrated critical values (which were checked
+#' empirically to over-reject at ~15% instead of the nominal 5% here).
+#'
+#' @param fit A result from `fit_evs_gumbel()`.
+#' @param n_sim Number of bootstrap replicates. Default 999.
+#' @param seed RNG seed for the bootstrap; the caller's RNG state is saved
+#'   and restored afterward.
+#' @return A list: `statistic` (observed A²), `n`, `n_sim`, `p_value`,
+#'   `p_value_bracket` (formatted string), `reject_at_05` (logical).
+#' @export
 gumbel_goodness_of_fit <- function(fit, n_sim = 999, seed = 42) {
   x <- sort(fit$data$sqrt_area_max)
   n <- length(x)
@@ -128,6 +165,17 @@ gumbel_goodness_of_fit <- function(fit, n_sim = 999, seed = 42) {
 
 # Predict the largest sqrt(area) expected over a larger area, expressed as
 # a return period T (multiples of the control area S0). T must be > 1.
+#' Predict the largest inclusion expected over a larger area
+#'
+#' Extrapolates the fitted Gumbel line to reduced variate
+#' `y_T = -ln(-ln(1 - 1/T))` for return period `T`, with a 95% prediction
+#' interval from the underlying linear model.
+#'
+#' @param fit A result from `fit_evs_gumbel()`.
+#' @param return_period Return period `T` (multiples of the control area),
+#'   a finite number greater than 1.
+#' @return A list: `return_period`, `y`, `predicted`, `lower`, `upper` (95% PI bounds).
+#' @export
 predict_evs_max <- function(fit, return_period) {
   if (!is.finite(return_period) || return_period <= 1) {
     stop("Return period T must be a finite number greater than 1.")
@@ -147,6 +195,17 @@ predict_evs_max <- function(fit, return_period) {
 # Gumbel probability plot: reduced variate y (x-axis, with a secondary
 # probability-scale axis) vs sqrt(area) block maxima (y-axis), fitted
 # line, and the extrapolated prediction when supplied.
+#' Build the Gumbel probability plot
+#'
+#' Reduced variate (x-axis, with a secondary cumulative-probability axis)
+#' vs. sqrt(area) block maxima, fitted line with confidence band, and the
+#' extrapolated prediction point/interval if supplied.
+#'
+#' @param fit A result from `fit_evs_gumbel()`.
+#' @param prediction Optional result from `predict_evs_max()`, plotted as
+#'   an additional point with error bars.
+#' @return A `ggplot` object.
+#' @export
 create_gumbel_plot <- function(fit, prediction = NULL) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 package is required for plotting")
 

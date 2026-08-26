@@ -2,7 +2,19 @@
 # Split out of helpers.R: functions that collect filter values from Shiny
 # `input`, and apply them to a data frame.
 
-# Unified filter collection function
+#' Collect per-element filter values from Shiny `input`
+#'
+#' For each name in `elements`, looks up the matching dynamically-named
+#' filter text input (built from `prefix`/`filter_type`/`dataset_num`/the
+#' element name) and includes it in the result if non-empty.
+#'
+#' @param elements Character vector of element/column names to look up filters for.
+#' @param filter_type Filter-type label used in the input ID (e.g. `"A"`, `"op1"`).
+#' @param input The Shiny `input` object.
+#' @param prefix Input ID prefix, e.g. `"filter"` or `"multiple_filter"`. Default `"filter"`.
+#' @param dataset_num Dataset number suffix (1 or 2), used only when `prefix == "filter"`.
+#' @return A named list of non-empty filter values, keyed by element name.
+#' @export
 collect_filters <- function(elements, filter_type, input, prefix = "filter", dataset_num = NULL) {
   if (is.null(elements) || length(elements) == 0) return(list())
 
@@ -30,20 +42,47 @@ collect_filters <- function(elements, filter_type, input, prefix = "filter", dat
   return(filters)
 }
 
-# Simplified wrapper functions for backward compatibility
+#' `collect_filters()` for the Multiple Ternary Creator's element filters
+#'
+#' @param elements Character vector of element/column names.
+#' @param element_type Element-type label used in the input ID (e.g. `"A"`).
+#' @param input The Shiny `input` object.
+#' @return A named list of non-empty filter values.
+#' @export
 collect_individual_filters <- function(elements, element_type, input) {
   collect_filters(elements, element_type, input, prefix = "multiple_filter")
 }
 
+#' `collect_filters()` for the Multiple Ternary Creator's optional-parameter filters
+#'
+#' @param elements Character vector of element/column names.
+#' @param param_type Parameter-type label used in the input ID (e.g. `"op1"`).
+#' @param input The Shiny `input` object.
+#' @return A named list of non-empty filter values.
+#' @export
 collect_optional_param_filters <- function(elements, param_type, input) {
   collect_filters(elements, param_type, input, prefix = "multiple_filter")
 }
 
+#' `collect_filters()` for the main Ternary Plots tab's element filters
+#'
+#' @param elements Character vector of element/column names.
+#' @param element_type Element-type label used in the input ID (e.g. `"A"`).
+#' @param dataset_num Dataset number (1 or 2), used in the input ID.
+#' @param input The Shiny `input` object.
+#' @return A named list of non-empty filter values.
+#' @export
 collect_main_ternary_filters <- function(elements, element_type, dataset_num, input) {
   collect_filters(elements, element_type, input, prefix = "filter", dataset_num = dataset_num)
 }
 
-# Function to collect all filters for multiple ternary creator
+#' Collect every element/optional-parameter filter for the Multiple Ternary Creator
+#'
+#' @param input The Shiny `input` object.
+#' @return A list with `individual_filters_A/B/C` and
+#'   `optional_param1_filters`/`optional_param2_filters`, each a named list
+#'   of non-empty filter values.
+#' @export
 collect_all_multiple_filters <- function(input) {
   list(
     individual_filters_A = collect_filters(input$multiple_element_A, "A", input, prefix = "multiple_filter"),
@@ -54,7 +93,17 @@ collect_all_multiple_filters <- function(input) {
   )
 }
 
-# Function to apply filter safely
+#' Apply a single comparison-operator filter string to a data frame column
+#'
+#' Parses a filter string like `"> 10"`, `"<= 5.2"`, or `"!= 3"` and returns
+#' the matching rows, without using `eval()`.
+#'
+#' @param df A data frame.
+#' @param col Name of the numeric column to filter on.
+#' @param filter Filter string starting with one of `>`, `<`, `>=`, `<=`,
+#'   `==`, `!=`, followed by a numeric value. `NULL` returns `df` unchanged.
+#' @return The filtered data frame.
+#' @export
 apply_filter <- function(df, col, filter) {
   if (is.null(filter)) return(df)
 
@@ -117,7 +166,28 @@ apply_individual_filters <- function(data, element, individual_filters, element_
   return(filtered_data)
 }
 
-# Unified parameter extraction for ternary plots
+#' Build the full parameter list for `general_ternary_plot()` from Shiny inputs
+#'
+#' Reads elements A/B/C, optional parameters 1/2, all element/optional-param
+#' filters, the active statistical/multivariate filter method and its
+#' settings, output options, and group-selection state from `input`/`rv`,
+#' assembling them into the single list `general_ternary_plot()` expects.
+#' Used by both the main Ternary Plots tab (`multiple_mode = FALSE`) and
+#' the Multiple Ternary Creator (`multiple_mode = TRUE`).
+#'
+#' @param input The Shiny `input` object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param dataset_num Dataset number (1 or 2); ignored when `multiple_mode = TRUE`.
+#' @param preview Whether this is for a live preview (`TRUE`) or an actual
+#'   save (`FALSE`). Default `FALSE`.
+#' @param directory_management Optional directory-management module (from
+#'   `create_server_directory_management()`), used to resolve the output
+#'   directory. If `NULL`, falls back to `<cwd>/output`.
+#' @param multiple_mode Whether to read the Multiple Ternary Creator's
+#'   inputs instead of the main Ternary Plots tab's. Default `FALSE`.
+#' @return A named list of parameters ready to pass to `general_ternary_plot()`,
+#'   or `NULL` if element A/B/C aren't all set yet.
+#' @export
 extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, directory_management = NULL, multiple_mode = FALSE) {
   # Essential parameters
   xlsx_file <- rv[[paste0("xlsx_file", dataset_num)]]
@@ -301,8 +371,13 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, dire
   mdthresh_mode <- if (!is.null(input$mdthresh_mode)) input$mdthresh_mode else "auto"
   selected_columns <- if (!is.null(input$multivariate_columns)) input$multivariate_columns else NULL
 
-  # File format
-  output_format <- if (!is.null(input$output_format)) input$output_format else "png"
+  # File format - the Multiple Ternary Creator tab has its own dropdown
+  # (multiple_output_format), separate from the main tab's (output_format).
+  output_format <- if (multiple_mode) {
+    if (!is.null(input$multiple_output_format)) input$multiple_output_format else "png"
+  } else {
+    if (!is.null(input$output_format)) input$output_format else "png"
+  }
 
   # Manual point size control
   use_manual_point_size <- if (!is.null(input$use_manual_point_size)) input$use_manual_point_size else FALSE

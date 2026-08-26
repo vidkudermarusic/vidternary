@@ -10,7 +10,6 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 - **Multiple Ternary Creator** — batch-generates one ternary plot per uploaded file using the same element mapping and filters
 - **Hexagonal Ternary Diagram** — composites 6 triangular ternary plots that share a central element/combination into one hexagonal image
 - **Plot Builder** — a generic chart builder: pick plot type, X/Y axis, color/group, and log scales from dropdowns populated from your data's own columns, with named presets you can save and reload
-- **Data Export** — export filtered data and generated plots
 - **Analysis Log** — a running log of operations performed during the session
 
 ## 🏗️ Modular Architecture

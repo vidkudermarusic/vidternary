@@ -8,7 +8,7 @@ Description: A comprehensive R package for creating ternary plots with advanced 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.3
 Depends: 
     R (>= 4.0.0)
 Imports: 
@@ -40,11 +40,14 @@ Imports:
     devtools,
     magick,
     png,
-    rlang
+    rlang,
+    RANN
 Suggests: 
     testthat,
     knitr,
     rmarkdown
-Vignettes: 
-    vidternary-intro
+Vignettes:
+    vidternary-intro,
+    user-guide,
+    statistical-appendix
 Roxygen: list(markdown = TRUE)

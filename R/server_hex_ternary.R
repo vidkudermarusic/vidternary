@@ -4,6 +4,22 @@
 # tempdir() for preview, "Save" writes into a timestamped subfolder under
 # the app's configured output directory.
 
+#' Wire up the Hexagonal Ternary Diagram tab's server logic
+#'
+#' Registers the observers/renderers for the "Hexagonal Ternary Diagram"
+#' tab: file upload, the 7 element-slot dropdowns, and the Generate/Save
+#' handlers (via `create_hex_ternary_diagram()`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @param directory_management Optional directory-management module, used
+#'   to resolve the output directory for saved diagrams.
+#' @return A list with `module_name`.
+#' @export
 create_server_hex_ternary <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
   hex_result_path <- reactiveVal(NULL)
@@ -106,7 +122,15 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
     if (is.null(hex_result_path())) {
       tags$p("Upload a file, select all 7 element positions and click “Ustvari heksagonalni diagram”.")
     } else {
-      imageOutput("hex_plot", height = "700px")
+      # height must track the image's actual rendered size, not a fixed
+      # px value: the composite PNG is generated at 1400x1400
+      # (hex_ternary_plot.R) and displayed at width="100%", so at typical
+      # browser widths it renders well over 700px tall. A fixed-height
+      # container doesn't grow to match, so the image overflowed past its
+      # box while the page layout still treated the container as only
+      # 700px tall - the Directory Settings section right after it in the
+      # page ended up visually overlapping the middle of the image.
+      imageOutput("hex_plot", height = "auto")
     }
   })
 

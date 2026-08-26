@@ -5,6 +5,11 @@
 
 PLOT_BUILDER_PRESETS_FILE <- "plot_builder_presets.json"
 
+#' Load saved Plot Builder presets from `plot_builder_presets.json`
+#'
+#' @return A named list of saved presets, or an empty list if the file
+#'   doesn't exist or fails to parse.
+#' @export
 load_builder_presets <- function() {
   if (file.exists(PLOT_BUILDER_PRESETS_FILE)) {
     tryCatch({
@@ -19,6 +24,11 @@ load_builder_presets <- function() {
   list()
 }
 
+#' Save Plot Builder presets to `plot_builder_presets.json`
+#'
+#' @param presets Named list of presets to write.
+#' @return `NULL`, invisibly. Called for its file-writing side effect.
+#' @export
 save_builder_presets <- function(presets) {
   tryCatch({
     jsonlite::write_json(presets, PLOT_BUILDER_PRESETS_FILE, pretty = TRUE, auto_unbox = TRUE, null = "null")

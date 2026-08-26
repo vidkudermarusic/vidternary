@@ -9,6 +9,23 @@
 # with jsonlite::validate, as discovered while building the Plot Builder
 # tab.
 
+#' Wire up the Compositional Analysis tab's server logic
+#'
+#' Registers the observers/renderers for the "Compositional Analysis" tab:
+#' file upload/combine, Wt% column auto-detection, and the CLR/ILR
+#' transform + PCA pipeline (`clr_transform()`/`ilr_transform()`/
+#' `compositional_pca()`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @param directory_management Optional directory-management module (unused
+#'   by this tab, accepted for interface consistency with other tabs).
+#' @return A list with `module_name`.
+#' @export
 create_server_coda <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
   combined_data <- reactive({
@@ -50,8 +67,16 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     clr <- tryCatch(clr_transform(d_complete, parts), error = function(e) { shiny::validate(paste("Error computing CLR:", e$message)) })
     ilr_res <- tryCatch(ilr_transform(d_complete, parts), error = function(e) { shiny::validate(paste("Error computing ILR:", e$message)) })
     pca <- tryCatch(compositional_pca(clr), error = function(e) { shiny::validate(paste("Error running PCA:", e$message)) })
+    # ILR is an orthonormal (isometric) re-expression of CLR, so PCA on ILR
+    # gives the same eigenvalues/variance-explained and scores (up to
+    # per-component sign) as PCA on CLR - only the loadings differ, since
+    # they're expressed in the abstract ilr_1..ilr_(D-1) balance coordinates
+    # instead of one coordinate per element. Run separately so that basis's
+    # own loadings table has something to show - previously ILR data was
+    # only ever reachable via the download button, never actually displayed.
+    pca_ilr <- tryCatch(compositional_pca(ilr_res$ilr), error = function(e) { shiny::validate(paste("Error running PCA on ILR:", e$message)) })
 
-    list(clr = clr, ilr = ilr_res$ilr, pca = pca, n = nrow(d_complete), parts = parts)
+    list(clr = clr, ilr = ilr_res$ilr, pca = pca, pca_ilr = pca_ilr, n = nrow(d_complete), parts = parts)
   })
 
   output$coda_status <- renderText({
@@ -63,6 +88,10 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
 
   output$coda_biplot <- renderPlot({
     print(create_coda_biplot(result()$pca))
+  })
+
+  output$coda_biplot_ilr <- renderPlot({
+    print(create_coda_biplot(result()$pca_ilr))
   })
 
   output$coda_variance_table <- renderTable({
@@ -80,6 +109,12 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     df
   })
 
+  output$coda_loadings_table_ilr <- renderTable({
+    loadings <- result()$pca_ilr$loadings
+    df <- data.frame(Balance = rownames(loadings), loadings, row.names = NULL, check.names = FALSE)
+    df
+  })
+
   output$coda_download_clr <- downloadHandler(
     filename = function() paste0("coda_clr_transformed_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) writexl::write_xlsx(result()$clr, file)
@@ -94,6 +129,13 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     filename = function() paste0("coda_biplot_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
       ggplot2::ggsave(file, plot = create_coda_biplot(result()$pca), width = 9, height = 7, dpi = 300)
+    }
+  )
+
+  output$coda_download_biplot_ilr <- downloadHandler(
+    filename = function() paste0("coda_biplot_ilr_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
+    content = function(file) {
+      ggplot2::ggsave(file, plot = create_coda_biplot(result()$pca_ilr), width = 9, height = 7, dpi = 300)
     }
   )
 

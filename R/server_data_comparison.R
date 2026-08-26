@@ -1,18 +1,20 @@
 # ---- Server Data Comparison Module ----
-# This module contains data comparison functionality including statistics,
+# This module contains data comparison functionality: an independent
+# multi-file data source (not tied to the main Ternary Plots tab's
+# rv$df1/rv$df2, and not limited to two files), descriptive statistics,
 # correlations, and multivariate analysis. The handlers themselves are
 # registered by sibling modules, split out for size:
+#   server_data_comparison_upload.R       - file upload + dataset/target/reference selectors
 #   server_data_comparison_stats.R        - descriptive stats + correlation
 #   server_data_comparison_multivariate.R - Mahalanobis / Isolation Forest
-#   server_data_comparison_preview.R      - validation summaries + Excel preview
+#   server_data_comparison_preview.R      - missing/outlier summaries + Excel preview
 #
-# Call order matters: output$data_readiness_status is assigned in both the
-# stats and preview modules (a pre-existing duplicate binding), and the
-# preview module's version must win, so it's registered second here - see
-# the notes in those two files.
+# The upload module must be registered first: it owns rv$comparison_data
+# and the selector inputs the other three modules read from.
 
 create_server_data_comparison <- function(input, output, session, rv, show_message, log_operation) {
 
+  register_data_comparison_upload_handlers(input, output, session, rv, show_message, log_operation)
   register_data_comparison_stats_handlers(input, output, session, rv, show_message, log_operation)
   register_data_comparison_multivariate_handlers(input, output, session, rv, show_message, log_operation)
   register_data_comparison_preview_handlers(input, output, session, rv, show_message, log_operation)

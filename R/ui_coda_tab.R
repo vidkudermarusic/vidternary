@@ -3,6 +3,10 @@
 # data. See R/compositional_data_analysis.R for the statistics/plotting
 # and R/server_coda.R for the Shiny wiring.
 
+#' Build the "Compositional Analysis" tab's UI
+#'
+#' @return A `shiny::tabPanel()`.
+#' @export
 create_coda_tab <- function() {
   tabPanel("Compositional Analysis",
     fluidRow(
@@ -13,9 +17,10 @@ create_coda_tab <- function() {
         div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
           h5("🎯 How it works", style = "margin-top: 0; color: #0c5460;"),
           tags$ul(
-            tags$li(strong("CLR"), " (centered log-ratio): each element's log-share relative to the geometric mean of all selected elements. Each axis maps directly to one element, so PCA loadings/biplots stay directly interpretable - used for the biplot below."),
-            tags$li(strong("ILR"), " (isometric log-ratio): an orthonormal-coordinate version with a non-singular covariance matrix - each coordinate is an abstract contrast between groups of elements rather than one single element, but gives identical PCA/distance structure to CLR. Available as a download for use in methods that need non-singular covariance."),
-            tags$li("Zeros are replaced with a small pseudo-count (half the smallest positive value found) before taking logs, since log(0) is undefined.")
+            tags$li(strong("CLR"), " (centered log-ratio): each element's log-share relative to the geometric mean of all selected elements. Each axis maps directly to one element, so PCA loadings/biplots stay directly interpretable - used for the biplot below. ", cite_link("Aitchison, 1986"), "."),
+            tags$li(strong("ILR"), " (isometric log-ratio): an orthonormal-coordinate version with a non-singular covariance matrix - each coordinate is an abstract contrast between groups of elements rather than one single element, but gives identical PCA/distance structure to CLR. Available as a download for use in methods that need non-singular covariance. ", cite_link("Egozcue et al., 2003", "https://doi.org/10.1023/A:1023818214614"), "."),
+            tags$li("Zeros are replaced with a small pseudo-count (half the smallest positive value found) before taking logs, since log(0) is undefined - a simplified version of ", cite_link("Martín-Fernández et al., 2003", "https://doi.org/10.1023/A:1023866030544"), "."),
+            tags$li("PCA: ", cite_link("Jolliffe, 2002", "https://doi.org/10.1007/b98835"), ".")
           )
         ),
 
@@ -45,23 +50,46 @@ create_coda_tab <- function() {
         ),
 
         fluidRow(
-          column(8, plotOutput("coda_biplot", height = "500px")),
-          column(4,
-            h4("Variance Explained"),
-            tableOutput("coda_variance_table"),
-            tags$hr(),
-            downloadButton("coda_download_clr", "Download CLR-transformed data (xlsx)"),
-            br(), br(),
-            downloadButton("coda_download_ilr", "Download ILR-transformed data (xlsx)"),
-            br(), br(),
-            downloadButton("coda_download_biplot", "Download biplot (PNG)")
+          column(6,
+            h4("Biplot (CLR basis)"),
+            plotOutput("coda_biplot", height = "450px")
+          ),
+          column(6,
+            h4("Biplot (ILR basis)"),
+            plotOutput("coda_biplot_ilr", height = "450px")
           )
         ),
 
         fluidRow(
-          column(12,
+          column(4,
+            h4("Variance Explained"),
+            tableOutput("coda_variance_table"),
+            helpText("Identical for both bases, since ILR is an isometry of CLR.")
+          ),
+          column(4,
+            h4("Download data"),
+            downloadButton("coda_download_clr", "CLR-transformed data (xlsx)"),
+            br(), br(),
+            downloadButton("coda_download_ilr", "ILR-transformed data (xlsx)")
+          ),
+          column(4,
+            h4("Download biplots"),
+            downloadButton("coda_download_biplot", "CLR biplot (PNG)"),
+            br(), br(),
+            downloadButton("coda_download_biplot_ilr", "ILR biplot (PNG)")
+          )
+        ),
+
+        fluidRow(
+          column(6,
             h4("PCA Loadings (CLR basis)"),
+            helpText("Each row is one element - directly interpretable."),
             tableOutput("coda_loadings_table")
+          ),
+          column(6,
+            h4("PCA Loadings (ILR basis)"),
+            helpText("Each row is an abstract balance (ilr_j contrasts the mean of parts 1..j against part j+1, in the order the parts are listed above) - not per-element, but usable where a non-singular covariance matrix is required. Variance explained and PC scores are identical to the CLR basis, since ILR is an isometry of CLR."),
+            tableOutput("coda_loadings_table_ilr")
           )
         )
       )

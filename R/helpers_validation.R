@@ -1,7 +1,14 @@
 # ---- Helper Functions Module: Data Quality & Validation ----
 # Split out of helpers.R: functions that validate/inspect data quality.
 
-# Function to validate data quality
+#' Check missing values, zero-variance columns, and IQR outliers
+#'
+#' @param data A data frame.
+#' @param cols Columns to check. Defaults to all columns of `data`.
+#' @return A list: `missing_counts` (named integer vector), `zero_var_cols`
+#'   (character vector of column names), `outliers_iqr` (named integer
+#'   vector of IQR-outlier counts).
+#' @export
 validate_data_quality <- function(data, cols = NULL) {
   if (is.null(cols)) {
     cols <- colnames(data)
@@ -37,7 +44,20 @@ validate_data_quality <- function(data, cols = NULL) {
   ))
 }
 
-# Enhanced data validation with detailed error reporting
+#' Validate a data frame and selected columns, with detailed error/warning reporting
+#'
+#' Checks that `df` is non-null with rows/columns, that `cols` all exist,
+#' and reports (as warnings, not errors) high missing-value rates,
+#' infinite values, and zero-variance columns. Logs the outcome via
+#' `log_operation()`.
+#'
+#' @param df A data frame to validate.
+#' @param cols Character vector of column names expected to be present.
+#' @param operation_name Label used in log messages. Default `"Data validation"`.
+#' @return A list: `valid` (logical), `errors`, `warnings` (character
+#'   vectors), plus (when `df`/`cols` are usable) `missing_counts`,
+#'   `infinite_counts`, `zero_var_cols`, `numeric_cols`.
+#' @export
 validate_data_enhanced <- function(df, cols, operation_name = "Data validation") {
   errors <- character(0)
   warnings <- character(0)
@@ -115,7 +135,12 @@ validate_data_enhanced <- function(df, cols, operation_name = "Data validation")
   ))
 }
 
-# Function to validate inputs
+#' Assert that element A/B/C inputs are all set
+#'
+#' @param inputs A list (or Shiny `input`-like object) expected to have
+#'   non-empty `element_A`/`element_B`/`element_C` entries.
+#' @return `NULL`, invisibly, if valid; otherwise raises an error via `stop()`.
+#' @export
 validate_inputs <- function(inputs) {
   required_fields <- c("element_A", "element_B", "element_C")
   missing_fields <- required_fields[!sapply(required_fields, function(x) !is.null(inputs[[x]]) && length(inputs[[x]]) > 0)]
@@ -125,7 +150,20 @@ validate_inputs <- function(inputs) {
   }
 }
 
-# Enhanced Data Quality Check Function
+#' Full data-quality assessment comparing two datasets
+#'
+#' Reports missing/infinite values, zero-variance and constant columns,
+#' and IQR outliers for each dataset's common numeric columns, plus an
+#' overall 0-100 quality score and letter grade per dataset (via
+#' `calculate_quality_score()`). Used by the Data Comparison tab's
+#' Missing/Outlier Summary and by `run_comprehensive_analysis()`.
+#'
+#' @param data1 First dataset, as a data frame.
+#' @param data2 Second dataset, as a data frame.
+#' @return A list including `missing_values`, `infinite_values`,
+#'   `zero_variance`, `outliers_iqr`, `quality_score` (each with `data1`/
+#'   `data2` sub-lists), and `processing_time`.
+#' @export
 check_data_quality <- function(data1, data2) {
   start_time <- Sys.time()
   quality_report <- list()
@@ -264,200 +302,20 @@ check_data_quality <- function(data1, data2) {
   return(quality_report)
 }
 
-# Comprehensive data quality assessment with advanced metrics
-check_data_quality_comprehensive <- function(data1, data2, include_advanced_metrics = TRUE) {
-  start_time <- Sys.time()
-
-  # Basic quality check
-  quality_report <- check_data_quality(data1, data2)
-
-  if (include_advanced_metrics) {
-    # Advanced data quality metrics
-    quality_report$advanced_metrics <- list()
-
-    # Data consistency checks
-    quality_report$advanced_metrics$consistency <- list(
-      data1 = check_data_consistency(data1),
-      data2 = check_data_consistency(data2)
-    )
-
-    # Statistical distribution tests
-    quality_report$advanced_metrics$distribution_tests <- list(
-      data1 = perform_distribution_tests(data1),
-      data2 = perform_distribution_tests(data2)
-    )
-
-    # Data integrity checks
-    quality_report$advanced_metrics$integrity <- list(
-      data1 = check_data_integrity(data1),
-      data2 = check_data_integrity(data2)
-    )
-
-    # Cross-dataset comparison
-    quality_report$advanced_metrics$cross_comparison <- compare_datasets(data1, data2)
-  }
-
-  end_time <- Sys.time()
-  quality_report$total_processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-  log_operation("Performance", paste("Comprehensive data quality check completed in",
-                                   round(quality_report$total_processing_time, 2), "seconds"))
-
-  return(quality_report)
-}
-
-# Helper functions for comprehensive data quality assessment
-check_data_consistency <- function(data) {
-  consistency_report <- list()
-
-  # Check for consistent data types within columns
-  consistency_report$type_consistency <- sapply(data, function(x) {
-    if (length(unique(sapply(x, class))) == 1) {
-      return(TRUE)
-    } else {
-      return(FALSE)
-    }
-  })
-
-  # Check for consistent value ranges
-  consistency_report$range_consistency <- sapply(data, function(x) {
-    if (is.numeric(x)) {
-      range_val <- range(x, na.rm = TRUE)
-      return(list(min = range_val[1], max = range_val[2], range = diff(range_val)))
-    } else {
-      return(NULL)
-    }
-  })
-
-  # Check for consistent missing value patterns
-  consistency_report$missing_patterns <- sapply(data, function(x) {
-    if (is.numeric(x)) {
-      missing_pct <- sum(is.na(x)) / length(x) * 100
-      return(round(missing_pct, 2))
-    } else {
-      return(0)
-    }
-  })
-
-  return(consistency_report)
-}
-
-perform_distribution_tests <- function(data) {
-  distribution_report <- list()
-
-  numeric_cols <- sapply(data, is.numeric)
-  if (sum(numeric_cols) == 0) {
-    return(list(message = "No numeric columns for distribution tests"))
-  }
-
-  numeric_data <- data[, numeric_cols, drop = FALSE]
-
-  # Normality tests for each numeric column
-  distribution_report$normality_tests <- sapply(numeric_data, function(x) {
-    if (length(x) > 3) {
-      tryCatch({
-        test_result <- shapiro.test(x[!is.na(x)])
-        return(list(
-          statistic = test_result$statistic,
-          p_value = test_result$p.value,
-          is_normal = test_result$p.value > 0.05
-        ))
-      }, error = function(e) {
-        return(list(error = e$message))
-      })
-    } else {
-      return(list(message = "Insufficient data for normality test"))
-    }
-  })
-
-  # Skewness and kurtosis
-  distribution_report$shape_metrics <- sapply(numeric_data, function(x) {
-    if (length(x) > 2) {
-      tryCatch({
-        c(skewness = moments::skewness(x, na.rm = TRUE),
-          kurtosis = moments::kurtosis(x, na.rm = TRUE))
-      }, error = function(e) {
-        return(c(skewness = NA, kurtosis = NA))
-      })
-    } else {
-      return(c(skewness = NA, kurtosis = NA))
-    }
-  })
-
-  return(distribution_report)
-}
-
-check_data_integrity <- function(data) {
-  integrity_report <- list()
-
-  # Check for duplicate rows
-  integrity_report$duplicate_rows <- sum(duplicated(data))
-  integrity_report$duplicate_percentage <- round(sum(duplicated(data)) / nrow(data) * 100, 2)
-
-  # Check for duplicate column names
-  integrity_report$duplicate_columns <- sum(duplicated(colnames(data)))
-
-  # Check for empty columns
-  integrity_report$empty_columns <- sapply(data, function(x) {
-    if (is.numeric(x)) {
-      return(all(is.na(x) | x == 0))
-    } else {
-      return(all(is.na(x) | x == ""))
-    }
-  })
-
-  # Check for constant columns
-  integrity_report$constant_columns <- sapply(data, function(x) {
-    if (is.numeric(x)) {
-      return(length(unique(x[!is.na(x)])) <= 1)
-    } else {
-      return(length(unique(x[!is.na(x)])) <= 1)
-    }
-  })
-
-  return(integrity_report)
-}
-
-compare_datasets <- function(data1, data2) {
-  comparison_report <- list()
-
-  # Compare dimensions
-  comparison_report$dimensions <- list(
-    data1 = dim(data1),
-    data2 = dim(data2),
-    difference = c(dim(data1)[1] - dim(data2)[1], dim(data1)[2] - dim(data2)[2])
-  )
-
-  # Compare column names
-  common_cols <- intersect(colnames(data1), colnames(data2))
-  unique_to_data1 <- setdiff(colnames(data1), colnames(data2))
-  unique_to_data2 <- setdiff(colnames(data2), colnames(data1))
-
-  comparison_report$columns <- list(
-    common = common_cols,
-    unique_to_data1 = unique_to_data1,
-    unique_to_data2 = unique_to_data2,
-    overlap_percentage = round(length(common_cols) / max(ncol(data1), ncol(data2)) * 100, 2)
-  )
-
-  # Compare data types for common columns
-  if (length(common_cols) > 0) {
-    type_comparison <- sapply(common_cols, function(col) {
-      type1 <- class(data1[[col]])
-      type2 <- class(data2[[col]])
-      return(list(
-        data1_type = type1,
-        data2_type = type2,
-        compatible = type1 == type2
-      ))
-    })
-    comparison_report$type_compatibility <- type_comparison
-  }
-
-  return(comparison_report)
-}
-
-# Helper function to calculate overall quality score
+#' Compute a 0-100 data-quality score and letter grade
+#'
+#' Starts at 100 and subtracts penalties for missing values, infinite
+#' values, zero-variance columns, and outliers (outlier penalty capped at 30).
+#'
+#' @param missing_vals Named vector/list of per-column missing-value counts.
+#' @param infinite_vals Named vector/list of per-column infinite-value counts.
+#' @param zero_var Logical vector/list of which columns have zero variance.
+#' @param outliers Named vector/list of per-column outlier counts.
+#' @param n_rows Total row count, for normalizing penalties.
+#' @param n_cols Total column count, for normalizing penalties.
+#' @return A list: `score` (0-100), `grade` (`"A"`-`"F"`), `details` (list
+#'   of the individual penalty components).
+#' @export
 calculate_quality_score <- function(missing_vals, infinite_vals, zero_var, outliers, n_rows, n_cols) {
   total_cells <- n_rows * n_cols
 

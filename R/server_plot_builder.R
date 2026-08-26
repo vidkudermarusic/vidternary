@@ -6,15 +6,55 @@
 
 BUILDER_TYPES_WITH_Y <- c("violin", "box", "scatter")
 
+#' Wire up the Plot Builder tab's server logic
+#'
+#' Registers the observers/renderers for the "Plot Builder" tab: file
+#' upload/combine, the chart-type-dependent axis selector UI, the live
+#' chart render (via `build_custom_plot()`), and the preset save/load/delete
+#' handlers (via `load_builder_presets()`/`save_builder_presets()`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object (holds `plot_presets`).
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @param directory_management Optional directory-management module (unused
+#'   by this tab, accepted for interface consistency with other tabs).
+#' @return A list with `module_name`.
+#' @export
 create_server_plot_builder <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
 
-  combined_data <- reactive({
+  # Disambiguated per-file labels (e.g. two uploads both named "sample.xlsx"
+  # get "sample" / "sample #2") - shared between the dataset-selector UI and
+  # combined_data() so a file's selector label always matches its
+  # source_file tag. Mirrors the Data Comparison tab's own file selector
+  # (server_data_comparison_upload.R).
+  builder_file_names <- reactive({
     req(input$builder_files)
-    n_files <- nrow(input$builder_files)
+    make.unique(tools::file_path_sans_ext(input$builder_files$name), sep = " #")
+  })
+
+  output$builder_dataset_selector_ui <- renderUI({
+    req(input$builder_files)
+    names_available <- builder_file_names()
+    selectizeInput("builder_selected_files", "Datasets to include:",
+      choices = names_available, selected = names_available, multiple = TRUE)
+  })
+
+  combined_data <- reactive({
+    req(input$builder_files, input$builder_selected_files)
+    file_names <- builder_file_names()
+    keep <- file_names %in% input$builder_selected_files
+    shiny::validate(shiny::need(any(keep), "Select at least one dataset above."))
+
+    files_df <- input$builder_files[keep, , drop = FALSE]
+    kept_names <- file_names[keep]
+    n_files <- nrow(files_df)
     dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input$builder_files$datapath[i], sheet = 1), error = function(e) NULL)
+      d <- tryCatch(openxlsx::read.xlsx(files_df$datapath[i], sheet = 1), error = function(e) NULL)
       if (is.null(d)) return(NULL)
-      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input$builder_files$name[i])
+      if (n_files > 1) d$source_file <- kept_names[i]
       d
     })
     dfs <- Filter(Negate(is.null), dfs)
@@ -44,27 +84,81 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     req(input$builder_type)
     num_cols <- numeric_cols()
     cat_cols <- categorical_cols()
+    # X axis (group/category) used to only offer categorical_cols(),
+    # excluding every numeric column (e.g. an element's Wt%) from ever being
+    # usable as the grouping axis - Y axis already offers every numeric
+    # column with no such restriction. all_cols gives X axis the same
+    # freedom: any column, numeric or categorical, can define the groups.
+    # build_custom_plot() wraps whatever's chosen in factor() so a numeric
+    # column still produces one discrete violin/box/bar per distinct value
+    # instead of being treated as a continuous axis.
+    all_cols <- union(cat_cols, num_cols)
     switch(input$builder_type,
       "violin" = tagList(
-        selectInput("builder_x", "X axis (group)", choices = cat_cols),
-        selectInput("builder_y", "Y axis (value)", choices = num_cols)
+        selectInput("builder_x", "X axis (group)", choices = all_cols),
+        # A plain multi-select selectizeInput starts with no selection by
+        # default (unlike single-select, which auto-picks the first choice) -
+        # without an explicit default, req(input$builder_y) below would block
+        # forever on first load until the user manually multi-selects
+        # something, so nothing ever renders out of the box.
+        selectizeInput("builder_y", "Y axis (value(s))", choices = num_cols,
+          selected = if (length(num_cols) > 0) num_cols[1] else NULL, multiple = TRUE),
+        helpText("Select two or more columns (e.g. several elements' Wt%) to compare them side by side within each X group - each selected column becomes its own sub-group, and overrides the Color / group by selection below.")
       ),
       "box" = tagList(
-        selectInput("builder_x", "X axis (group)", choices = cat_cols),
-        selectInput("builder_y", "Y axis (value)", choices = num_cols)
+        selectInput("builder_x", "X axis (group)", choices = all_cols),
+        # A plain multi-select selectizeInput starts with no selection by
+        # default (unlike single-select, which auto-picks the first choice) -
+        # without an explicit default, req(input$builder_y) below would block
+        # forever on first load until the user manually multi-selects
+        # something, so nothing ever renders out of the box.
+        selectizeInput("builder_y", "Y axis (value(s))", choices = num_cols,
+          selected = if (length(num_cols) > 0) num_cols[1] else NULL, multiple = TRUE),
+        helpText("Select two or more columns (e.g. several elements' Wt%) to compare them side by side within each X group - each selected column becomes its own sub-group, and overrides the Color / group by selection below.")
       ),
       "bar" = tagList(
-        selectInput("builder_x", "X axis (category)", choices = cat_cols),
+        selectInput("builder_x", "X axis (category)", choices = all_cols),
+        uiOutput("builder_bar_value_selector"),
         checkboxInput("builder_percent", "Show percentages instead of counts", value = FALSE)
       ),
       "hist" = tagList(
-        selectInput("builder_x", "Variable", choices = num_cols)
+        selectInput("builder_x", "Variable", choices = num_cols),
+        numericInput("builder_hist_bins", "Number of bins", value = 30, min = 2, max = 200, step = 1)
       ),
       "scatter" = tagList(
         selectInput("builder_x", "X axis", choices = num_cols),
         selectInput("builder_y", "Y axis", choices = num_cols)
+      ),
+      "rose" = tagList(
+        selectInput("builder_x", "Direction column (degrees)", choices = num_cols),
+        numericInput("builder_rose_bin_width", "Bin width (degrees)", value = 10, min = 1, max = 90, step = 1),
+        helpText("Values are binned into fixed-width sectors around a full 0-360 circle. Log-scale X/Y below don't apply to a polar axis and are ignored. 'Color / group by' shows one rose diagram per category (side by side) instead of coloring within a single plot. ",
+          cite_link("Mardia & Jupp, 2000", "https://doi.org/10.1002/9780470316979"))
       )
     )
+  })
+
+  # Which distinct values of the relevant category column to plot as bars -
+  # counting every distinct value unconditionally (the previous behavior)
+  # wasn't useful for a high-cardinality column, and silently included
+  # everything with no way to focus on just the categories that matter.
+  # When a Color / group by breakdown is chosen, that column is what the
+  # user actually wants to narrow down ("which categories to show, per
+  # file") - the X axis is normally the file/group being compared, not the
+  # thing being filtered - so choices are sourced from color_by instead of
+  # X in that case. Rebuilt whenever the X column or color_by changes;
+  # defaults to all values selected so existing behavior is unchanged until
+  # the user deliberately narrows it down.
+  output$builder_bar_value_selector <- renderUI({
+    req(input$builder_type == "bar", input$builder_x)
+    d <- combined_data()
+    has_color <- !is.null(input$builder_color_by) && input$builder_color_by != "none"
+    filter_col <- if (has_color) input$builder_color_by else input$builder_x
+    req(filter_col %in% names(d))
+    vals <- sort(unique(as.character(d[[filter_col]])))
+    label <- if (has_color) paste0("Categories to show (", input$builder_color_by, "):") else "Categories to show:"
+    selectizeInput("builder_bar_values", label,
+      choices = vals, selected = vals, multiple = TRUE)
   })
 
   current_plot <- reactive({
@@ -72,12 +166,18 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     req(input$builder_type, input$builder_x)
     y_needed <- input$builder_type %in% BUILDER_TYPES_WITH_Y
     if (y_needed) req(input$builder_y)
+    if (input$builder_type == "bar") req(input$builder_bar_values)
+    if (input$builder_type == "rose") req(input$builder_rose_bin_width)
+    if (input$builder_type == "hist") req(input$builder_hist_bins)
     build_custom_plot(
       d, input$builder_type, x = input$builder_x,
       y = if (y_needed) input$builder_y else NULL,
       color_by = if (is.null(input$builder_color_by)) "none" else input$builder_color_by,
       log_x = isTRUE(input$builder_log_x), log_y = isTRUE(input$builder_log_y),
-      percent = isTRUE(input$builder_percent)
+      percent = isTRUE(input$builder_percent),
+      bar_values = if (input$builder_type == "bar") input$builder_bar_values else NULL,
+      rose_bin_width = if (input$builder_type == "rose") input$builder_rose_bin_width else 10,
+      hist_bins = if (input$builder_type == "hist") input$builder_hist_bins else 30
     )
   })
 
@@ -124,7 +224,10 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       color_by = if (is.null(input$builder_color_by)) "none" else input$builder_color_by,
       log_x = isTRUE(input$builder_log_x),
       log_y = isTRUE(input$builder_log_y),
-      percent = isTRUE(input$builder_percent)
+      percent = isTRUE(input$builder_percent),
+      bar_values = if (input$builder_type == "bar") input$builder_bar_values else NULL,
+      rose_bin_width = if (input$builder_type == "rose") input$builder_rose_bin_width else NULL,
+      hist_bins = if (input$builder_type == "hist") input$builder_hist_bins else NULL
     )
     save_builder_presets(rv$plot_presets)
     update_preset_choices(selected = name)
@@ -144,8 +247,23 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     # setting them until after that UI exists.
     session$onFlushed(function() {
       updateSelectInput(session, "builder_x", selected = preset$x)
-      if (!is.null(preset$y)) updateSelectInput(session, "builder_y", selected = preset$y)
+      # builder_y is selectize-based either way (Shiny's selectInput()
+      # defaults to selectize = TRUE) - updateSelectizeInput works whether
+      # it's currently the single-select (scatter) or multi-select
+      # (violin/box) variant, and correctly restores a multi-value selection.
+      if (!is.null(preset$y)) updateSelectizeInput(session, "builder_y", selected = preset$y)
       if (!is.null(preset$percent)) updateCheckboxInput(session, "builder_percent", value = preset$percent)
+      if (!is.null(preset$rose_bin_width)) updateNumericInput(session, "builder_rose_bin_width", value = preset$rose_bin_width)
+      if (!is.null(preset$hist_bins)) updateNumericInput(session, "builder_hist_bins", value = preset$hist_bins)
+      if (!is.null(preset$bar_values)) {
+        # builder_bar_value_selector is a nested uiOutput that only
+        # (re)renders after input$builder_x's new value has propagated
+        # through a further reactive flush, so restoring its selection
+        # needs to wait one more flush cycle beyond this one.
+        session$onFlushed(function() {
+          updateSelectizeInput(session, "builder_bar_values", selected = preset$bar_values)
+        }, once = TRUE)
+      }
     }, once = TRUE)
     updateSelectInput(session, "builder_color_by", selected = preset$color_by)
     updateCheckboxInput(session, "builder_log_x", value = preset$log_x)

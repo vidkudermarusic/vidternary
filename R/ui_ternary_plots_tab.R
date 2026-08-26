@@ -164,7 +164,8 @@ create_ternary_plots_tab <- function() {
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f8ff; border-radius: 4px; border-left: 3px solid #007bff;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
                   "📐 Measures distance from data center using covariance structure. ",
-                  "Formula: MD = √[(x-μ)ᵀΣ⁻¹(x-μ)]")
+                  "Formula: MD = √[(x-μ)ᵀΣ⁻¹(x-μ)]. Automatic threshold: ",
+                  cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"), ".")
               ),
 
 
@@ -173,7 +174,8 @@ create_ternary_plots_tab <- function() {
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f8ff; border-radius: 4px; border-left: 3px solid #007bff;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
                   "🌲 Machine learning approach using isolation trees. ",
-                  "Measures how easily points can be isolated from the rest.")
+                  "Measures how easily points can be isolated from the rest. ",
+                  cite_link("Liu, Ting & Zhou, 2008", "https://doi.org/10.1109/ICDM.2008.17"), ".")
               ),
 
               # Advanced Mahalanobis parameters
@@ -195,7 +197,9 @@ create_ternary_plots_tab <- function() {
                     p(style = "font-size: 12px; margin: 0; color: #155724; font-weight: bold;",
                       "📐 Automatic Threshold Formula:"),
                     p(style = "font-size: 11px; margin: 5px 0 0 0; color: #155724; font-family: monospace;",
-                      "MDthresh = MDmean + √(100/(100+λ-ω)) × stdMD")
+                      "MDthresh = MDmean + √(100/(100+λ-ω)) × stdMD"),
+                    p(style = "font-size: 11px; margin: 3px 0 0 0; color: #155724;",
+                      cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"))
                   )
                 ),
                 conditionalPanel(
@@ -245,7 +249,8 @@ create_ternary_plots_tab <- function() {
               checkboxInput("use_iqr_filter", "Use IQR Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📊 Uses Interquartile Range. Outliers: > Q3+1.5×IQR (high values only)")
+                  "📊 Uses Interquartile Range. Outliers: > Q3+1.5×IQR (high values only). ",
+                  cite_link("Tukey, 1977"), ".")
               ),
 
               checkboxInput("use_zscore_filter", "Use Z-Score Filtering", value = FALSE),
@@ -257,7 +262,8 @@ create_ternary_plots_tab <- function() {
               checkboxInput("use_mad_filter", "Use MAD Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📏 Median Absolute Deviation. Outliers: > median+3×MAD (high values only)")
+                  "📏 Median Absolute Deviation. Outliers: > median+3×MAD (high values only). ",
+                  cite_link("Leys et al., 2013", "https://doi.org/10.1016/j.jesp.2013.03.013"), ".")
               ),
 
               # Advanced IQR parameters

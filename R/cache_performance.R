@@ -2,49 +2,33 @@
 # These track named operations (progress steps, timing, memory) independently
 # of the data/plot caching system in cache.R.
 #
-# Note: start_progress/update_progress/start_performance_monitor/
-# end_performance_monitor/get_performance_summary defined here are shadowed
-# by same-named, differently-implemented functions in helpers.R, because R
-# sources package files alphabetically and "helpers*" sorts after "cache*" -
-# helpers.R's simpler versions are what's actually active today. That's a
-# pre-existing behavior, not something this split changes; flagged separately
-# as a follow-up rather than silently resolved here.
+# start_progress/update_progress/start_performance_monitor/
+# end_performance_monitor/get_performance_summary used to be defined here
+# too, but were always shadowed by same-named, differently-implemented
+# functions in helpers.R (R sources package files alphabetically, and
+# "helpers*" sorts after "cache*") - removed as genuinely dead code rather
+# than left in place unreachable. complete_progress()/get_progress_summary()
+# below have no such collision and remain reachable, but note they still
+# read/write the package-wide `progress_tracker` binding, whose *initial*
+# shape is set by helpers.R's simpler start_progress() (flat fields, no
+# `$operations` list) - so until something calls the richer initializer
+# this file used to provide, these two will typically see no operations to
+# report.
 
-# ---- Progress Tracking System ----
-progress_tracker <- list(
-  operations = list(),
-  start_time = NULL,
-  current_operation = NULL
-)
-
-start_progress <- function(operation_name, total_steps = 100) {
-  progress_tracker$current_operation <<- operation_name
-  progress_tracker$start_time <<- Sys.time()
-  progress_tracker$operations[[operation_name]] <<- list(
-    total_steps = total_steps,
-    current_step = 0,
-    start_time = Sys.time(),
-    status = "running"
-  )
-  cat("Starting:", operation_name, "\n")
-}
-
-update_progress <- function(step, message = "", operation_name = NULL) {
-  if (is.null(operation_name)) {
-    operation_name <- progress_tracker$current_operation
-  }
-
-  if (!is.null(operation_name) && !is.null(progress_tracker$operations[[operation_name]])) {
-    progress_tracker$operations[[operation_name]]$current_step <<- step
-    if (nzchar(message)) {
-      cat(sprintf("[%s] Step %d/%d: %s\n",
-                  operation_name, step,
-                  progress_tracker$operations[[operation_name]]$total_steps,
-                  message))
-    }
-  }
-}
-
+#' Mark a tracked operation as finished
+#'
+#' Records an end time/duration/status against `operation_name` in the
+#' shared `progress_tracker` state. See this file's header note: the
+#' operation-name-keyed shape this function expects is only populated by
+#' this file's own (now-removed) `start_progress()`; the currently-active
+#' `start_progress()` in helpers.R uses a simpler, flat shape, so this
+#' typically has nothing to record today.
+#'
+#' @param operation_name Name of the operation to complete. Defaults to
+#'   `progress_tracker$current_operation` if not supplied.
+#' @param status Status label to record. Default `"completed"`.
+#' @return `NULL`, invisibly.
+#' @export
 complete_progress <- function(operation_name = NULL, status = "completed") {
   if (is.null(operation_name)) {
     operation_name <- progress_tracker$current_operation
@@ -53,14 +37,21 @@ complete_progress <- function(operation_name = NULL, status = "completed") {
   if (!is.null(operation_name) && !is.null(progress_tracker$operations[[operation_name]])) {
     end_time <- Sys.time()
     duration <- as.numeric(difftime(end_time, progress_tracker$operations[[operation_name]]$start_time, units = "secs"))
-    progress_tracker$operations[[operation_name]]$status <<- status
-    progress_tracker$operations[[operation_name]]$end_time <<- end_time
-    progress_tracker$operations[[operation_name]]$duration <<- duration
+    progress_tracker$operations[[operation_name]]$status <- status
+    progress_tracker$operations[[operation_name]]$end_time <- end_time
+    progress_tracker$operations[[operation_name]]$duration <- duration
 
     cat(sprintf("Completed: %s (%.2f seconds)\n", operation_name, duration))
   }
 }
 
+#' Summarize all tracked operations as human-readable text
+#'
+#' See `complete_progress()`'s note on the currently-active `progress_tracker`
+#' shape - typically reports "No operations tracked" today.
+#'
+#' @return A single formatted character string.
+#' @export
 get_progress_summary <- function() {
   if (length(progress_tracker$operations) == 0) {
     return("No operations tracked")
@@ -82,61 +73,21 @@ get_progress_summary <- function() {
 }
 
 # ---- Performance Monitoring System ----
-performance_monitor <- list(
-  operations = list(),
-  memory_usage = list(),
-  start_time = Sys.time()
-)
+# An environment, not a plain list - see progress_tracker's comment in
+# helpers.R for why (a plain list mutated via <<- can't be reassigned once
+# the package namespace is locked).
+performance_monitor <- new.env()
+performance_monitor$operations <- list()
+performance_monitor$memory_usage <- list()
+performance_monitor$start_time <- Sys.time()
 
-start_performance_monitor <- function(operation_name) {
-  performance_monitor$operations[[operation_name]] <<- list(
-    start_time = Sys.time(),
-    start_memory = gc(reset = TRUE)
-  )
-  debug_log("Performance monitoring started for: %s", operation_name)
-}
-
-end_performance_monitor <- function(operation_name) {
-  if (!is.null(performance_monitor$operations[[operation_name]])) {
-    end_time <- Sys.time()
-    end_memory <- gc(reset = FALSE)
-
-    duration <- as.numeric(difftime(end_time, performance_monitor$operations[[operation_name]]$start_time, units = "secs"))
-    memory_diff <- end_memory[2, 3] - performance_monitor$operations[[operation_name]]$start_memory[2, 3]
-
-    performance_monitor$operations[[operation_name]]$end_time <<- end_time
-    performance_monitor$operations[[operation_name]]$duration <<- duration
-    performance_monitor$operations[[operation_name]]$memory_used <<- memory_diff
-
-    debug_log("Performance: %s completed in %.2fs, memory: %.2f MB",
-              operation_name, duration, memory_diff / 1024^2)
-  }
-}
-
-get_performance_summary <- function() {
-  if (length(performance_monitor$operations) == 0) {
-    return("No performance data available")
-  }
-
-  summary_text <- "Performance Summary:\n"
-  total_time <- 0
-
-  for (op_name in names(performance_monitor$operations)) {
-    op <- performance_monitor$operations[[op_name]]
-    if (!is.null(op$duration)) {
-      summary_text <- paste0(summary_text,
-                             sprintf("  %s: %.2fs (%.2f MB)\n",
-                                     op_name, op$duration,
-                                     ifelse(is.null(op$memory_used), 0, op$memory_used / 1024^2)))
-      total_time <- total_time + op$duration
-    }
-  }
-
-  summary_text <- paste0(summary_text, sprintf("\nTotal time: %.2fs\n", total_time))
-  return(summary_text)
-}
-
-# Memory usage monitoring
+#' Record a memory-usage snapshot
+#'
+#' Appends a `{timestamp, used, gc_count}` snapshot (from `gc()`) to
+#' `performance_monitor$memory_usage`, keeping only the last 100.
+#'
+#' @return The snapshot just recorded, as a list.
+#' @export
 monitor_memory_usage <- function() {
   current_memory <- gc(reset = FALSE)
   memory_info <- list(
@@ -145,11 +96,11 @@ monitor_memory_usage <- function() {
     gc_count = current_memory[2, 4]
   )
 
-  performance_monitor$memory_usage[[length(performance_monitor$memory_usage) + 1]] <<- memory_info
+  performance_monitor$memory_usage[[length(performance_monitor$memory_usage) + 1]] <- memory_info
 
   # Keep only last 100 memory snapshots
   if (length(performance_monitor$memory_usage) > 100) {
-    performance_monitor$memory_usage <<- tail(performance_monitor$memory_usage, 100)
+    performance_monitor$memory_usage <- tail(performance_monitor$memory_usage, 100)
   }
 
   return(memory_info)

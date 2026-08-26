@@ -12,10 +12,32 @@
 #   ui_evs_tab.R                 - create_evs_tab()
 #   ui_spatial_tab.R              - create_spatial_tab()
 #   ui_coda_tab.R                 - create_coda_tab()
-#   ui_data_export_tab.R         - create_data_export_tab()
 #   ui_analysis_log_tab.R        - create_analysis_log_tab()
 
+# Short inline citation for a method/formula used in one of the "How it
+# works" info boxes - a link to the DOI when one exists, or plain
+# (non-linked) text for sources without one (books, book chapters, and
+# standards bodies that don't expose a resolvable DOI). Citations were
+# verified against CrossRef/publisher records before being added here -
+# see the citation review discussed with the user.
+cite_link <- function(label, doi_url = NULL) {
+  if (is.null(doi_url)) {
+    tags$span(style = "color: #0c5460; font-style: italic;", label)
+  } else {
+    tags$a(href = doi_url, label, target = "_blank",
+           style = "color: #0c5460; font-style: italic; text-decoration: underline;")
+  }
+}
+
 # Main UI function
+#' Build the full app UI: page shell, header, tabset, and shared settings
+#'
+#' Assembles the page's global styling/JS, header, all 9 tabs (via each
+#' tab's own `create_*_tab()`), and the always-visible Directory Settings /
+#' Cache Management sections.
+#'
+#' @return A `shiny::fluidPage()`.
+#' @export
 create_main_ui <- function() {
   fluidPage(
     titlePanel("Ternary Plot Generator with Advanced Filtering"),
@@ -98,7 +120,6 @@ create_main_ui <- function() {
       create_evs_tab(),
       create_spatial_tab(),
       create_coda_tab(),
-      create_data_export_tab(),
       create_analysis_log_tab()
     ),  # Close main tabsetPanel
 

@@ -5,7 +5,20 @@
 # - Isolation Forest
 # - Data validation for multivariate analysis
 
-# Input validation function for Mahalanobis distance parameters
+#' Validate Mahalanobis distance parameters
+#'
+#' Raises an error (via `stop()`) for invalid values, and a `warning()` for
+#' valid-but-suspicious ones (e.g. an extreme lambda/omega gap, or a very
+#' high manual threshold).
+#'
+#' @param lambda Sensitivity parameter for the automatic threshold formula (non-negative).
+#' @param omega Leniency parameter for the automatic threshold formula (non-negative).
+#' @param custom_mdthresh Manual distance threshold, required (positive numeric) when `mdthresh_mode == "manual"`.
+#' @param mdthresh_mode Either `"auto"` or `"manual"`.
+#' @param selected_columns Optional character vector of column names; if
+#'   given, must have at least 2 entries.
+#' @return `TRUE`, invisibly, if all checks pass.
+#' @export
 validate_mahalanobis_inputs <- function(lambda, omega, custom_mdthresh, mdthresh_mode, selected_columns) {
   # Validate threshold mode and parameters
   if (mdthresh_mode == "manual") {
@@ -44,7 +57,27 @@ validate_mahalanobis_inputs <- function(lambda, omega, custom_mdthresh, mdthresh
   return(TRUE)
 }
 
-# Unified validation function for multivariate analysis
+#' Validate and clean two datasets for multivariate analysis
+#'
+#' Checks that `selected_columns` exist, are numeric, and number at least
+#' 2, in both datasets; drops incomplete rows; checks each dataset has
+#' enough observations relative to the number of variables
+#' (`min_obs_ratio`); and warns (without erroring) on zero-variance
+#' columns, high pairwise correlations, or a poorly-conditioned covariance
+#' matrix in `data2`.
+#'
+#' @param data1 First dataset, as a data frame.
+#' @param data2 Second (typically reference) dataset, as a data frame.
+#' @param selected_columns Character vector of numeric column names to
+#'   use, mandatory (length >= 2).
+#' @param method Method name used only in the sample-size error message.
+#'   Default `"Multivariate Analysis"`.
+#' @param min_obs_ratio Minimum ratio of complete observations to
+#'   variables required in each dataset. Default 2.
+#' @return A list: `data1_clean`, `data2_clean` (complete-case data
+#'   frames), `common_cols`, `n_vars`, `n_obs1`, `n_obs2`,
+#'   `condition_number`, `high_correlations`, `zero_var_cols`.
+#' @export
 validate_multivariate_data <- function(data1, data2, selected_columns, method = "Multivariate Analysis", min_obs_ratio = 2) {
   # MANDATORY COLUMN SELECTION: User must select columns for multivariate analysis
   if (is.null(selected_columns) || length(selected_columns) == 0) {
@@ -180,7 +213,28 @@ validate_multivariate_data <- function(data1, data2, selected_columns, method = 
   ))
 }
 
-# Standard Mahalanobis Distance Function
+#' Compute Mahalanobis distances and flag outliers
+#'
+#' Computes the Mahalanobis distance of each `data1` row from `data2`'s
+#' distribution over `selected_columns`, then flags outliers against
+#' either a manual threshold or the automatic formula `MDthresh = MDmean +
+#' sqrt(100/(100 + lambda - omega)) * stdMD` (Vode et al., 2022,
+#' <https://doi.org/10.3390/ma15020684>).
+#'
+#' @param data1 Dataset whose points are scored, as a data frame.
+#' @param data2 Reference dataset the distribution is fit to, as a data frame.
+#' @param lambda Sensitivity parameter for the automatic threshold. Default 1.
+#' @param omega Leniency parameter for the automatic threshold. Default 0.
+#' @param keep_outliers Currently stored on the result but not used to
+#'   filter within this function. Default `FALSE`.
+#' @param custom_mdthresh Manual distance threshold, used when `mdthresh_mode == "manual"`.
+#' @param selected_columns Character vector of at least 2 numeric column names to use.
+#' @param mdthresh_mode Either `"auto"` (default) or `"manual"`.
+#' @return A list: `distances`, `MDthresh`, `MDmean`, `stdMD`, `lambda`,
+#'   `omega`, `outlier_95`/`outlier_99`/`outlier_custom` (counts),
+#'   `total_points`, `df`, `common_cols`, `outlier_indices`,
+#'   `keep_outliers`, `threshold_method`, `threshold_formula`.
+#' @export
 compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, keep_outliers = FALSE, custom_mdthresh = NULL, selected_columns, mdthresh_mode = "auto") {
   # Input validation
   validate_mahalanobis_inputs(lambda, omega, custom_mdthresh, mdthresh_mode, selected_columns)
@@ -264,7 +318,7 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     # This automatic threshold (MDmean + sqrt(100/(100+lambda-omega)) * stdMD)
     # is not an ad-hoc heuristic - it is the empirical Mahalanobis-distance
     # cutoff formula from:
-    #   Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovic, D. (2022).
+    #   Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovič, D. (2022).
     #   "Classification of Hot-Rolled Plates Using the Mahalanobis Distance
     #   of NMIs in Ti-Stabilized Austenitic Stainless-Steel Produced by
     #   Secondary Metallurgy." Materials, 15(2), 684. MDPI.
@@ -318,32 +372,27 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 # Robust Mahalanobis function removed - use standard Mahalanobis instead
 
 
-# Enhanced Isolation Forest for outlier detection
-# This function implements an improved isolation forest algorithm with better parameter control
-# and more robust data handling compared to the original implementation.
-#
-# Parameters:
-#   data1: First dataset to analyze for outliers
-#   data2: Reference dataset used for training the isolation forest model
-#   selected_columns: Character vector of column names to use for analysis
-#   contamination: Proportion of data expected to be outliers (0-1, default: 0.10)
-#   keep_outliers: Logical, if TRUE keep outliers, if FALSE remove them (default: FALSE)
-#   ntrees: Number of trees in the isolation forest (default: 200)
-#   sample_size: Size of sample to draw for each tree (default: 256)
-#   score_type: Type of score to return ("score" or "outlier", default: "score")
-#   seed: Random seed for reproducibility (default: 42)
-#
-# Returns:
-#   List containing:
-#   - model: Trained isolation forest model
-#   - columns_used: Column names actually used in analysis
-#   - threshold: Calculated threshold for outlier detection
-#   - contamination: Contamination parameter used
-#   - scores: Anomaly scores for data1 (length = nrow(data1))
-#   - outlier_indices: Logical vector indicating outliers in data1
-#   - kept_mask: Logical vector indicating which rows to keep based on keep_outliers
-#   - filtered_data1: Filtered version of data1 based on kept_mask
-#   - ref_scores_sum: Summary statistics of reference scores for quality control
+#' Flag outliers in one dataset using an Isolation Forest trained on another
+#'
+#' Trains an isolation forest (`isotree::isolation.forest()`) on `data2`
+#' (the reference), derives an anomaly-score threshold from `data2`'s own
+#' scores at the `1 - contamination` quantile, then scores `data1` against
+#' that threshold. Liu, Ting & Zhou (2008), <https://doi.org/10.1109/ICDM.2008.17>.
+#'
+#' @param data1 Dataset to score for outliers, as a data frame.
+#' @param data2 Reference dataset the model is trained on, as a data frame.
+#' @param selected_columns Character vector of column names to use for analysis.
+#' @param contamination Expected proportion of outliers (0-1). Default 0.10.
+#' @param keep_outliers If `TRUE`, `kept_mask`/`filtered_data1` keep the
+#'   flagged outliers instead of the inliers. Default `FALSE`.
+#' @param ntrees Number of trees in the isolation forest. Default 200.
+#' @param sample_size Sample size drawn per tree (capped at `nrow(data2)`). Default 256.
+#' @param score_type Score type passed to `predict.isolation_forest()`, `"score"` or `"outlier"`. Default `"score"`.
+#' @param seed Random seed for reproducibility. Default 42.
+#' @return A list: `model` (the fitted isolation forest), `columns_used`,
+#'   `threshold`, `contamination`, `scores` (length `nrow(data1)`),
+#'   `outlier_indices`, `kept_mask`, `filtered_data1`, `ref_scores_sum`.
+#' @export
 compute_isolation_forest <- function(
   data1, data2, selected_columns,
   contamination = 0.10,

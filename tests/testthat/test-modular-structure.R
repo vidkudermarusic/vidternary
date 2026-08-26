@@ -27,7 +27,6 @@ test_that("All modules can be loaded", {
     source("R/ui_data_comparison_tab.R")
     source("R/ui_multiple_plot_types_tab.R")
     source("R/ui_multiple_ternary_tab.R")
-    source("R/ui_data_export_tab.R")
     source("R/ui_analysis_log_tab.R")
     source("R/server_logic.R")
   })

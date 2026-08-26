@@ -7,6 +7,10 @@
 # hardcoded presets. See R/server_plot_builder.R for the wiring and
 # R/plotting_utils_builder.R for the rendering logic.
 
+#' Build the "Plot Builder" tab's UI
+#'
+#' @return A `shiny::tabPanel()`.
+#' @export
 create_plot_builder_tab <- function() {
   tabPanel("Plot Builder",
     sidebarLayout(
@@ -15,12 +19,13 @@ create_plot_builder_tab <- function() {
         h4("Data"),
         fileInput("builder_files", "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
         helpText("Each file's Sheet 1 is read and combined. When multiple files are selected, rows are tagged with a 'source_file' column."),
+        uiOutput("builder_dataset_selector_ui"),
         tags$hr(),
 
         h4("Chart"),
         selectInput("builder_type", "Plot Type", choices = c(
           "Violin" = "violin", "Box plot" = "box", "Bar (counts)" = "bar",
-          "Histogram" = "hist", "Scatter" = "scatter"
+          "Histogram" = "hist", "Scatter" = "scatter", "Rose diagram" = "rose"
         )),
         uiOutput("builder_axis_selectors"),
         selectInput("builder_color_by", "Color / group by", choices = c("None" = "none")),

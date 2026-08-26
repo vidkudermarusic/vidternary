@@ -16,7 +16,7 @@
 # log_operation() is defined at package top level but is called from deep
 # inside every create_server_*() factory function, where `rv` is a local
 # parameter - and sometimes from plain helper functions that those
-# observers/renderers call synchronously (e.g. read_dataset_file()).
+# observers/renderers call synchronously (e.g. safe_execute()).
 # `rv` is never reachable via plain `exists("rv")` (that resolves through
 # log_operation's own *lexical* scope - the package namespace - not the
 # caller's). Instead, walk the live call stack: for each active frame,
@@ -39,6 +39,19 @@
 # Analysis Log tab's own display). Also guarded with tryCatch since
 # log_operation() is sometimes called from non-reactive contexts, where
 # reactiveValues access throws outright.
+#' Record a structured log entry, and print it to the console
+#'
+#' Appends to the calling Shiny session's `rv$analysis_log` (found by
+#' walking the live call stack for a lexically-reachable `rv`, wrapped in
+#' `shiny::isolate()` to avoid a reactive read-then-write feedback loop -
+#' see this function's inline comments for the full reasoning), then
+#' `cat()`s the entry regardless of whether a reactive context was found.
+#'
+#' @param level Log level label, e.g. `"INFO"`, `"WARNING"`, `"ERROR"`.
+#' @param message Log message text.
+#' @param details Optional additional detail text.
+#' @return `NULL`, invisibly.
+#' @export
 log_operation <- function(level, message, details = NULL) {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   log_entry <- list(
@@ -80,7 +93,14 @@ log_operation <- function(level, message, details = NULL) {
   }
 }
 
-# Function to clean column names (remove dots and replace with spaces)
+#' Clean column names for display
+#'
+#' Strips a `.(Wt%)` suffix, replaces dots/underscores with spaces, and
+#' title-cases each word.
+#'
+#' @param col_names Character vector of raw column names.
+#' @return Character vector of cleaned, display-friendly names.
+#' @export
 clean_column_names <- function(col_names) {
   # Remove .(Wt%) suffix first
   cleaned <- gsub("\\.\\(Wt%\\)", "", col_names)
@@ -93,7 +113,13 @@ clean_column_names <- function(col_names) {
   return(cleaned)
 }
 
-# Error handling wrapper for safe execution
+#' Evaluate an expression, logging start/success/failure
+#'
+#' @param expr An unevaluated expression (e.g. from `quote()`) to `eval()`.
+#' @param error_msg Label used in log messages and, if a `show_message()`
+#'   function is in scope, shown to the user on error. Default `"Operation failed"`.
+#' @return The expression's result, or `NULL` if it errored.
+#' @export
 safe_execute <- function(expr, error_msg = "Operation failed") {
   tryCatch({
     log_operation("INFO", "Starting operation", error_msg)
@@ -110,7 +136,14 @@ safe_execute <- function(expr, error_msg = "Operation failed") {
   })
 }
 
-# Function to safely handle column names with special characters
+#' Sanitize column names for safe use as R identifiers
+#'
+#' Strips common Wt%-style suffixes, then replaces any remaining character
+#' outside `[A-Za-z0-9._]` with `_`.
+#'
+#' @param col_names Character vector of raw column names.
+#' @return Character vector of sanitized names.
+#' @export
 safe_column_names <- function(col_names) {
   # Handle various formats of weight percentage columns
   cleaned <- gsub("\\.\\(Wt%\\)", "", col_names)
@@ -130,7 +163,17 @@ safe_column_names <- function(col_names) {
   return(cleaned)
 }
 
-# Function to show messages to the user
+#' Show a timestamped message on the console
+#'
+#' Within a running app, `create_server_logic()` overrides this with a
+#' version that also pushes a toast to the browser via
+#' `session$sendCustomMessage()`; this top-level definition is the fallback
+#' used outside a Shiny session (e.g. by `safe_execute()`).
+#'
+#' @param message Message text.
+#' @param type Message type label, e.g. `"info"`, `"error"`. Default `"info"`.
+#' @return `NULL`, invisibly.
+#' @export
 show_message <- function(message, type = "info") {
   # In a Shiny context, this would typically use showNotification or similar
   # For now, we'll just print to console
@@ -270,7 +313,14 @@ generate_ternary_filter_summary <- function(element_A, element_B, element_C, opt
   return(paste(summary_lines, collapse = "\n"))
 }
 
-# Performance optimization for large datasets
+#' Downsample a data frame if it exceeds a row limit
+#'
+#' @param data A data frame.
+#' @param max_rows Row count above which random sampling (seeded, for
+#'   reproducibility) is applied. Default 100000.
+#' @return A list: `data` (original or sampled) and `optimizations` (list
+#'   describing what was applied).
+#' @export
 optimize_for_large_datasets <- function(data, max_rows = 100000) {
   optimizations <- list(
     original_dim = dim(data),
@@ -297,56 +347,17 @@ optimize_for_large_datasets <- function(data, max_rows = 100000) {
   return(result)
 }
 
-# Enhanced performance optimization with memory management
-optimize_for_large_datasets_enhanced <- function(data, max_rows = 100000, memory_threshold = 0.8) {
-  start_time <- Sys.time()
-  optimizations <- list(
-    original_dim = dim(data),
-    applied = FALSE,
-    sampling = FALSE,
-    memory_optimization = FALSE,
-    chunking = FALSE
-  )
-
-  # Check memory usage
-  memory_usage <- object.size(data) / 1024^3  # GB
-  available_memory <- memory.limit() / 1024^3  # GB
-
-  if (memory_usage > available_memory * memory_threshold) {
-    optimizations$memory_optimization <- TRUE
-    log_operation("Performance", paste("Memory usage high (", round(memory_usage, 2), "GB), applying optimizations"))
-  }
-
-  # Check if optimization is needed
-  if (nrow(data) > max_rows || optimizations$memory_optimization) {
-    optimizations$applied <- TRUE
-
-    # Row sampling for very large datasets
-    if (nrow(data) > max_rows) {
-      set.seed(123) # For reproducible sampling
-      sample_indices <- sample(seq_len(nrow(data)), max_rows)
-      data <- data[sample_indices, , drop = FALSE]
-      optimizations$sampling <- TRUE
-      log_operation("Performance", paste("Sampled", max_rows, "rows from", optimizations$original_dim[1], "total rows"))
-    }
-
-    # Apply chunking for memory optimization
-    if (optimizations$memory_optimization) {
-      chunk_size <- min(10000, ceiling(nrow(data) / 10))
-      optimizations$chunking <- TRUE
-      log_operation("Performance", paste("Applied chunking with size:", chunk_size))
-    }
-  }
-
-  end_time <- Sys.time()
-  optimizations$processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-  log_operation("Performance", paste("Optimization completed in", round(optimizations$processing_time, 2), "seconds"))
-
-  return(list(data = data, optimizations = optimizations))
-}
-
-# Memory-efficient data processing
+#' Apply a function to a data frame in row chunks
+#'
+#' Processes `data` in one call if it's at or under `chunk_size`, otherwise
+#' applies `operation` chunk by chunk and recombines the results
+#' (`rbind`/`c`/`unlist`, chosen by the first chunk's result type).
+#'
+#' @param data A data frame.
+#' @param operation A function taking a data frame chunk and returning a result.
+#' @param chunk_size Rows per chunk. Default 10000.
+#' @return The combined result across all chunks.
+#' @export
 process_data_efficiently <- function(data, operation, chunk_size = 10000) {
   if (nrow(data) <= chunk_size) {
     # Process all data at once for small datasets
@@ -380,100 +391,6 @@ process_data_efficiently <- function(data, operation, chunk_size = 10000) {
   } else {
     return(unlist(results))
   }
-}
-
-# Enhanced chunked processing with memory monitoring and error handling
-process_data_efficiently_enhanced <- function(data, operation, chunk_size = 10000,
-                                           memory_monitoring = TRUE, error_handling = TRUE) {
-  start_time <- Sys.time()
-
-  if (nrow(data) <= chunk_size) {
-    # Process all data at once for small datasets
-    return(operation(data))
-  }
-
-  # Process data in chunks for large datasets
-  results <- list()
-  total_chunks <- ceiling(nrow(data) / chunk_size)
-  successful_chunks <- 0
-  failed_chunks <- 0
-
-  # Memory monitoring
-  if (memory_monitoring) {
-    initial_memory <- gc(reset = TRUE)
-    log_operation("Memory", paste("Initial memory usage:", round(initial_memory[2, 3] / 1024^2, 2), "MB"))
-  }
-
-  for (i in 1:total_chunks) {
-    start_idx <- (i - 1) * chunk_size + 1
-    end_idx <- min(i * chunk_size, nrow(data))
-
-    chunk <- data[start_idx:end_idx, , drop = FALSE]
-
-    # Process chunk with error handling
-    if (error_handling) {
-      chunk_result <- tryCatch({
-        operation(chunk)
-      }, error = function(e) {
-        log_operation("ERROR", paste("Chunk", i, "failed:", e$message))
-        failed_chunks <- failed_chunks + 1
-        return(NULL)
-      })
-    } else {
-      chunk_result <- operation(chunk)
-    }
-
-    if (!is.null(chunk_result)) {
-      results[[i]] <- chunk_result
-      successful_chunks <- successful_chunks + 1
-    }
-
-    # Memory monitoring and cleanup
-    if (memory_monitoring && i %% 5 == 0) {
-      current_memory <- gc()
-      log_operation("Memory", paste("Chunk", i, "memory:", round(current_memory[2, 3] / 1024^2, 2), "MB"))
-
-      # Force garbage collection every 5 chunks
-      gc()
-    }
-
-    # Update progress
-    if (i %% 10 == 0) {
-      log_operation("Progress", sprintf("Processed chunk %d/%d (%.1f%%) - Success: %d, Failed: %d",
-                                      i, total_chunks, (i/total_chunks)*100, successful_chunks, failed_chunks))
-    }
-  }
-
-  # Final memory cleanup
-  if (memory_monitoring) {
-    final_memory <- gc()
-    log_operation("Memory", paste("Final memory usage:", round(final_memory[2, 3] / 1024^2, 2), "MB"))
-  }
-
-  # Combine results
-  if (length(results) == 0) {
-    log_operation("ERROR", "No chunks processed successfully")
-    return(NULL)
-  }
-
-  # Remove NULL results
-  results <- results[!sapply(results, is.null)]
-
-  if (is.data.frame(results[[1]])) {
-    final_result <- do.call(rbind, results)
-  } else if (is.list(results[[1]])) {
-    final_result <- do.call(c, results)
-  } else {
-    final_result <- unlist(results)
-  }
-
-  end_time <- Sys.time()
-  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-  log_operation("Performance", sprintf("Chunked processing completed in %.2f seconds - %d/%d chunks successful",
-                                     processing_time, successful_chunks, total_chunks))
-
-  return(final_result)
 }
 
 # Create multi-line title
@@ -522,7 +439,16 @@ calculate_plot_dimensions <- function(title_parts) {
   return(list(width = base_width, height = base_height))
 }
 
-# Comprehensive Testing and Validation System
+#' Run a manual console smoke test of core package functionality
+#'
+#' Checks required-package availability, required-function availability,
+#' basic data processing (`validate_data_enhanced()`/`generate_stats()`/
+#' `compute_correlation()`), and `optimize_for_large_datasets()`, printing
+#' pass/fail status for each to the console. Not called from the Shiny app;
+#' intended to be run by hand from the R console during development.
+#'
+#' @return A list of per-test logical results, invisibly printed to the console as it runs.
+#' @export
 run_system_tests <- function() {
   cat("=== Running System Tests ===\n")
   test_results <- list()
@@ -660,27 +586,65 @@ create_group_legend <- function(groups, colors, counts) {
 }
 
 # Progress monitoring functions for comprehensive analysis
-progress_tracker <- list()
+#
+# An environment, not a plain list: a plain list mutated via `<<-` needs to
+# rebind the top-level `progress_tracker` name on every update, which
+# throws "cannot change value of locked binding" once the package
+# namespace is locked (i.e. under any normal load - devtools::load_all(),
+# R CMD INSTALL, etc. - not just a fully installed package). Environments
+# have reference semantics: assigning a field into one mutates it in
+# place, without ever needing to rebind the environment's own name, so a
+# plain `<-` (no `<<-` needed) works correctly under a locked namespace.
+progress_tracker <- new.env()
 
+#' Start tracking a named progress step
+#'
+#' Console-only progress tracking used by `run_comprehensive_analysis()`.
+#' Flat/single-operation state (see `progress_tracker`) - calling this
+#' again for a new step overwrites the previous one's tracking, it does
+#' not track multiple steps concurrently.
+#'
+#' @param step_name Label for the step being started.
+#' @param total_steps Total number of steps in the overall operation, for
+#'   display purposes.
+#' @return `NULL`, invisibly.
+#' @export
 start_progress <- function(step_name, total_steps) {
-  progress_tracker$current_step <<- step_name
-  progress_tracker$total_steps <<- total_steps
-  progress_tracker$start_time <<- Sys.time()
+  progress_tracker$current_step <- step_name
+  progress_tracker$total_steps <- total_steps
+  progress_tracker$start_time <- Sys.time()
   cat("Starting:", step_name, "\n")
 }
 
+#' Report progress within the current step
+#'
+#' @param step_number Current step number.
+#' @param message Progress message to print.
+#' @return `NULL`, invisibly.
+#' @export
 update_progress <- function(step_number, message) {
-  progress_tracker$current_step_number <<- step_number
-  progress_tracker$current_message <<- message
+  progress_tracker$current_step_number <- step_number
+  progress_tracker$current_message <- message
   cat("Step", step_number, ":", message, "\n")
 }
 
+#' Start timing a named analysis run
+#'
+#' @param analysis_name Label for the analysis being timed.
+#' @return `NULL`, invisibly.
+#' @export
 start_performance_monitor <- function(analysis_name) {
-  progress_tracker$analysis_name <<- analysis_name
-  progress_tracker$analysis_start_time <<- Sys.time()
+  progress_tracker$analysis_name <- analysis_name
+  progress_tracker$analysis_start_time <- Sys.time()
   cat("=== Starting", analysis_name, "===\n")
 }
 
+#' Stop timing a named analysis run and print its duration
+#'
+#' @param analysis_name Label matching the one passed to
+#'   `start_performance_monitor()`; only used to print the completion message.
+#' @return `NULL`, invisibly.
+#' @export
 end_performance_monitor <- function(analysis_name) {
   if (!is.null(progress_tracker$analysis_start_time)) {
     duration <- Sys.time() - progress_tracker$analysis_start_time
@@ -688,6 +652,11 @@ end_performance_monitor <- function(analysis_name) {
   }
 }
 
+#' Report the duration of the most recent `start_performance_monitor()` run
+#'
+#' @return A formatted character string, or a "not available" message if
+#'   no monitor has been started.
+#' @export
 get_performance_summary <- function() {
   if (!is.null(progress_tracker$analysis_start_time)) {
     duration <- Sys.time() - progress_tracker$analysis_start_time

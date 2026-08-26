@@ -1,16 +1,20 @@
 # ---- Statistics Display Utilities ----
 # Tidy, DT-ready data frames for descriptive/correlation statistics in the
-# Data Comparison tab. Richer than helpers_reporting.R's
-# create_statistical_summary()/create_correlation_matrix() (those are
-# shaped for Excel export sheets, not interactive display), and replace
-# raw summary()/print() dumps into verbatimTextOutput with sortable,
-# searchable, exportable tables.
+# Data Comparison tab. Replace raw summary()/print() dumps into
+# verbatimTextOutput with sortable, searchable, exportable tables.
 
-# One row per numeric variable: N, missing count, five-number summary,
-# mean, SD, and coefficient of variation (SD as % of mean) - CV is a
-# genuinely new metric versus the old summary()-based display, useful for
-# comparing spread across variables on very different scales (e.g.
-# comparing element wt% variability).
+#' Build a tidy descriptive-statistics table, one row per numeric variable
+#'
+#' N, missing count, five-number summary, mean, SD, and coefficient of
+#' variation (SD as % of mean) - useful for comparing spread across
+#' variables on very different scales.
+#'
+#' @param df A data frame.
+#' @param numeric_cols Columns to summarize. Defaults to all numeric
+#'   columns of `df`.
+#' @return A data frame with one row per variable: `Variable`, `N`,
+#'   `Missing`, `Min`, `Q1`, `Median`, `Mean`, `SD`, `Q3`, `Max`, `CV_pct`.
+#' @export
 build_descriptive_stats_table <- function(df, numeric_cols = NULL) {
   if (is.null(numeric_cols)) numeric_cols <- names(df)[sapply(df, is.numeric)]
   if (length(numeric_cols) == 0) {
@@ -43,21 +47,35 @@ build_descriptive_stats_table <- function(df, numeric_cols = NULL) {
   do.call(rbind, rows)
 }
 
-# Same table for two datasets side by side (long format with a Dataset
-# column) so it can be sorted/filtered as one table instead of reading two
-# separately printed summary() blocks.
-build_descriptive_stats_comparison_table <- function(df1, df2) {
-  t1 <- build_descriptive_stats_table(df1)
-  t2 <- build_descriptive_stats_table(df2)
-  if (nrow(t1) > 0) t1 <- cbind(Dataset = "Dataset 1", t1, stringsAsFactors = FALSE)
-  if (nrow(t2) > 0) t2 <- cbind(Dataset = "Dataset 2", t2, stringsAsFactors = FALSE)
-  result <- rbind(t1, t2)
+#' Build a combined descriptive-statistics table for 2+ datasets
+#'
+#' `build_descriptive_stats_table()` for each dataset, stacked long (one
+#' `Dataset` column) so all datasets sort/filter as a single table.
+#'
+#' @param dfs A named list of 2+ data frames; names become the `Dataset` column's values.
+#' @return A data frame with one row per (Dataset, Variable) pair.
+#' @export
+build_descriptive_stats_comparison_table <- function(dfs) {
+  rows <- lapply(names(dfs), function(nm) {
+    t <- build_descriptive_stats_table(dfs[[nm]])
+    if (nrow(t) > 0) t <- cbind(Dataset = nm, t, stringsAsFactors = FALSE)
+    t
+  })
+  result <- do.call(rbind, rows)
+  if (is.null(result) || nrow(result) == 0) return(result)
   result[order(result$Variable, result$Dataset), ]
 }
 
-# One row per variable pair (not a full matrix - a full n x n matrix is
-# awkward to sort/scan; a long "pairs" table sorted by |r| puts the
-# strongest relationships at the top).
+#' Build a long-format correlation table, one row per variable pair
+#'
+#' Sorted by `|Correlation|` descending, so the strongest relationships
+#' appear first - easier to sort/scan than a full n x n matrix.
+#'
+#' @param df A data frame.
+#' @param numeric_cols Columns to correlate. Defaults to all numeric
+#'   columns of `df`. Needs at least 2.
+#' @return A data frame: `Variable_1`, `Variable_2`, `Correlation`.
+#' @export
 build_correlation_pairs_table <- function(df, numeric_cols = NULL) {
   if (is.null(numeric_cols)) numeric_cols <- names(df)[sapply(df, is.numeric)]
   if (length(numeric_cols) < 2) {
@@ -72,39 +90,48 @@ build_correlation_pairs_table <- function(df, numeric_cols = NULL) {
   result[order(-abs(result$Correlation)), ]
 }
 
-# Compares the internal correlation structure of two datasets over their
-# common numeric columns, one row per pair, sorted by |difference| - this
-# replaces printing three full matrices (dataset 1, dataset 2, and their
-# element-wise difference) as text and asking the user to spot the large
-# differences themselves. Also drops the old "direct row-wise correlation
-# between dataset 1 and dataset 2" metric: that paired complete.cases()
-# row-by-row between the two datasets, which isn't meaningful when the two
-# datasets have different row counts (they're independent samples, e.g.
-# two different steel heats - there's no natural pairing between row i of
-# one and row i of the other).
-build_correlation_comparison_table <- function(df1, df2, common_cols) {
+#' Compare the internal correlation structure of 2+ datasets
+#'
+#' `build_correlation_pairs_table()` for each dataset over `common_cols`,
+#' stacked long (one `Dataset` column) so it stays a single sortable table
+#' regardless of dataset count. Does not compute a direct row-wise
+#' correlation *between* datasets - that isn't meaningful when datasets
+#' have different row counts (independent samples with no natural pairing).
+#'
+#' @param dfs A named list of 2+ data frames; names become the `Dataset` column's values.
+#' @param common_cols Numeric columns present in all of `dfs`, to correlate. Needs at least 2.
+#' @return A data frame: `Dataset`, `Variable_1`, `Variable_2`, `Correlation`.
+#' @export
+build_correlation_comparison_table <- function(dfs, common_cols) {
   if (length(common_cols) < 2) {
-    return(data.frame(Variable_1 = character(0), Variable_2 = character(0),
-                       Dataset1_r = numeric(0), Dataset2_r = numeric(0), Difference = numeric(0)))
+    return(data.frame(Dataset = character(0), Variable_1 = character(0),
+                       Variable_2 = character(0), Correlation = numeric(0)))
   }
-  m1 <- suppressWarnings(stats::cor(df1[, common_cols, drop = FALSE], use = "complete.obs"))
-  m2 <- suppressWarnings(stats::cor(df2[, common_cols, drop = FALSE], use = "complete.obs"))
-  pairs <- utils::combn(common_cols, 2, simplify = FALSE)
-  rows <- lapply(pairs, function(p) {
-    r1 <- m1[p[1], p[2]]
-    r2 <- m2[p[1], p[2]]
-    data.frame(Variable_1 = p[1], Variable_2 = p[2], Dataset1_r = r1, Dataset2_r = r2,
-               Difference = r1 - r2, stringsAsFactors = FALSE)
+  rows <- lapply(names(dfs), function(nm) {
+    pairs_table <- build_correlation_pairs_table(dfs[[nm]], common_cols)
+    if (nrow(pairs_table) > 0) cbind(Dataset = nm, pairs_table, stringsAsFactors = FALSE) else pairs_table
   })
   result <- do.call(rbind, rows)
-  result[order(-abs(result$Difference)), ]
+  result[order(result$Variable_1, result$Variable_2, result$Dataset), ]
 }
 
-# Shared DT options: CSV/Excel/copy export buttons built into the table
-# itself, sane paging, and column-specific rounding for numeric columns.
-# escape_html = FALSE is needed when a column holds raw <img> markup (the
-# mini-histogram "Distribution" column added by add_distribution_column()).
+#' Render a stats/correlation data frame as a `DT::datatable()`
+#'
+#' Adds copy/CSV/Excel export buttons (configured to export all pages, not
+#' just the visible one) and optional per-column rounding.
+#'
+#' @param df A data frame to display.
+#' @param round_cols Optional character vector of numeric columns to round
+#'   for display.
+#' @param digits Decimal places for `round_cols`. Default 3.
+#' @param page_length Rows per page. Default 15.
+#' @param escape_html Whether to HTML-escape cell content. Set `FALSE` when
+#'   a column holds raw `<img>` markup (e.g. from
+#'   `add_distribution_column()`). Default `TRUE`.
+#' @return A `DT::datatable` htmlwidget.
+#' @export
 render_stats_datatable <- function(df, round_cols = NULL, digits = 3, page_length = 15, escape_html = TRUE) {
+  export_all_pages <- list(exportOptions = list(modifier = list(page = "all")))
   dt <- DT::datatable(
     df,
     rownames = FALSE,
@@ -112,7 +139,11 @@ render_stats_datatable <- function(df, round_cols = NULL, digits = 3, page_lengt
     extensions = "Buttons",
     options = list(
       dom = "Bfrtip",
-      buttons = c("copy", "csv", "excel"),
+      buttons = list(
+        c(list(extend = "copy"), export_all_pages),
+        c(list(extend = "csv"), export_all_pages),
+        c(list(extend = "excel"), export_all_pages)
+      ),
       pageLength = page_length,
       scrollX = TRUE
     )
@@ -124,11 +155,16 @@ render_stats_datatable <- function(df, round_cols = NULL, digits = 3, page_lengt
   dt
 }
 
-# One small styled "card" per numeric variable (name, mean +/- SD, median,
-# N) for a fast visual scan, instead of having to read every row of the
-# full stats table. Returns a tagList of divs laid out with CSS flexbox
-# (wraps responsively; the table below remains the sortable/exportable
-# source of truth).
+#' Build small styled "stat cards" (one per variable) for a quick visual scan
+#'
+#' The full sortable/exportable table (`render_stats_datatable()`) remains
+#' the source of truth; these cards are a faster-to-scan summary above it.
+#'
+#' @param stats_table A result from `build_descriptive_stats_table()` (or
+#'   the comparison variant).
+#' @return A `shiny::div()` of responsively-wrapping flexbox cards, or a
+#'   "No statistics computed yet." message if `stats_table` is empty.
+#' @export
 build_stat_cards <- function(stats_table) {
   if (is.null(stats_table) || nrow(stats_table) == 0) return(tags$p("No statistics computed yet."))
 
@@ -149,10 +185,16 @@ build_stat_cards <- function(stats_table) {
   div(style = "display: flex; flex-wrap: wrap;", cards)
 }
 
-# Tiny base64-encoded PNG histogram for one numeric vector, as an <img>
-# tag - used to embed a per-row distribution sparkline in a DT column
-# (jsonlite::base64_enc() is already a declared dependency, avoiding a new
-# one just for this).
+#' Render a tiny base64-encoded PNG histogram as an `<img>` tag
+#'
+#' Used to embed a per-row distribution sparkline in a DT column.
+#'
+#' @param values Numeric vector to histogram.
+#' @param width_px Image width in pixels. Default 120.
+#' @param height_px Image height in pixels. Default 32.
+#' @return An HTML `<img>` tag string with the histogram as a base64 data
+#'   URI, or `""` if there are fewer than 2 finite values or zero variance.
+#' @export
 render_mini_histogram_base64 <- function(values, width_px = 120, height_px = 32) {
   values <- values[is.finite(values)]
   if (length(values) < 2 || stats::sd(values) == 0) return("")
@@ -169,11 +211,15 @@ render_mini_histogram_base64 <- function(values, width_px = 120, height_px = 32)
   sprintf('<img src="data:image/png;base64,%s" width="%d" height="%d" alt="distribution"/>', b64, width_px, height_px)
 }
 
-# Adds a "Distribution" column (mini-histogram per row) to a descriptive
-# stats table, using the *raw* column values from df (the stats table
-# itself only holds aggregates). Only meaningful for a single-dataset
-# table (no "Dataset" column) since that's the only case where each row
-# maps 1:1 to one column of one data frame.
+#' Add a per-row mini-histogram "Distribution" column to a stats table
+#'
+#' Only meaningful for a single-dataset table (no `Dataset` column), since
+#' that's the only case where each row maps 1:1 to one column of `df`.
+#'
+#' @param stats_table A result from `build_descriptive_stats_table()`.
+#' @param df The original data frame the stats were computed from (for raw values).
+#' @return `stats_table` with an added `Distribution` column (HTML `<img>` tags).
+#' @export
 add_distribution_column <- function(stats_table, df) {
   if (nrow(stats_table) == 0) return(stats_table)
   stats_table$Distribution <- vapply(stats_table$Variable, function(v) {

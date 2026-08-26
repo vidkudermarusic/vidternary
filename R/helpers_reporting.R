@@ -2,7 +2,17 @@
 # Split out of helpers.R: report/dashboard generation, correlation/statistics
 # summaries, and centralized file-reading utilities.
 
-# Report Generation Function
+#' Write a simple HTML report of statistics and a correlation matrix
+#'
+#' @param stats An object (e.g. from `generate_stats()`) to `print()` into
+#'   the report's Statistics section.
+#' @param correlation An object (e.g. from `compute_correlation()`) to
+#'   `print()` into the report's Correlation Matrix section.
+#' @param plot_files Currently unused; accepted for interface compatibility.
+#' @param output_path Path to write the HTML file to. Defaults to
+#'   `Ternary_Analysis_Report_<timestamp>.html` in the working directory.
+#' @return The path the report was written to.
+#' @export
 generate_report <- function(stats, correlation, plot_files, output_path = NULL) {
   timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
   if (is.null(output_path)) {
@@ -26,7 +36,15 @@ generate_report <- function(stats, correlation, plot_files, output_path = NULL) 
   return(output_path)
 }
 
-# Enhanced Data Visualization Functions
+#' Write an HTML data-quality dashboard for two datasets
+#'
+#' Used by `run_comprehensive_analysis()`.
+#'
+#' @param quality_report A result from `check_data_quality()`.
+#' @param output_dir Directory to write `data_quality_dashboard.html` into.
+#'   Defaults to the working directory.
+#' @return The path to the written HTML file.
+#' @export
 create_quality_dashboard <- function(quality_report, output_dir = NULL) {
   if (is.null(output_dir)) {
     output_dir <- getwd()
@@ -109,142 +127,6 @@ create_quality_dashboard <- function(quality_report, output_dir = NULL) {
   return(dashboard_file)
 }
 
-# Function to generate filtered data for export
-generate_filtered_data_for_export <- function(dataset_num, xlsx_file1 = NULL, xlsx_file2 = NULL) {
-  # This function should return the filtered data from ternary plots
-  # For now, return original data until we implement proper filtered data storage
-  tryCatch({
-    if (dataset_num == 1 && !is.null(xlsx_file1)) {
-      return(openxlsx::read.xlsx(xlsx_file1$datapath, sheet = 1))
-    } else if (dataset_num == 2 && !is.null(xlsx_file2)) {
-      return(openxlsx::read.xlsx(xlsx_file2$datapath, sheet = 1))
-    } else {
-      return(data.frame(Message = paste("Dataset", dataset_num, "not available")))
-    }
-  }, error = function(e) {
-    return(data.frame(Error = paste("Error loading dataset", dataset_num, ":", e$message)))
-  })
-}
-
-# ---- Centralized File Operations ----
-# These functions consolidate common file reading and data processing patterns
-
-# File type detection function
-detect_file_type <- function(file_path) {
-  if (grepl("\\.csv$", file_path, ignore.case = TRUE)) {
-    return("csv")
-  } else if (grepl("\\.xlsx?$", file_path, ignore.case = TRUE)) {
-    return("excel")
-  } else {
-    return("unknown")
-  }
-}
-
-# Centralized file reading function
-read_file_by_type <- function(file_path, sheet = 1) {
-  file_type <- detect_file_type(file_path)
-
-  switch(file_type,
-    "csv" = read.csv(file_path),
-    "excel" = openxlsx::read.xlsx(file_path, sheet = sheet),
-    stop("Unsupported file type: ", file_type)
-  )
-}
-
-# Centralized dataset file reading for Shiny inputs
-read_dataset_file <- function(file_input, sheet = 1) {
-  if (is.null(file_input)) return(NULL)
-
-  tryCatch({
-    return(read_file_by_type(file_input$datapath, sheet))
-  }, error = function(e) {
-    log_operation("ERROR", "Failed to read dataset file", paste("File:", file_input$name, "Error:", e$message))
-    return(NULL)
-  })
-}
-
-# Centralized numeric column detection
-get_numeric_columns <- function(df) {
-  if (is.null(df)) return(character(0))
-  return(names(df)[sapply(df, is.numeric)])
-}
-
-# Centralized statistical summary creation
-create_statistical_summary <- function(df, numeric_cols = NULL) {
-  if (is.null(df)) return(data.frame(Message = "No data available"))
-
-  if (is.null(numeric_cols)) {
-    numeric_cols <- get_numeric_columns(df)
-  }
-
-  if (length(numeric_cols) == 0) {
-    return(data.frame(Message = "No numeric columns found"))
-  }
-
-  stats_df <- data.frame(
-    Statistic = c("Min", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max"),
-    stringsAsFactors = FALSE
-  )
-
-  for (col in numeric_cols) {
-    col_data <- df[, col]
-    col_data <- col_data[!is.na(col_data)]
-    if (length(col_data) > 0) {
-      stats_df[[col]] <- c(
-        min(col_data),
-        quantile(col_data, 0.25),
-        median(col_data),
-        mean(col_data),
-        quantile(col_data, 0.75),
-        max(col_data)
-      )
-    } else {
-      stats_df[[col]] <- rep(NA, 6)
-    }
-  }
-
-  return(stats_df)
-}
-
-# Centralized safe worksheet creation for Excel exports
-safe_add_worksheet <- function(wb, sheet_name, data_func) {
-  tryCatch({
-    openxlsx::addWorksheet(wb, sheet_name)
-    data <- data_func()
-    if (!is.null(data) && (is.data.frame(data) && nrow(data) > 0 || is.matrix(data))) {
-      openxlsx::writeData(wb, sheet_name, data)
-    } else {
-      openxlsx::writeData(wb, sheet_name, data.frame(Message = "No data available or insufficient data"))
-    }
-  }, error = function(e) {
-    tryCatch({
-      openxlsx::addWorksheet(wb, sheet_name)
-      openxlsx::writeData(wb, sheet_name, data.frame(Error = paste("Sheet creation failed:", e$message)))
-    }, error = function(e2) {
-      log_operation("WARNING", "Could not create worksheet", paste("Sheet:", sheet_name, "Error:", e2$message))
-    })
-  })
-}
-
-# Centralized correlation matrix creation
-create_correlation_matrix <- function(df, numeric_cols = NULL) {
-  if (is.null(df)) return(data.frame(Message = "No data available"))
-
-  if (is.null(numeric_cols)) {
-    numeric_cols <- get_numeric_columns(df)
-  }
-
-  if (length(numeric_cols) < 2) {
-    return(data.frame(Message = "Insufficient numeric columns for correlation analysis"))
-  }
-
-  tryCatch({
-    return(cor(df[, numeric_cols, drop = FALSE], use = "complete.obs"))
-  }, error = function(e) {
-    return(data.frame(Error = paste("Correlation calculation failed:", e$message)))
-  })
-}
-
 # Centralized success message helper
 create_success_message <- function(operation, filename = NULL, details = NULL) {
   base_message <- paste(operation, "completed successfully!")
@@ -257,7 +139,17 @@ create_success_message <- function(operation, filename = NULL, details = NULL) {
   return(base_message)
 }
 
-# Correlation heatmap creation function
+#' Save a correlation heatmap PNG for a dataset's numeric columns
+#'
+#' Uses `corrplot::corrplot()` if available, else a base `heatmap()` fallback.
+#'
+#' @param data A data frame. Needs at least 2 numeric columns.
+#' @param output_dir Directory to write the PNG into.
+#' @param filename_prefix Filename prefix; the file is
+#'   `<filename_prefix>_<timestamp>.png`.
+#' @return The path to the written PNG, or `NULL` if there wasn't enough
+#'   numeric data or `output_dir` was `NULL`.
+#' @export
 create_correlation_heatmap <- function(data, output_dir, filename_prefix) {
   if (is.null(data) || nrow(data) == 0) {
     return(NULL)
@@ -299,7 +191,15 @@ create_correlation_heatmap <- function(data, output_dir, filename_prefix) {
   return(NULL)
 }
 
-# Distribution plots creation function
+#' Save a grid of per-column histograms PNG for a dataset's numeric columns
+#'
+#' @param data A data frame. Needs at least 1 numeric column.
+#' @param output_dir Directory to write the PNG into.
+#' @param filename_prefix Filename prefix; the file is
+#'   `<filename_prefix>_<timestamp>.png`.
+#' @return The path to the written PNG, or `NULL` if there was no numeric
+#'   data or `output_dir` was `NULL`.
+#' @export
 create_distribution_plots <- function(data, output_dir, filename_prefix) {
   if (is.null(data) || nrow(data) == 0) {
     return(NULL)
