@@ -5,9 +5,12 @@
 
 #' Build the "Spatial Clustering" tab's UI
 #'
+#' @param id Module namespace id - must match the id passed to
+#'   `moduleServer()` for this tab in `server_logic.R`.
 #' @return A `shiny::tabPanel()`.
 #' @export
-create_spatial_tab <- function() {
+create_spatial_tab <- function(id) {
+  ns <- NS(id)
   tabPanel("Spatial Clustering",
     fluidRow(
       column(12,
@@ -30,21 +33,21 @@ create_spatial_tab <- function() {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput("spatial_files", "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
+            fileInput(ns("spatial_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
             helpText("Each file's Sheet 1 is read and combined.")
           ),
           column(6,
             h4("Coordinates"),
-            selectInput("spatial_x_col", "X coordinate column:", choices = NULL),
-            selectInput("spatial_y_col", "Y coordinate column:", choices = NULL),
-            selectInput("spatial_color_col", "Colour points by (optional):", choices = c("None" = "none"))
+            selectInput(ns("spatial_x_col"), "X coordinate column:", choices = NULL),
+            selectInput(ns("spatial_y_col"), "Y coordinate column:", choices = NULL),
+            selectInput(ns("spatial_color_col"), "Colour points by (optional):", choices = c("None" = "none"))
           )
         ),
 
         fluidRow(
           column(6,
             h4("Nearest-neighbour method"),
-            selectInput("spatial_nn_method", "Calculation method:",
+            selectInput(ns("spatial_nn_method"), "Calculation method:",
               choices = c("k-d tree (fast, recommended for large datasets)" = "kdtree",
                           "Distance matrix (slower for large n)" = "matrix"),
               selected = "kdtree"),
@@ -52,35 +55,39 @@ create_spatial_tab <- function() {
           ),
           column(6,
             h4("Monte Carlo simulations"),
-            numericInput("spatial_n_sim", "Number of simulations:", value = 999, min = 49, max = 9999, step = 50),
+            numericInput(ns("spatial_n_sim"), "Number of simulations:", value = 999, min = 49, max = 9999, step = 50),
             helpText("More simulations give a finer-grained p-value (the smallest reportable p-value is roughly 2/(simulations+1)) at the cost of runtime. With the k-d tree method this is cheap even at 999+; with the distance-matrix method, keep this lower for large datasets.")
           )
         ),
 
         fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton("spatial_analyze", "Analyze Spatial Pattern", class = "btn-primary btn-lg", style = "font-size: 18px;")
+            actionButton(ns("spatial_analyze"), "Analyze Spatial Pattern", class = "btn-primary btn-lg", style = "font-size: 18px;")
           )
         ),
 
         fluidRow(
           column(12,
-            verbatimTextOutput("spatial_status")
+            verbatimTextOutput(ns("spatial_status"))
           )
         ),
 
         fluidRow(
-          column(6, plotOutput("spatial_scatter_plot", height = "450px")),
-          column(6, plotOutput("spatial_nnd_histogram", height = "450px"))
+          # width="591px" matches server_spatial.R's spatial_plot_dim (517px
+          # height * 8:7 download aspect ratio) - see that file's comment for
+          # why the plot's *display* size, not just its internal device
+          # size, has to be set explicitly to avoid an oversized preview.
+          column(6, plotOutput(ns("spatial_scatter_plot"), width = "591px", height = "517px")),
+          column(6, plotOutput(ns("spatial_nnd_histogram"), width = "591px", height = "517px"))
         ),
 
         fluidRow(
           column(12,
             h4("Results"),
-            tableOutput("spatial_summary_table"),
-            downloadButton("spatial_download_scatter", "Download scatter plot (PNG)"),
-            downloadButton("spatial_download_histogram", "Download NND histogram (PNG)"),
-            downloadButton("spatial_download_table", "Download NND values (xlsx)")
+            tableOutput(ns("spatial_summary_table")),
+            downloadButton(ns("spatial_download_scatter"), "Download scatter plot (PNG)"),
+            downloadButton(ns("spatial_download_histogram"), "Download NND histogram (PNG)"),
+            downloadButton(ns("spatial_download_table"), "Download NND values (xlsx)")
           )
         )
       )

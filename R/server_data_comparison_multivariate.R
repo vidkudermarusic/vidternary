@@ -84,12 +84,12 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         result <- compute_mahalanobis_distance(
           td$target[, selected_cols, drop = FALSE],
           td$reference[, selected_cols, drop = FALSE],
-          lambda = if (!is.null(input$lambda)) input$lambda else 1,
-          omega = if (!is.null(input$omega)) input$omega else 0,
+          lambda = if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1,
+          omega = if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0,
           keep_outliers = FALSE,
-          custom_mdthresh = if (!is.null(input$mdthresh_mode) && input$mdthresh_mode == "manual") input$custom_mdthresh else NULL,
+          custom_mdthresh = if (!is.null(input$comparison_mv_mdthresh_mode) && input$comparison_mv_mdthresh_mode == "manual") input$comparison_mv_custom_mdthresh else NULL,
           selected_columns = selected_cols,
-          mdthresh_mode = if (!is.null(input$mdthresh_mode)) input$mdthresh_mode else "auto"
+          mdthresh_mode = if (!is.null(input$comparison_mv_mdthresh_mode)) input$comparison_mv_mdthresh_mode else "auto"
         )
 
         if (!is.null(result)) {
@@ -185,10 +185,10 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     }
 
     tryCatch({
-      lambda <- if (!is.null(input$lambda)) input$lambda else 1
-      omega <- if (!is.null(input$omega)) input$omega else 0
-      mdthresh_mode <- if (!is.null(input$mdthresh_mode)) input$mdthresh_mode else "auto"
-      custom_mdthresh <- if (!is.null(input$mdthresh_mode) && input$mdthresh_mode == "manual") input$custom_mdthresh else NULL
+      lambda <- if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1
+      omega <- if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0
+      mdthresh_mode <- if (!is.null(input$comparison_mv_mdthresh_mode)) input$comparison_mv_mdthresh_mode else "auto"
+      custom_mdthresh <- if (!is.null(input$comparison_mv_mdthresh_mode) && input$comparison_mv_mdthresh_mode == "manual") input$comparison_mv_custom_mdthresh else NULL
 
       mahal_result <- compute_mahalanobis_distance(
         td$target[, selected_cols, drop = FALSE],

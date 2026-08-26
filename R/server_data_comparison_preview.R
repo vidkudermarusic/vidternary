@@ -101,8 +101,8 @@ register_data_comparison_preview_handlers <- function(input, output, session, rv
     sel <- selected_preview()
     if (is.null(sel)) return(NULL)
     switch(sel,
-           missing = verbatimTextOutput("comparison_preview_validation"),
-           excel = DT::dataTableOutput("comparison_preview_excel"),
+           missing = verbatimTextOutput(session$ns("comparison_preview_validation")),
+           excel = DT::dataTableOutput(session$ns("comparison_preview_excel")),
            NULL
     )
   })

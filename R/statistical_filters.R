@@ -77,6 +77,7 @@ get_mad_outlier_flags <- function(data, cols, threshold = 3) {
 #' @return The filtered data frame.
 #' @export
 apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE) {
+  if (!is.numeric(multiplier) || multiplier < 0) stop("multiplier must be a non-negative number.")
   # IQR-based outlier filtering - only considers positive outliers (values > Q3 + multiplier*IQR)
   outlier_indices <- get_iqr_outlier_flags(data, cols, multiplier)
 
@@ -103,6 +104,7 @@ apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE
 #' @return The filtered data frame.
 #' @export
 apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
+  if (!is.numeric(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
   # Z-score based outlier filtering - only considers positive outliers (z-scores > threshold)
   outlier_indices <- get_zscore_outlier_flags(data, cols, threshold)
 
@@ -130,6 +132,7 @@ apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE
 #' @return The filtered data frame.
 #' @export
 apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
+  if (!is.numeric(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
   # Median Absolute Deviation (MAD) based filtering - only considers positive outliers (values > median + threshold*MAD)
   outlier_indices <- get_mad_outlier_flags(data, cols, threshold)
 

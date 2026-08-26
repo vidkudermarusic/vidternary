@@ -4,7 +4,11 @@
 \alias{create_coda_tab}
 \title{Build the "Compositional Analysis" tab's UI}
 \usage{
-create_coda_tab()
+create_coda_tab(id)
+}
+\arguments{
+\item{id}{Module namespace id - must match the id passed to
+\code{moduleServer()} for this tab in \code{server_logic.R}.}
 }
 \value{
 A \code{shiny::tabPanel()}.

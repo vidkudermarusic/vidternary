@@ -4,7 +4,11 @@
 \alias{create_evs_tab}
 \title{Build the "Extreme Value Analysis" tab's UI}
 \usage{
-create_evs_tab()
+create_evs_tab(id)
+}
+\arguments{
+\item{id}{Module namespace id - must match the id passed to
+\code{moduleServer()} for this tab in \code{server_logic.R}.}
 }
 \value{
 A \code{shiny::tabPanel()}.

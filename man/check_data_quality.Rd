@@ -20,6 +20,10 @@ A list including \code{missing_values}, \code{infinite_values},
 Reports missing/infinite values, zero-variance and constant columns,
 and IQR outliers for each dataset's common numeric columns, plus an
 overall 0-100 quality score and letter grade per dataset (via
-\code{calculate_quality_score()}). Used by the Data Comparison tab's
-Missing/Outlier Summary and by \code{run_comprehensive_analysis()}.
+\code{calculate_quality_score()}). Not currently reachable from the live
+app - its only callers are \code{analyze_data1()}/\code{analyze_data2()}
+(\code{helpers_multivariate.R}), which themselves have no caller; the Data
+Comparison tab's own Missing/Outlier Summary feature (a previous
+version of this doc comment claimed otherwise) has a separate,
+independent implementation.
 }

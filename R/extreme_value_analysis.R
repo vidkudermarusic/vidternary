@@ -213,7 +213,7 @@ create_gumbel_plot <- function(fit, prediction = NULL) {
   y_breaks <- -log(-log(f_breaks))
 
   p <- ggplot2::ggplot(fit$data, ggplot2::aes(x = y, y = sqrt_area_max)) +
-    ggplot2::geom_point(size = 2, color = "#357ABD") +
+    ggplot2::geom_point(size = 1.6, color = "#357ABD") +
     ggplot2::geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "#002147", fill = "#357ABD", alpha = 0.15) +
     ggplot2::scale_x_continuous(
       name = "Reduced variate y = -ln(-ln(F))",
@@ -229,7 +229,7 @@ create_gumbel_plot <- function(fit, prediction = NULL) {
       ggplot2::geom_errorbar(data = pred_df,
                               ggplot2::aes(ymin = prediction$lower, ymax = prediction$upper),
                               width = 0.3, color = "#d32f2f") +
-      ggplot2::geom_point(data = pred_df, color = "#d32f2f", size = 3, shape = 18) +
+      ggplot2::geom_point(data = pred_df, color = "#d32f2f", size = 2.4, shape = 18) +
       ggplot2::labs(subtitle = sprintf(
         "Predicted for T = %.0f control areas: √Area = %.2f µm [%.2f, %.2f] (95%% PI)",
         prediction$return_period, prediction$predicted, prediction$lower, prediction$upper

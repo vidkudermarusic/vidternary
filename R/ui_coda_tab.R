@@ -5,9 +5,12 @@
 
 #' Build the "Compositional Analysis" tab's UI
 #'
+#' @param id Module namespace id - must match the id passed to
+#'   `moduleServer()` for this tab in `server_logic.R`.
 #' @return A `shiny::tabPanel()`.
 #' @export
-create_coda_tab <- function() {
+create_coda_tab <- function(id) {
+  ns <- NS(id)
   tabPanel("Compositional Analysis",
     fluidRow(
       column(12,
@@ -27,56 +30,58 @@ create_coda_tab <- function() {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput("coda_files", "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
+            fileInput(ns("coda_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
             helpText("Each file's Sheet 1 is read and combined.")
           ),
           column(6,
             h4("Compositional Parts"),
-            selectizeInput("coda_parts", "Element / Wt% columns (select 3 or more):", choices = NULL, multiple = TRUE),
+            selectizeInput(ns("coda_parts"), "Element / Wt% columns (select 3 or more):", choices = NULL, multiple = TRUE),
             helpText("Columns matching \"(Wt%)\" are pre-selected automatically when available.")
           )
         ),
 
         fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton("coda_run", "Transform & Run PCA", class = "btn-primary btn-lg", style = "font-size: 18px;")
+            actionButton(ns("coda_run"), "Transform & Run PCA", class = "btn-primary btn-lg", style = "font-size: 18px;")
           )
         ),
 
         fluidRow(
           column(12,
-            verbatimTextOutput("coda_status")
+            verbatimTextOutput(ns("coda_status"))
           )
         ),
 
         fluidRow(
           column(6,
             h4("Biplot (CLR basis)"),
-            plotOutput("coda_biplot", height = "450px")
+            # width="617px" matches server_coda.R's derived width (480px
+            # height * 9:7 download aspect ratio).
+            plotOutput(ns("coda_biplot"), width = "617px", height = "480px")
           ),
           column(6,
             h4("Biplot (ILR basis)"),
-            plotOutput("coda_biplot_ilr", height = "450px")
+            plotOutput(ns("coda_biplot_ilr"), width = "617px", height = "480px")
           )
         ),
 
         fluidRow(
           column(4,
             h4("Variance Explained"),
-            tableOutput("coda_variance_table"),
+            tableOutput(ns("coda_variance_table")),
             helpText("Identical for both bases, since ILR is an isometry of CLR.")
           ),
           column(4,
             h4("Download data"),
-            downloadButton("coda_download_clr", "CLR-transformed data (xlsx)"),
+            downloadButton(ns("coda_download_clr"), "CLR-transformed data (xlsx)"),
             br(), br(),
-            downloadButton("coda_download_ilr", "ILR-transformed data (xlsx)")
+            downloadButton(ns("coda_download_ilr"), "ILR-transformed data (xlsx)")
           ),
           column(4,
             h4("Download biplots"),
-            downloadButton("coda_download_biplot", "CLR biplot (PNG)"),
+            downloadButton(ns("coda_download_biplot"), "CLR biplot (PNG)"),
             br(), br(),
-            downloadButton("coda_download_biplot_ilr", "ILR biplot (PNG)")
+            downloadButton(ns("coda_download_biplot_ilr"), "ILR biplot (PNG)")
           )
         ),
 
@@ -84,12 +89,12 @@ create_coda_tab <- function() {
           column(6,
             h4("PCA Loadings (CLR basis)"),
             helpText("Each row is one element - directly interpretable."),
-            tableOutput("coda_loadings_table")
+            tableOutput(ns("coda_loadings_table"))
           ),
           column(6,
             h4("PCA Loadings (ILR basis)"),
             helpText("Each row is an abstract balance (ilr_j contrasts the mean of parts 1..j against part j+1, in the order the parts are listed above) - not per-element, but usable where a non-singular covariance matrix is required. Variance explained and PC scores are identical to the CLR basis, since ILR is an isometry of CLR."),
-            tableOutput("coda_loadings_table_ilr")
+            tableOutput(ns("coda_loadings_table_ilr"))
           )
         )
       )

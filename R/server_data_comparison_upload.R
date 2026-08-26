@@ -52,7 +52,7 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
   # the explicit length check.
   output$comparison_dataset_selector_ui <- renderUI({
     req(length(rv$comparison_data) > 0)
-    selectizeInput("comparison_selected", "Datasets to analyze:",
+    selectizeInput(session$ns("comparison_selected"), "Datasets to analyze:",
       choices = names(rv$comparison_data), selected = names(rv$comparison_data), multiple = TRUE)
   })
 

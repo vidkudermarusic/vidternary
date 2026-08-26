@@ -85,36 +85,58 @@ create_server_logic <- function(input, output, session) {
   ternary_plots <- create_server_ternary_plots(input, output, session, rv, show_message, log_operation, filter_management, directory_management)
   
   # Import hexagonal ternary diagram functions
-  hex_ternary <- create_server_hex_ternary(input, output, session, rv, show_message, log_operation, directory_management)
+  # moduleServer()-wrapped: confirmed via a full cross-tab dependency map
+  # that this tab has no reads of another tab's inputs/outputs and nothing
+  # else reads its own - safe to namespace independently. See
+  # ui_hex_ternary_tab.R for the matching NS(id)/ns() wrapping.
+  hex_ternary <- moduleServer("hex_ternary", function(input, output, session) {
+    create_server_hex_ternary(input, output, session, rv, show_message, log_operation, directory_management)
+  })
 
-  # Import plot builder functions
-  plot_builder <- create_server_plot_builder(input, output, session, rv, show_message, log_operation, directory_management)
+  # Import plot builder functions (moduleServer()-wrapped, see hex_ternary's note above)
+  plot_builder <- moduleServer("plot_builder", function(input, output, session) {
+    create_server_plot_builder(input, output, session, rv, show_message, log_operation, directory_management)
+  })
 
-  # Import extreme value analysis functions
-  evs <- create_server_evs(input, output, session, rv, show_message, log_operation, directory_management)
+  # Import extreme value analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
+  evs <- moduleServer("evs", function(input, output, session) {
+    create_server_evs(input, output, session, rv, show_message, log_operation, directory_management)
+  })
 
-  # Import spatial clustering analysis functions
-  spatial <- create_server_spatial(input, output, session, rv, show_message, log_operation, directory_management)
+  # Import spatial clustering analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
+  spatial <- moduleServer("spatial", function(input, output, session) {
+    create_server_spatial(input, output, session, rv, show_message, log_operation, directory_management)
+  })
 
-  # Import compositional data analysis functions
-  coda <- create_server_coda(input, output, session, rv, show_message, log_operation, directory_management)
+  # Import compositional data analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
+  coda <- moduleServer("coda", function(input, output, session) {
+    create_server_coda(input, output, session, rv, show_message, log_operation, directory_management)
+  })
 
   # Ternary core functionality now integrated into server_ternary_plots
-  
-  # Import UI coordination functions
+
+  # Import UI coordination functions - NOT namespaced: reads input$xlsx_file1,
+  # which belongs to the still-flat Ternary Plots tab.
   ui_coordination <- create_server_ui_coordination(input, output, session, rv)
-  
-  # Import status output functions
+
+  # Import status output functions - NOT namespaced: writes output$status and
+  # output$multiple_ternary_status, both owned by the still-flat Ternary
+  # Plots / Multiple Ternary Creator cluster.
   status_outputs <- create_server_status_outputs(input, output, session, rv)
-  
-  # Import analysis log functions
-  analysis_log <- create_server_analysis_log(input, output, session, rv, show_message, log_operation, directory_management)
-  
-  # Import help system functions
+
+  # Import analysis log functions (moduleServer()-wrapped, see hex_ternary's note above)
+  analysis_log <- moduleServer("analysis_log", function(input, output, session) {
+    create_server_analysis_log(input, output, session, rv, show_message, log_operation, directory_management)
+  })
+
+  # Import help system functions - NOT namespaced: operates on the app-shell
+  # help button in ui_components.R, outside any tab's tabPanel.
   help_system <- create_server_help_system(input, output, session)
-  
-  # Import data comparison functions
-  data_comparison <- create_server_data_comparison(input, output, session, rv, show_message, log_operation)
+
+  # Import data comparison functions (moduleServer()-wrapped, see hex_ternary's note above)
+  data_comparison <- moduleServer("data_comparison", function(input, output, session) {
+    create_server_data_comparison(input, output, session, rv, show_message, log_operation)
+  })
   
   # Advanced plot functionality moved to server_plot_types.R module
   # Analysis log functionality moved to server_analysis_log.R module
@@ -149,7 +171,7 @@ create_server_logic <- function(input, output, session) {
   # Enhanced analysis outputs functionality moved to server_data_comparison.R module
   
   # ---- Multiple Ternary Creator Functionality ----
-  # Multiple ternary creator functionality moved to server_multiple_ternary.R module
+  # Multiple ternary creator functionality moved to server_ternary_plots_batch.R module
 
     # ---- Cache Management ----
   # Cache functionality moved to server_cache_management.R module

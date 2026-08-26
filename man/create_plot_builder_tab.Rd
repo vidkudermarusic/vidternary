@@ -4,7 +4,11 @@
 \alias{create_plot_builder_tab}
 \title{Build the "Plot Builder" tab's UI}
 \usage{
-create_plot_builder_tab()
+create_plot_builder_tab(id)
+}
+\arguments{
+\item{id}{Module namespace id - must match the id passed to
+\code{moduleServer()} for this tab in \code{server_logic.R}.}
 }
 \value{
 A \code{shiny::tabPanel()}.

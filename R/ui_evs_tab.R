@@ -7,9 +7,12 @@
 
 #' Build the "Extreme Value Analysis" tab's UI
 #'
+#' @param id Module namespace id - must match the id passed to
+#'   `moduleServer()` for this tab in `server_logic.R`.
 #' @return A `shiny::tabPanel()`.
 #' @export
-create_evs_tab <- function() {
+create_evs_tab <- function(id) {
+  ns <- NS(id)
   tabPanel("Extreme Value Analysis",
     fluidRow(
       column(12,
@@ -36,20 +39,20 @@ create_evs_tab <- function() {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput("evs_files", "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
+            fileInput(ns("evs_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
             helpText("Each file's Sheet 1 is read and combined.")
           ),
           column(6,
             h4("Control Area Grouping"),
-            selectInput("evs_area_col", "Area column (µm²):", choices = NULL),
-            checkboxInput("evs_use_manual_groups", "No field/frame ID column available - split data into N equal groups instead", value = FALSE),
+            selectInput(ns("evs_area_col"), "Area column (µm²):", choices = NULL),
+            checkboxInput(ns("evs_use_manual_groups"), "No field/frame ID column available - split data into N equal groups instead", value = FALSE),
             conditionalPanel(
-              condition = "input.evs_use_manual_groups == false",
-              selectInput("evs_group_col", "Field / group ID column:", choices = NULL)
+              condition = paste0("input['", ns("evs_use_manual_groups"), "'] == false"),
+              selectInput(ns("evs_group_col"), "Field / group ID column:", choices = NULL)
             ),
             conditionalPanel(
-              condition = "input.evs_use_manual_groups == true",
-              numericInput("evs_n_groups", "Number of equal groups (control areas):", value = 20, min = 3, step = 1),
+              condition = paste0("input['", ns("evs_use_manual_groups"), "'] == true"),
+              numericInput(ns("evs_n_groups"), "Number of equal groups (control areas):", value = 20, min = 3, step = 1),
               div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px;",
                 strong("⚠ Note: "), "these groups have no known physical area. The return period T below will only mean ",
                 em("\"T× as many statistical groups\""), ", not a real area multiple - use this mode for trend estimation only, not for a physically-calibrated prediction."
@@ -60,36 +63,38 @@ create_evs_tab <- function() {
 
         fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton("evs_fit", "Fit Extreme Value Model", class = "btn-primary btn-lg", style = "font-size: 18px;")
+            actionButton(ns("evs_fit"), "Fit Extreme Value Model", class = "btn-primary btn-lg", style = "font-size: 18px;")
           )
         ),
 
         fluidRow(
           column(12,
-            verbatimTextOutput("evs_status"),
-            uiOutput("evs_gof_warning")
+            verbatimTextOutput(ns("evs_status")),
+            uiOutput(ns("evs_gof_warning"))
           )
         ),
 
         fluidRow(
           column(4,
             h4("Prediction"),
-            numericInput("evs_return_period", "Return period T (multiples of the control area):", value = 100, min = 1.01, step = 1),
+            numericInput(ns("evs_return_period"), "Return period T (multiples of the control area):", value = 100, min = 1.01, step = 1),
             helpText("E.g. T = 100 predicts the largest inclusion expected over 100× the control area used above. ",
                      "This is a real physical area only when a field/frame ID column was used for grouping; with the manual N-groups fallback, T is a statistical multiple only (see note above)."),
-            downloadButton("evs_download_plot", "Download plot (PNG)"),
+            downloadButton(ns("evs_download_plot"), "Download plot (PNG)"),
             br(), br(),
-            downloadButton("evs_download_table", "Download block maxima (xlsx)")
+            downloadButton(ns("evs_download_table"), "Download block maxima (xlsx)")
           ),
           column(8,
-            plotOutput("evs_plot", height = "500px")
+            # width="821px" matches server_evs.R's derived width (575px
+            # height * 10:7 download aspect ratio).
+            plotOutput(ns("evs_plot"), width = "821px", height = "575px")
           )
         ),
 
         fluidRow(
           column(12,
             h4("Fit Summary"),
-            tableOutput("evs_summary_table")
+            tableOutput(ns("evs_summary_table"))
           )
         )
       )

@@ -55,9 +55,12 @@ HEX_LEGEND_SVG <- '
 
 #' Build the "Hexagonal Ternary Diagram" tab's UI
 #'
+#' @param id Module namespace id - must match the id passed to
+#'   `moduleServer()` for this tab in `server_logic.R`.
 #' @return A `shiny::tabPanel()`.
 #' @export
-create_hex_ternary_tab <- function() {
+create_hex_ternary_tab <- function(id) {
+  ns <- NS(id)
   tabPanel("Hexagonal Ternary Diagram",
     fluidRow(
       column(12,
@@ -81,13 +84,13 @@ create_hex_ternary_tab <- function() {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput("hex_xlsx_file", "Select Excel File", accept = c(".xlsx", ".xls")),
+            fileInput(ns("hex_xlsx_file"), "Select Excel File", accept = c(".xlsx", ".xls")),
             helpText("The composite diagram is built from this file's Sheet 1.")
           ),
           column(6,
             h4("Output Settings"),
             helpText("Output directory: Use the 'Directory Settings' section at the bottom of the app."),
-            textInput("hex_output_folder", "Folder Name for Diagram",
+            textInput(ns("hex_output_folder"), "Folder Name for Diagram",
               value = "hex_ternary_diagrams", placeholder = "Enter folder name")
           )
         ),
@@ -97,17 +100,17 @@ create_hex_ternary_tab <- function() {
             h4("Element Selection (A-G)"),
             div(style = "border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #f8f9fa;",
               fluidRow(
-                column(4, selectizeInput("hex_element_1", HEX_ELEMENT_SLOT_LABELS[1], choices = NULL, multiple = TRUE)),
-                column(4, selectizeInput("hex_element_2", HEX_ELEMENT_SLOT_LABELS[2], choices = NULL, multiple = TRUE)),
-                column(4, selectizeInput("hex_element_3", HEX_ELEMENT_SLOT_LABELS[3], choices = NULL, multiple = TRUE))
+                column(4, selectizeInput(ns("hex_element_1"), HEX_ELEMENT_SLOT_LABELS[1], choices = NULL, multiple = TRUE)),
+                column(4, selectizeInput(ns("hex_element_2"), HEX_ELEMENT_SLOT_LABELS[2], choices = NULL, multiple = TRUE)),
+                column(4, selectizeInput(ns("hex_element_3"), HEX_ELEMENT_SLOT_LABELS[3], choices = NULL, multiple = TRUE))
               ),
               fluidRow(
-                column(4, selectizeInput("hex_element_4", HEX_ELEMENT_SLOT_LABELS[4], choices = NULL, multiple = TRUE)),
-                column(4, selectizeInput("hex_element_5", HEX_ELEMENT_SLOT_LABELS[5], choices = NULL, multiple = TRUE)),
-                column(4, selectizeInput("hex_element_6", HEX_ELEMENT_SLOT_LABELS[6], choices = NULL, multiple = TRUE))
+                column(4, selectizeInput(ns("hex_element_4"), HEX_ELEMENT_SLOT_LABELS[4], choices = NULL, multiple = TRUE)),
+                column(4, selectizeInput(ns("hex_element_5"), HEX_ELEMENT_SLOT_LABELS[5], choices = NULL, multiple = TRUE)),
+                column(4, selectizeInput(ns("hex_element_6"), HEX_ELEMENT_SLOT_LABELS[6], choices = NULL, multiple = TRUE))
               ),
               fluidRow(
-                column(4, selectizeInput("hex_element_7", HEX_ELEMENT_SLOT_LABELS[7], choices = NULL, multiple = TRUE))
+                column(4, selectizeInput(ns("hex_element_7"), HEX_ELEMENT_SLOT_LABELS[7], choices = NULL, multiple = TRUE))
               )
             )
           )
@@ -115,18 +118,18 @@ create_hex_ternary_tab <- function() {
 
         fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton("hex_generate", "Ustvari heksagonalni diagram",
+            actionButton(ns("hex_generate"), "Ustvari heksagonalni diagram",
               class = "btn-primary btn-lg", style = "font-size: 18px;"),
             br(), br(),
-            actionButton("hex_save", "Shrani v izhodno mapo",
+            actionButton(ns("hex_save"), "Shrani v izhodno mapo",
               class = "btn-success btn-lg", style = "font-size: 18px;")
           )
         ),
 
         fluidRow(
           column(12,
-            verbatimTextOutput("hex_status"),
-            uiOutput("hex_plot_container")
+            verbatimTextOutput(ns("hex_status")),
+            uiOutput(ns("hex_plot_container"))
           )
         )
       )
