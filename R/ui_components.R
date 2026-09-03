@@ -1,8 +1,13 @@
 
 # ---- Shiny UI Components Module ----
-# create_main_ui() is the page shell: global styling/JS, header, the main
-# tabset, and the always-visible Directory Settings / Cache Management
-# sections. Each tab's own UI tree is built by a dedicated function in a
+# create_main_ui() is the page shell: global styling/JS, header, and the
+# main tabset. There is no shared save-location picker - every tab's own
+# Save/Export button prompts for where to save right when it's clicked,
+# via the browser's native Save dialog (a plain downloadButton/
+# downloadHandler), the same pattern used across every tab (see the
+# vidternary Structural Audit's §03 for the removal of the previous
+# always-visible, pre-selected Working/Output Directory pair). Each tab's
+# own UI tree is built by a dedicated function in a
 # sibling module, split out for size:
 #   ui_ternary_plots_tab.R       - create_ternary_plots_tab()
 #   ui_data_comparison_tab.R     - create_data_comparison_tab()
@@ -30,11 +35,11 @@ cite_link <- function(label, doi_url = NULL) {
 }
 
 # Main UI function
-#' Build the full app UI: page shell, header, tabset, and shared settings
+#' Build the full app UI: page shell, header, and tabset
 #'
-#' Assembles the page's global styling/JS, header, all 9 tabs (via each
-#' tab's own `create_*_tab()`), and the always-visible Directory Settings /
-#' Cache Management sections.
+#' Assembles the page's global styling/JS, header, and all 9 tabs (via
+#' each tab's own `create_*_tab()`). No shared save-location picker - see
+#' this file's own header comment for why.
 #'
 #' @return A `shiny::fluidPage()`.
 #' @export
@@ -98,13 +103,7 @@ create_main_ui <- function() {
 
     fluidRow(
       column(12,
-        div(
-          style = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;",
-          h2("Custom Ternary Builder v6 - Individual Element Filtering"),
-          actionButton("help_button", "?",
-            style = "background-color: #007bff; color: white; border: none; border-radius: 50%; height: 30px; font-weight: bold; font-size: 16px;",
-            title = "Help")
-        )
+        h2("Custom Ternary Builder v6 - Individual Element Filtering", style = "margin-bottom: 20px;")
       )
     ),
 
@@ -112,9 +111,9 @@ create_main_ui <- function() {
 
     # Main Tabset Panel
     tabsetPanel(
-      create_ternary_plots_tab(),
+      create_ternary_plots_tab("ternary_plots"),
       create_data_comparison_tab("data_comparison"),
-      create_multiple_ternary_tab(),
+      create_multiple_ternary_tab("multiple_ternary"),
       create_hex_ternary_tab("hex_ternary"),
       create_plot_builder_tab("plot_builder"),
       create_evs_tab("evs"),
@@ -122,55 +121,6 @@ create_main_ui <- function() {
       create_coda_tab("coda"),
       create_analysis_log_tab("analysis_log")
     ),  # Close main tabsetPanel
-
-    # Directory Settings Section
-    fluidRow(
-      column(12,
-        h3("Directory Settings"),
-        fluidRow(
-          column(6,
-            h4("Working Directory"),
-            shinyDirButton("working_dir", "Choose Working Directory", "Select Working Directory"),
-            verbatimTextOutput("working_dir_text")
-          ),
-          column(6,
-            h4("Output Directory"),
-            shinyDirButton("output_dir", "Choose Output Directory", "Select Output Directory"),
-            verbatimTextOutput("output_dir_text")
-          )
-        )
-      )
-    ),
-
-    # Cache Management Section
-    fluidRow(
-      column(12,
-        h3("Cache Management"),
-        fluidRow(
-          column(4,
-            actionButton("clear_cache", "Clear All Cache", class = "btn-warning"),
-            helpText("Remove all cached data")
-          ),
-          column(4,
-            actionButton("clear_expired_cache", "Clear Expired Cache", class = "btn-info"),
-            helpText("Remove only expired cache entries")
-          ),
-          column(4,
-            verbatimTextOutput("cache_stats"),
-            helpText("Current cache status"),
-            actionButton("refresh_cache_stats", "Refresh Stats", class = "btn-sm btn-info")
-          )
-        ),
-        fluidRow(
-          column(12,
-            checkboxInput("debug_mode", "Enable Debug Mode", value = FALSE),
-            helpText("Enable detailed debug output in console. Controls verbose logging for multivariate analysis, caching, and performance monitoring.")
-          )
-        )
-      )
-    ),
-
-
 
     tags$hr(),
     tags$footer(

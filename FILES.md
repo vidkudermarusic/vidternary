@@ -1,109 +1,105 @@
-# Pregled datotek v paketu `vidternary`
+# File overview for the `vidternary` package
 
-Kratek opis vsake datoteke v paketu, urejen po funkcionalnih sklopih. Za podrobnejši opis posamezne funkcije glej komentar na vrhu vsake datoteke.
+A short description of every file in the package, grouped by functional area. For a more detailed description of an individual function, see the comment at the top of each file.
 
-## Vstopna točka
+## Entry point
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/app.R` | Zažene celotno Shiny aplikacijo (glavna vstopna točka `run_app()`-podobne funkcije). |
+| `R/app.R` | Runs the whole Shiny application (`run_app()` and `create_app()`). |
 
-## UI moduli (`ui_*.R`)
+## UI modules (`ui_*.R`)
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/ui_components.R` | Lupina celotnega UI: naslov, globalni CSS/JS, glavni tabset ter vedno vidne nastavitve direktorijev in predpomnilnika. Posamezni zavihki so izločeni v spodnje datoteke. |
-| `R/ui_ternary_plots_tab.R` | Zavihek **Ternary Plots** – glavni delovni tok: nalaganje dveh datasetov, izbira osi/elementov, filtri po elementih, analitične metode, izhodne nastavitve, predogled. |
-| `R/ui_data_comparison_tab.R` | Zavihek **Data Comparison** – opisna statistika, korelacijska analiza in multivariatna primerjava (Mahalanobis/Isolation Forest) dveh datasetov. |
-| `R/ui_multiple_ternary_tab.R` | Zavihek **Multiple Ternary Creator** – paketna izdelava enega ternarnega grafa na vsako naloženo datoteko. |
-| `R/ui_hex_ternary_tab.R` | Zavihek **Hexagonal Ternary Diagram** – sestavi 6 trikotnih ternarnih grafov iz ene datoteke v en heksagonalni prikaz. |
-| `R/ui_plot_builder_tab.R` | Zavihek **Plot Builder** – splošni graditelj grafov (tip grafa, X/Y os, barva/skupina, log skale) + shranjeni uporabniški predlogi. |
-| `R/ui_evs_tab.R` | Zavihek **Extreme Value Analysis** – Murakami/ASTM E2283 statistika ekstremnih vrednosti za napoved velikosti vključkov. |
-| `R/ui_spatial_tab.R` | Zavihek **Spatial Clustering** – Clark-Evans test naključnosti prostorske razporeditve vključkov (spacing/gručenje). |
-| `R/ui_coda_tab.R` | Zavihek **Compositional Analysis** – CLR/ILR log-ratio transformacije in PCA za sestavne (Wt%) kemijske podatke. |
-| `R/ui_analysis_log_tab.R` | Zavihek **Analysis Log** – filtriran/iskalen dnevnik dejavnosti aplikacije. |
+| `R/ui_components.R` | Whole-UI shell: title, global CSS/JS, the main tabset, and the always-visible Directory Settings section. Each tab's own UI is split into the files below. |
+| `R/ui_ternary_plots_tab.R` | **Ternary Plots** tab – the main workflow: two-dataset upload, axis/element selection, per-element filters, analysis methods, output options, live preview. |
+| `R/ui_data_comparison_tab.R` | **Data Comparison** tab – descriptive statistics, correlation analysis, and multivariate (Mahalanobis / Isolation Forest) comparison across an arbitrary set of uploaded files. |
+| `R/ui_multiple_ternary_tab.R` | **Multiple Ternary Creator** tab – batch-generates one ternary plot per uploaded file from a shared element mapping and per-element filters. |
+| `R/ui_hex_ternary_tab.R` | **Hexagonal Ternary Diagram** tab – composites 6 triangular ternary plots from one file into a single hexagonal image. |
+| `R/ui_plot_builder_tab.R` | **Plot Builder** tab – generic chart builder (plot type, X/Y axis, colour/group, log scales) plus saved user presets. |
+| `R/ui_evs_tab.R` | **Extreme Value Analysis** tab – Murakami / ASTM E2283 extreme value statistics for predicting inclusion size. |
+| `R/ui_spatial_tab.R` | **Spatial Clustering** tab – Clark-Evans test of complete spatial randomness for inclusion positions (spacing / clustering). |
+| `R/ui_coda_tab.R` | **Compositional Analysis** tab – CLR / ILR log-ratio transforms and PCA for compositional (Wt%) chemistry data. |
+| `R/ui_analysis_log_tab.R` | **Analysis Log** tab – filterable / searchable activity log. |
 
-## Server moduli (`server_*.R`)
+## Server modules (`server_*.R`)
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/server_logic.R` | Osrednji server modul – inicializira skupni `reactiveValues` (`rv`) in poveže vse ostale server module. |
-| `R/server_ternary_plots.R` | Logika za enodatotečno izdelavo ternarnih grafov: gradnja parametrov, predogled, poročilo analize, gumbi Save. |
-| `R/server_ternary_plots_batch.R` | Paketni predogled/shranjevanje za **Multiple Ternary Creator** (izločeno iz `server_ternary_plots.R`). |
-| `R/server_ternary_plots_groups.R` | Zaznava kategorične podatke v "Optional Parameter 2" in upravlja UI za izbiro skupin. |
-| `R/server_data_comparison.R` | Registrira vse handlerje zavihka **Data Comparison** v pravilnem vrstnem redu (statistika, multivariatno, predogled). |
-| `R/server_data_comparison_stats.R` | Gumbi za opisno statistiko in korelacije – DT tabele, statistične kartice, korelacijski heatmap, mini-histogrami. |
-| `R/server_data_comparison_multivariate.R` | Gumbi za Mahalanobisovo razdaljo in Isolation Forest ter skupen prikaz rezultatov. |
-| `R/server_data_comparison_preview.R` | Povzetki manjkajočih vrednosti/osamelcev in surov predogled naloženih Excel datotek. |
-| `R/server_hex_ternary.R` | Logika zavihka **Hexagonal Ternary Diagram** (generiraj v predogled / shrani v datoteko). |
-| `R/server_plot_builder.R` | Logika zavihka **Plot Builder** – gradnja grafov ter shranjevanje/nalaganje/brisanje uporabniških predlog. |
-| `R/server_evs.R` | Logika zavihka **Extreme Value Analysis** – prilagajanje Gumbelove porazdelitve, graf, goodness-of-fit test. |
-| `R/server_spatial.R` | Logika zavihka **Spatial Clustering** – Clark-Evans test, razsevni graf, histogram razdalj do najbližjega soseda. |
-| `R/server_coda.R` | Logika zavihka **Compositional Analysis** – CLR/ILR transformacija, PCA, biplot. |
-| `R/server_analysis_log.R` | Beleženje in prikaz dnevnika dejavnosti, shranjevanje/izvoz dnevnika v datoteko. |
-| `R/server_cache_management.R` | Periodično čiščenje predpomnilnika in ročne akcije upravljanja predpomnilnika. |
-| `R/server_directory_management.R` | Upravljanje delovnega direktorija in direktorija za izhodne datoteke. |
-| `R/server_file_handlers.R` | Nalaganje/prenos datotek in kopiranje parametrov med datasetoma. |
-| `R/server_filter_management.R` | Zbiranje vrednosti filtrov iz UI in generiranje dinamičnega UI za filtre. |
-| `R/server_help_system.R` | Pomoč in dokumentacija znotraj aplikacije. |
-| `R/server_multiple_ternary.R` | Del logike za **Multiple Ternary Creator** (starejši/pomožni del, glej opombo v `server_logic.R`). |
-| `R/server_status_outputs.R` | Statusni izpisi in povratne informacije uporabniku. |
-| `R/server_ui_coordination.R` | Sinhronizacija UI vnosov (npr. posodabljanje izbir stolpcev med zavihki). |
+| `R/server_logic.R` | Top-level server module – initializes the shared `reactiveValues` (`rv`) and wires every other server module into one reactive graph. |
+| `R/server_ternary_plots.R` | Single-file ternary plot logic: parameter building, live preview, analysis-report text, the Save Plot 1/2/Both buttons. |
+| `R/server_ternary_plots_batch.R` | Batch preview/save for **Multiple Ternary Creator** (split out of `server_ternary_plots.R`; now its own module/namespace). |
+| `R/server_ternary_plots_groups.R` | Detects categorical data in "Optional Parameter 2" and manages the group-selection checklist UI. |
+| `R/server_file_handlers.R` | Dataset 1/2 file upload/download and copy-settings, for the Ternary Plots tab. |
+| `R/server_data_comparison.R` | Registers all **Data Comparison** tab handlers in the right order (upload first, then stats, multivariate, preview). |
+| `R/server_data_comparison_upload.R` | Owns `rv$comparison_data` (one data frame per uploaded file) and every dataset / target / reference selector the other Data Comparison modules read from. |
+| `R/server_data_comparison_stats.R` | Descriptive-statistics and correlation handlers – DT tables, stat cards, correlation heatmap, per-row mini-histograms. |
+| `R/server_data_comparison_multivariate.R` | Mahalanobis distance and Isolation Forest buttons plus the combined comprehensive results panel. |
+| `R/server_data_comparison_preview.R` | Missing-value / outlier summaries and a raw preview of the uploaded Excel files. |
+| `R/server_hex_ternary.R` | **Hexagonal Ternary Diagram** tab logic (generate into preview / save to file). |
+| `R/server_plot_builder.R` | **Plot Builder** tab logic – chart rendering plus save / load / delete of user presets. |
+| `R/server_evs.R` | **Extreme Value Analysis** tab logic – Gumbel fit, probability plot, goodness-of-fit test. |
+| `R/server_spatial.R` | **Spatial Clustering** tab logic – Clark-Evans test, scatter plot, nearest-neighbour distance histogram. |
+| `R/server_coda.R` | **Compositional Analysis** tab logic – CLR / ILR transform, PCA, biplot. |
+| `R/server_analysis_log.R` | Records and renders the activity log; saves / exports the log to file. |
+| `R/server_directory_management.R` | Working-directory and output-directory selection. |
+| `R/server_status_outputs.R` | App-shell status text and user feedback. |
 
-## Statistika in analiza (brez Shiny odvisnosti)
+## Statistics and analysis (no Shiny dependency)
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/extreme_value_analysis.R` | Murakami/ASTM E2283 statistika ekstremnih vrednosti: block maxima, Gumbel fit, napoved, goodness-of-fit test (parametrični bootstrap). |
-| `R/spatial_clustering_analysis.R` | Clark-Evans test gručenja/naključnosti prostorske razporeditve vključkov, z Donnellyjevo korekcijo robov. |
-| `R/compositional_data_analysis.R` | CLR/ILR log-ratio transformacije in PCA za sestavne (Wt%) kemijske podatke. |
-| `R/multivariate.R` | Mahalanobisova razdalja, Isolation Forest in validacija vhodnih podatkov za multivariatno analizo. |
-| `R/statistical_filters.R` | IQR/Z-score/MAD filtriranje (pozitivnih) osamelcev. |
-| `R/stats_display_utils.R` | Priprava DT tabel, statističnih kartic in mini-histogramov za prikaz statistike v zavihku Data Comparison. |
+| `R/extreme_value_analysis.R` | Murakami / ASTM E2283 extreme value statistics: block maxima, Gumbel fit, prediction, goodness-of-fit test (parametric bootstrap). |
+| `R/spatial_clustering_analysis.R` | Clark-Evans clustering / spatial-randomness test for inclusion positions, with Donnelly's rectangular-window edge correction. |
+| `R/compositional_data_analysis.R` | CLR / ILR log-ratio transforms and PCA for compositional (Wt%) chemistry data. |
+| `R/multivariate.R` | Mahalanobis distance, Isolation Forest, and input validation for multivariate analysis. |
+| `R/statistical_filters.R` | IQR / Z-score / MAD filtering ((positive) outliers only). |
+| `R/stats_display_utils.R` | Builds the DT tables, stat cards, and mini-histograms used to display statistics on the Data Comparison tab. |
 
-## Risanje grafov
+## Ternary plotting
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/plotting_utils.R` | Osnovni graditelji grafov za en dataset (korelacija, histogram+gostota, boxplot, scatter matrix), teme in barvne palete. |
-| `R/plotting_utils_builder.R` | Splošni graditelj grafa za zavihek **Plot Builder** (violin/box/histogram/scatter/bar). |
-| `R/ternary_plot.R` | `general_ternary_plot()` – tanek orkestrator, ki kliče spodnje module za pripravo/risanje/shranjevanje. |
-| `R/ternary_plot_data_prep.R` | Priprava podatkov za ternarni graf: nalaganje datoteke, filtri, ternarne koordinate, naslov, barve/oblike točk. |
-| `R/ternary_plot_preview.R` | Risanje ternarnega grafa na trenutno aktivno grafično napravo (predogled). |
-| `R/ternary_plot_save.R` | Ponovno risanje in shranjevanje ternarnega grafa v datoteko. |
-| `R/hex_ternary_plot.R` | Sestavljanje 6 ternarnih grafov v en heksagonalni diagram. |
+| `R/ternary_plot.R` | `general_ternary_plot()` – a thin orchestrator that calls the modules below to prepare / draw / save. |
+| `R/ternary_plot_data_prep.R` | Ternary plot data preparation: load the file, apply filters, compute ternary coordinates, build the title, work out point size / colour / shape. |
+| `R/ternary_plot_preview.R` | Draws the ternary plot to the currently active graphics device (preview). |
+| `R/ternary_plot_save.R` | Redraws and saves the ternary plot to an image file. |
+| `R/hex_ternary_plot.R` | Composites 6 ternary plots into one hexagonal diagram. |
 
-## Pomožne (helper) funkcije
+## Plotting utilities
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/helpers.R` | Osrednje pomožne funkcije: beleženje (`log_operation`), čiščenje imen stolpcev, spremljanje zmogljivosti. |
-| `R/helpers_filters.R` | Zbiranje filtrov iz Shiny vnosov (`input`) in njihova uporaba na podatkih. |
-| `R/helpers_validation.R` | Preverjanje kakovosti in veljavnosti podatkov. |
-| `R/helpers_multivariate.R` | Orkestracija multivariatnih analiz (ovojnica okoli `multivariate.R`). |
-| `R/helpers_reporting.R` | Generiranje poročil/nadzornih plošč (uporablja `comprehensive_analysis.R`) - korelacijske toplotne karte, distribucijski grafi. |
+| `R/plotting_utils.R` | `corrplot` correlation heatmap for the Data Comparison tab – the only ggplot-independent plotting helper still wired into the app. |
+| `R/plotting_utils_builder.R` | Generic chart builder for the **Plot Builder** tab (violin / box / bar / histogram / scatter / rose). |
 
-## Konfiguracija, predpomnjenje, izvoz in ostalo
+## Helper functions
 
-| Datoteka | Opis |
+| File | Description |
 |---|---|
-| `R/config.R` | Upravljanje konfiguracije aplikacije (nastavitve, privzeti direktoriji). |
-| `R/options.R` | Konstante in nastavitve, uporabljene po celotni aplikaciji. |
-| `R/dependencies.R` | Preverjanje in nalaganje potrebnih R paketov. |
-| `R/cache.R` | Sistem predpomnjenja podatkov in grafov s časovnim potekom veljavnosti. |
-| `R/cache_performance.R` | Sledenje napredku in zmogljivosti (čas, pomnilnik) posameznih operacij. |
-| `R/file_management.R` | Ustvarjanje izhodnih map, poimenovanje datotek, časovni žigi. |
-| `R/plot_builder_presets.R` | Shranjevanje/nalaganje uporabniških predlog za zavihek Plot Builder (JSON datoteka). |
-| `R/comprehensive_analysis.R` | Celovit analitični cevovod, ki povezuje obstoječe funkcije v enoten potek analize in poročanja. |
+| `R/helpers.R` | Core helpers: logging (`log_operation` / `debug_log`), column-name cleaning, console messages, multi-line plot-title layout. |
+| `R/helpers_filters.R` | Collects filter values from Shiny `input` and applies them to a data frame. |
 
-## Struktura paketa (izven `R/`)
+## Configuration and misc
 
-| Pot | Opis |
+| File | Description |
 |---|---|
-| `DESCRIPTION`, `NAMESPACE` | Standardna metapodatka R paketa in seznam izvoženih funkcij. |
-| `README.md` | Glavni opis projekta in navodila za uporabo. |
-| `vignettes/vidternary-intro.Rmd` | Uvodna vinjeta / vodič po paketu. |
-| `tests/testthat/test-modular-structure.R` | Osnovni testi strukture modulov. |
-| `testdata/` | Testni Excel podatki (`test_data.xlsx`) z opisom. |
-| `legacy/` | Stare/opuščene skripte, ohranjene za referenco (`App6.0.1.R`, `ternary_plot_old.R`, ...) – niso del aktivnega paketa. |
-| `renv/` | `renv` upravljalnik R okolja/odvisnosti paketa. |
+| `R/options.R` | App-wide constants – the min/max point-size bounds shared by every plot's point-size legend/scaling. |
+| `R/dependencies.R` | Checks (does not install) the required R packages. |
+| `R/file_management.R` | Output-directory creation, file naming, timestamp logic. |
+| `R/plot_builder_presets.R` | Save / load user presets for the Plot Builder tab (`plot_builder_presets.json`). |
+
+## Package structure (outside `R/`)
+
+| Path | Description |
+|---|---|
+| `DESCRIPTION`, `NAMESPACE` | Standard R package metadata and the list of exported functions. |
+| `README.md` | Main project description and usage instructions. |
+| `man/` | Generated `.Rd` function help pages (roxygen2 output). |
+| `vignettes/` | Long-form guides: `vidternary-intro.Rmd`, `user-guide.Rmd`, `statistical-appendix.Rmd`. |
+| `tests/testthat/` | `testthat` tests: modular structure plus the EVS / spatial-clustering / compositional-data analysis modules. |
+| `testdata/` | Sample Excel data (`test_data.xlsx`) with a README. |
+| `inst/`, `data-raw/` | Installed extra files and the scripts used to prepare bundled data. |
+| `legacy/` | Old / retired scripts kept for reference (`App6.0.1.R`, `ternary_plot_old.R`, ...) – not part of the active package. |
+| `renv/` | `renv` R environment / dependency manager for the package. |

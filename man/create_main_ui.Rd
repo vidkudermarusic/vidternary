@@ -2,7 +2,7 @@
 % Please edit documentation in R/ui_components.R
 \name{create_main_ui}
 \alias{create_main_ui}
-\title{Build the full app UI: page shell, header, tabset, and shared settings}
+\title{Build the full app UI: page shell, header, and tabset}
 \usage{
 create_main_ui()
 }
@@ -10,7 +10,7 @@ create_main_ui()
 A \code{shiny::fluidPage()}.
 }
 \description{
-Assembles the page's global styling/JS, header, all 9 tabs (via each
-tab's own \verb{create_*_tab()}), and the always-visible Directory Settings /
-Cache Management sections.
+Assembles the page's global styling/JS, header, and all 9 tabs (via
+each tab's own \verb{create_*_tab()}). No shared save-location picker - see
+this file's own header comment for why.
 }

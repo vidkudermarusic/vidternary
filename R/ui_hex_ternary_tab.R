@@ -89,9 +89,9 @@ create_hex_ternary_tab <- function(id) {
           ),
           column(6,
             h4("Output Settings"),
-            helpText("Output directory: Use the 'Directory Settings' section at the bottom of the app."),
-            textInput(ns("hex_output_folder"), "Folder Name for Diagram",
-              value = "hex_ternary_diagrams", placeholder = "Enter folder name")
+            helpText("Clicking \"Shrani diagram\" opens your browser's own Save dialog - choose where the file goes there."),
+            textInput(ns("hex_output_folder"), "Filename for Diagram",
+              value = "hex_ternary_diagrams", placeholder = "Enter filename")
           )
         ),
 
@@ -121,7 +121,7 @@ create_hex_ternary_tab <- function(id) {
             actionButton(ns("hex_generate"), "Ustvari heksagonalni diagram",
               class = "btn-primary btn-lg", style = "font-size: 18px;"),
             br(), br(),
-            actionButton(ns("hex_save"), "Shrani v izhodno mapo",
+            downloadButton(ns("hex_save"), "Shrani diagram",
               class = "btn-success btn-lg", style = "font-size: 18px;")
           )
         ),

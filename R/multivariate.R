@@ -21,8 +21,15 @@
 #' @export
 validate_mahalanobis_inputs <- function(lambda, omega, custom_mdthresh, mdthresh_mode, selected_columns) {
   # Validate threshold mode and parameters
+  # A cleared/backspaced numericInput reports as NA_real_ in Shiny, not
+  # NULL - is.numeric(NA_real_) is TRUE, so without an explicit is.na()
+  # check the comparisons below (<=0, <0) silently evaluate to NA and
+  # if(NA) is a hard error ("missing value where TRUE/FALSE needed")
+  # rather than the intended validate()-style stop(). Reachable simply by
+  # clicking into lambda/omega/the manual threshold field and pressing
+  # backspace - no malformed file or edge-case dataset needed.
   if (mdthresh_mode == "manual") {
-    if (is.null(custom_mdthresh) || !is.numeric(custom_mdthresh) || custom_mdthresh <= 0) {
+    if (is.null(custom_mdthresh) || !is.numeric(custom_mdthresh) || is.na(custom_mdthresh) || custom_mdthresh <= 0) {
       stop("Custom threshold must be a positive numeric value")
     }
     if (custom_mdthresh > 10000) {
@@ -30,17 +37,29 @@ validate_mahalanobis_inputs <- function(lambda, omega, custom_mdthresh, mdthresh
     }
   } else {
     # Automatic mode validation
-    if (!is.numeric(lambda) || lambda < 0) {
+    if (!is.numeric(lambda) || is.na(lambda) || lambda < 0) {
       stop("Lambda parameter must be a non-negative numeric value")
     }
-    if (!is.numeric(omega) || omega < 0) {
+    if (!is.numeric(omega) || is.na(omega) || omega < 0) {
       stop("Omega parameter must be a non-negative numeric value")
     }
+    # The automatic threshold formula divides by (100 + lambda - omega) inside
+    # a sqrt() - at or below this boundary that denominator is non-positive,
+    # so sqrt() silently returns NaN (no R warning) instead of a threshold.
+    # A NaN threshold used to flow through uncaught into `mahal_distances >
+    # MDthresh` as NA for every row, silently splicing phantom all-NA rows
+    # into the plotted/analyzed dataset instead of erroring. Stopped here,
+    # before that can happen, rather than only guarded after the fact.
+    if (lambda - omega <= -100) {
+      stop("Omega is too large relative to lambda (lambda - omega = ", lambda - omega,
+           "). This combination makes the automatic threshold formula undefined - ",
+           "increase lambda, reduce omega, or use a manual threshold instead.")
+    }
     if (lambda - omega < -50) {
-      warning("Lambda - omega difference is very negative (", lambda - omega, "). This may result in very strict threshold.")
+      warning("Lambda - omega difference is very negative (", lambda - omega, "). This may result in a very lenient threshold (few or no outliers detected).")
     }
     if (lambda - omega > 100) {
-      warning("Lambda - omega difference is very positive (", lambda - omega, "). This may result in very lenient threshold.")
+      warning("Lambda - omega difference is very positive (", lambda - omega, "). This may result in a very strict threshold (many points flagged as outliers).")
     }
   }
   
@@ -143,7 +162,19 @@ validate_multivariate_data <- function(data1, data2, selected_columns, method = 
   zero_var_cols <- sapply(common_cols, function(col) {
     var1 <- var(data1_clean[[col]], na.rm = TRUE)
     var2 <- var(data2_clean[[col]], na.rm = TRUE)
-    var1 == 0 || var2 == 0
+    # var() doesn't error on a column containing Inf/-Inf - it silently
+    # returns NaN instead (Inf - Inf = NaN inside the sum of squares). A
+    # plain `var1 == 0 || var2 == 0` then evaluates to NA rather than
+    # FALSE, which sapply() carries into zero_var_cols, and any(zero_var_cols)
+    # below propagates that NA straight into `if (any(...))` - a hard
+    # "missing value where TRUE/FALSE needed" crash on R >= 4.3, reachable
+    # by any dataset containing a single Inf value in a selected column (no
+    # malformed file needed - e.g. a stray division-by-zero further
+    # upstream). An unusable (Inf-corrupted, or otherwise non-computable)
+    # variance is just as much a reason to warn as an exactly-zero one, so
+    # it's folded into the same TRUE result here instead of being left to
+    # propagate as NA.
+    is.na(var1) || is.na(var2) || var1 == 0 || var2 == 0
   })
   
   if (any(zero_var_cols)) {
@@ -184,14 +215,22 @@ validate_multivariate_data <- function(data1, data2, selected_columns, method = 
     }
   }
   
-  # Check condition number for numerical stability
+  # Check condition number for numerical stability. condition_number is
+  # pre-declared here (rather than only inside the tryCatch) because the
+  # error handler is its own function closure - a plain `<-` inside it
+  # would create a throwaway local that vanishes when the handler returns,
+  # leaving condition_number undefined in this frame and crashing the
+  # `!is.na(condition_number)` check below on the very error path this was
+  # meant to handle gracefully. `<<-` in the handler now finds this
+  # pre-declared binding and updates it in place instead.
+  condition_number <- NA
   tryCatch({
     # Use data2 (reference) for condition number calculation
     cov_matrix <- cov(data2_clean, use = "complete.obs")
     eigenvals <- eigen(cov_matrix, only.values = TRUE)$values
     condition_number <- max(eigenvals) / min(eigenvals)
   }, error = function(e) {
-    condition_number <- NA
+    condition_number <<- NA
     warning("Could not calculate condition number: ", e$message)
   })
   
@@ -260,7 +299,15 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
   # Calculate covariance matrix from reference dataset (data2)
   cov_matrix <- cov(data2_clean, use = "complete.obs")
   
-  # Check for singular matrix and handle it
+  # Check for singular matrix and handle it. cov_inv is pre-declared here so
+  # the error handler's `cov_inv <<-` (below) finds and updates this local
+  # binding - without it, since the try-block's own `cov_inv <- solve(...)`
+  # never completes on the error path, `<<-` would fall through past this
+  # function's frame entirely and create/overwrite a variable in the global
+  # environment instead (cov_inv itself is never read after this block -
+  # mahalanobis() uses cov_matrix directly - so this was harmless in
+  # practice, but a real scoping mistake worth not leaving in place).
+  cov_inv <- NULL
   tryCatch({
     # Try to calculate the inverse of the covariance matrix
     cov_inv <- solve(cov_matrix)
@@ -337,8 +384,14 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
   threshold_95 <- qchisq(0.95, df = length(common_cols))
   threshold_99 <- qchisq(0.99, df = length(common_cols))
   
-  # Identify outliers based on custom threshold
+  # Identify outliers based on custom threshold. A comparison against NA/NaN
+  # yields NA, and indexing a data frame with an NA logical silently inserts
+  # a phantom all-NA row instead of dropping or keeping it - so NA results
+  # here must not flow through uncoerced, matching how every other filter in
+  # this codebase (statistical_filters.R, compute_isolation_forest() below)
+  # already treats this exact hazard.
   outlier_indices <- mahal_distances > MDthresh
+  outlier_indices[is.na(outlier_indices)] <- FALSE
   
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: Outlier detection:\n")
@@ -356,8 +409,16 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     stdMD = stdMD,
     lambda = lambda,
     omega = omega,
-    outlier_95 = sum(mahal_distances > threshold_95),
-    outlier_99 = sum(mahal_distances > threshold_99),
+    # na.rm = TRUE matches the NA-coercion outlier_indices already gets a
+    # few lines up: an Inf value anywhere in the selected columns (see
+    # validate_multivariate_data(), which now warns rather than crashing
+    # on this - §03) makes mahal_distances contain NA/NaN entries, and a
+    # plain sum() over a logical vector containing NA returns NA itself -
+    # silently turning a real count into a missing value with no error or
+    # warning, unlike outlier_custom right below, which was already
+    # NA-safe via the outlier_indices coercion above.
+    outlier_95 = sum(mahal_distances > threshold_95, na.rm = TRUE),
+    outlier_99 = sum(mahal_distances > threshold_99, na.rm = TRUE),
     outlier_custom = sum(outlier_indices),
     total_points = length(mahal_distances),
     df = length(common_cols),
@@ -404,6 +465,21 @@ compute_isolation_forest <- function(
 ) {
   stopifnot(is.data.frame(data1), is.data.frame(data2))
 
+  # A cleared/backspaced numericInput reports as NA_real_ in Shiny (see
+  # validate_mahalanobis_inputs() for the fuller explanation of this exact
+  # hazard), and an out-of-(0,1)-range contamination reaches
+  # stats::quantile(scores_ref, 1 - contamination) below and fails there
+  # with a raw "'probs' outside [0,1]" error - or, for NA specifically,
+  # doesn't error at all: quantile() with an NA prob silently returns
+  # NA_real_ as the threshold, which then makes `scores1 >= threshold` NA
+  # for every row and outlier_indices FALSE for every row - a silently
+  # broken "zero outliers detected" result with no error or warning at
+  # all. Both are caught here with one clear, friendly stop() instead.
+  if (!is.numeric(contamination) || length(contamination) != 1L || is.na(contamination) ||
+      contamination <= 0 || contamination >= 1) {
+    stop("contamination must be a single numeric value strictly between 0 and 1.")
+  }
+
   # Check for isotree package
   if (!requireNamespace("isotree", quietly = TRUE)) {
     stop("Package 'isotree' is required for isolation forest outlier detection. Please install it first.")
@@ -416,7 +492,21 @@ compute_isolation_forest <- function(
   X1 <- data1[, common_cols, drop = FALSE]
   X2 <- data2[, common_cols, drop = FALSE]
 
-  # obdrži samo numerične stolpce
+  # Selected columns that aren't numeric in either dataset used to be
+  # silently dropped by the "obdrži samo numerične stolpce" filter below
+  # rather than reported - inconsistent with the Mahalanobis path
+  # (validate_multivariate_data()), which hard-stops with a clear message
+  # naming exactly which selected columns are non-numeric. Matched here so
+  # a user who accidentally selects e.g. a group-label column gets the
+  # same kind of clear error from either multivariate method, instead of a
+  # silent partial computation from one and a hard stop from the other.
+  non_numeric <- common_cols[!vapply(X1, is.numeric, logical(1)) | !vapply(X2, is.numeric, logical(1))]
+  if (length(non_numeric) > 0) {
+    stop("Izbrani stolpci niso numerični: ", paste(non_numeric, collapse = ", "))
+  }
+
+  # obdrži samo numerične stolpce (varnostna mreža - po zgornjem preverjanju
+  # so vsi izbrani stolpci že znani kot numerični)
   num_cols <- names(X1)[vapply(X1, is.numeric, logical(1))]
   X1 <- X1[, num_cols, drop = FALSE]
   X2 <- X2[, num_cols, drop = FALSE]
@@ -426,9 +516,32 @@ compute_isolation_forest <- function(
   nzv <- vapply(X2, function(v) length(unique(na.omit(v))) > 1L, logical(1))
   X1 <- X1[, nzv, drop = FALSE]
   X2 <- X2[, nzv, drop = FALSE]
+  # The column-count check above (line 457) runs before this near-zero-
+  # variance filter, so it can't catch the filter itself dropping columns
+  # below 2 - re-checked here with the same friendly-error convention as
+  # the rest of this function, instead of surfacing a raw isotree error.
+  if (ncol(X2) < 2L) stop("Po odstranitvi stolpcev z ničelno varianco je ostalo premalo spremenljivk.")
+
   cc1 <- complete.cases(X1); cc2 <- complete.cases(X2)
   X1c <- X1[cc1, , drop = FALSE]
   X2c <- X2[cc2, , drop = FALSE]
+  # Unlike the Mahalanobis path (validate_multivariate_data(), which
+  # enforces a minimum observation count before ever reaching this point),
+  # nothing here checked that any reference rows actually survived the
+  # complete-cases filter - if X2c has 0 rows, sample_size below silently
+  # becomes min(sample_size, 0) = 0 and isotree::isolation.forest() is
+  # still called, rather than failing with a clear message.
+  if (nrow(X2c) < 2L) stop("Referenca nima dovolj popolnih vrstic za izolacijski gozd (potrebni sta vsaj 2).")
+  # Mirrors the reference-dataset guard just above: nothing checked that
+  # the TARGET dataset (data1) had any complete rows to actually score -
+  # if X1c has 0 rows, predict(iso_model, X1c, ...) doesn't quietly return
+  # an empty result, it throws a raw, confusing isotree/predict error
+  # ("'newdata' must be a data.frame, matrix, or sparse matrix.") instead
+  # of the clear, friendly message every other invalid-input case in this
+  # function already gets. Unlike the reference (which needs >= 2 rows to
+  # fit a meaningful model), scoring a single complete row against an
+  # already-fitted model is perfectly well-defined, so the floor here is 1.
+  if (nrow(X1c) < 1L) stop("Ciljni podatki nimajo nobene popolne vrstice za izolacijski gozd (izbrani stolpci vsebujejo manjkajoče vrednosti v vseh vrsticah).")
 
   # 2) Treniranje na referenci
   set.seed(seed)

@@ -5,9 +5,16 @@
 # server_plot_types.R.
 #
 # NOTE: shiny::validate()/shiny::need() must be fully qualified in this
-# package - `import(jsonlite)` in NAMESPACE masks the unqualified name
-# with jsonlite::validate (a JSON schema validator), as discovered while
-# building the Plot Builder tab.
+# package - jsonlite also exports its own validate() (a JSON schema
+# validator), and this package attaches its dependencies at app-launch
+# time via dependencies.R's initialize_packages() (a sequence of
+# library() calls), not via NAMESPACE import()/importFrom() - so an
+# unqualified validate()/need() resolves to whichever of shiny/jsonlite
+# was library()'d most recently (attach order), not necessarily shiny.
+# jsonlite is library()'d after shiny there, so it wins - confirmed
+# empirically while building the Plot Builder tab. (An earlier version of
+# this comment blamed a NAMESPACE `import(jsonlite)` for the masking -
+# NAMESPACE has no blanket import() at all; this is the real mechanism.)
 
 #' Wire up the Extreme Value Analysis tab's server logic
 #'
@@ -22,11 +29,9 @@
 #' @param rv The app's shared `reactiveValues` object.
 #' @param show_message Function to show a user-facing status message.
 #' @param log_operation Function to record a structured log entry.
-#' @param directory_management Optional directory-management module (unused
-#'   by this tab, accepted for interface consistency with other tabs).
 #' @return A list with `module_name`.
 #' @export
-create_server_evs <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+create_server_evs <- function(input, output, session, rv, show_message, log_operation) {
 
   combined_data <- reactive({
     req(input$evs_files)
@@ -67,7 +72,17 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
 
     if (isTRUE(input$evs_use_manual_groups)) {
       n_groups <- input$evs_n_groups
-      shiny::validate(shiny::need(is.finite(n_groups) && n_groups >= 3, "Number of groups must be at least 3."))
+      # Upper-bounded at nrow(d)/2 so every group averages at least 2 rows -
+      # a "block maximum" is meaningless as the max of a single measurement,
+      # and undermines the method's statistical premise (see ui_evs_tab.R's
+      # own note that this fallback is for trend estimation only). Without
+      # this, a value close to nrow(d) silently created singleton
+      # pseudo-groups with no warning.
+      max_groups <- max(3, floor(nrow(d) / 2))
+      shiny::validate(shiny::need(
+        is.finite(n_groups) && n_groups >= 3 && n_groups <= max_groups,
+        sprintf("Number of groups must be between 3 and %d (at least 2 rows per group, on average, for %d total rows).", max_groups, nrow(d))
+      ))
       d$.evs_group <- cut(seq_len(nrow(d)), breaks = n_groups, labels = FALSE)
       group_col <- ".evs_group"
     } else {
@@ -92,23 +107,67 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     tryCatch(predict_evs_max(fit_result(), input$evs_return_period), error = function(e) NULL)
   })
 
+  evs_placeholder_msg <- "Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\"."
+
   output$evs_status <- renderText({
-    fit <- tryCatch(fit_result(), error = function(e) NULL)
-    if (is.null(fit)) return("Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\".")
-    base_msg <- sprintf("Fit successful: n = %d control areas, R² = %.3f, intercept a = %.3f, slope b = %.3f",
-                         fit$n, fit$r_squared, fit$intercept, fit$slope)
-    if (is.null(fit$gof)) return(base_msg)
-    gof_msg <- if (fit$gof$reject_at_05) {
-      sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> data DEVIATE from a single Gumbel distribution (see note below).",
-              fit$gof$statistic, fit$gof$p_value_bracket)
-    } else {
-      sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> no evidence against a single Gumbel distribution.",
-              fit$gof$statistic, fit$gof$p_value_bracket)
+    # Deliberately not a plain tryCatch(..., error = function(e) NULL): a
+    # shiny::validate() failure throws a "shiny.silent.error"/"validation"
+    # condition that Shiny's own output-rendering machinery is specially
+    # built to catch and display as a distinct "please fix this input"
+    # message - but only if this render function doesn't itself catch and
+    # discard the error first. The old code caught every error the same
+    # way (as NULL), so every validate() failure - wrong area column,
+    # out-of-range evs_n_groups, etc. - showed this same generic "Upload
+    # data..." text instead of the specific message telling the user what
+    # to fix.
+    #
+    # The "not yet fitted" case is handled up front by checking whether
+    # the button has been clicked, rather than by catching fit_result()'s
+    # error, but that alone isn't quite enough: the button has no
+    # server-side gating (see ui_evs_tab.R - it's always clickable), so a
+    # user can click "Fit" before uploading a file or choosing an area
+    # column. That path fails via req() rather than validate() - req()
+    # throws this exact same condition class, by design, as a *silent*
+    # stop with an EMPTY message (there's nothing to tell the user beyond
+    # "you're not ready yet"). tryCatch()ing specifically for that class
+    # lets us tell the two apart: an empty message falls back to the
+    # placeholder, while a real validate() message is re-thrown unchanged
+    # so Shiny's own machinery still gets to display it (preserving its
+    # distinct validation-error styling) - only its handling for that one
+    # empty-message case is short-circuited. A genuine (non-validation)
+    # error is a different condition class entirely and is untouched by
+    # this handler, so it still propagates and displays as a real error.
+    if (is.null(input$evs_fit) || input$evs_fit == 0) {
+      return(evs_placeholder_msg)
     }
-    paste(base_msg, gof_msg, sep = "\n")
+    tryCatch({
+      fit <- fit_result()
+      base_msg <- sprintf("Fit successful: n = %d control areas, R² = %.3f, intercept a = %.3f, slope b = %.3f",
+                           fit$n, fit$r_squared, fit$intercept, fit$slope)
+      if (is.null(fit$gof)) return(base_msg)
+      gof_msg <- if (fit$gof$reject_at_05) {
+        sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> data DEVIATE from a single Gumbel distribution (see note below).",
+                fit$gof$statistic, fit$gof$p_value_bracket)
+      } else {
+        sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> no evidence against a single Gumbel distribution.",
+                fit$gof$statistic, fit$gof$p_value_bracket)
+      }
+      paste(base_msg, gof_msg, sep = "\n")
+    }, shiny.silent.error = function(e) {
+      if (!nzchar(conditionMessage(e))) return(evs_placeholder_msg)
+      stop(e)
+    })
   })
 
   output$evs_gof_warning <- renderUI({
+    # Unlike evs_status above, swallowing the error here to NULL is correct,
+    # not a copy of that bug: this output's only job is to conditionally
+    # show a supplementary warning banner on top of a successful fit whose
+    # goodness-of-fit test rejected Gumbel. When there's no such fit - no
+    # click yet, a validate() failure, or a genuine error - the right
+    # result is no banner at all, which returning NULL already gives; the
+    # validate() message itself is still surfaced to the user via
+    # evs_status, so nothing is lost by staying silent here.
     fit <- tryCatch(fit_result(), error = function(e) NULL)
     if (is.null(fit) || is.null(fit$gof) || !fit$gof$reject_at_05) return(NULL)
     div(style = "border: 1px solid #dc3545; padding: 12px; border-radius: 5px; margin: 10px 0; background-color: #f8d7da; color: #721c24;",

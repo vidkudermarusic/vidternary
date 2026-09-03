@@ -4,13 +4,15 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 
 ## 🖥️ Application Tabs
 
-- **Ternary Plots** — main dual-dataset (primary + reference) ternary plotting with element/optional-parameter selection, statistical filters (IQR, Z-score, MAD), and multivariate filters (Mahalanobis distance, Isolation Forest)
-- **Data Comparison** — missing-value/outlier summaries, raw Excel previews, and statistical comparison between the two datasets
-- **Multiple Plot Types** — scatter, histogram, box, violin, connected-scatter, and stacked-bar charts across one or more files
-- **Multiple Ternary Creator** — batch-generates one ternary plot per uploaded file using the same element mapping and filters
+- **Ternary Plots** — main dual-dataset (primary + reference) ternary plotting with element/optional-parameter selection, per-element filters, statistical filters (IQR, Z-score, MAD), and multivariate filters (Mahalanobis distance, Isolation Forest)
+- **Data Comparison** — descriptive-statistics tables, correlation heatmaps, missing-value/outlier summaries, raw Excel previews, and Mahalanobis / Isolation Forest comparison across an arbitrary set of uploaded files (independent of the Ternary Plots uploads, not limited to two)
+- **Multiple Ternary Creator** — batch-generates one ternary plot per uploaded file using a shared element mapping and per-element filters
 - **Hexagonal Ternary Diagram** — composites 6 triangular ternary plots that share a central element/combination into one hexagonal image
-- **Plot Builder** — a generic chart builder: pick plot type, X/Y axis, color/group, and log scales from dropdowns populated from your data's own columns, with named presets you can save and reload
-- **Analysis Log** — a running log of operations performed during the session
+- **Plot Builder** — a generic chart builder: pick plot type (violin/box/bar/histogram/scatter/rose), X/Y axis, color/group, and log scales from dropdowns populated from your data's own columns, with named presets you can save and reload
+- **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the largest inclusion expected over a larger inspection area
+- **Spatial Clustering** — Clark-Evans nearest-neighbour test on inclusion X/Y positions: are they randomly scattered, clustered, or more evenly spread than chance predicts (asymptotic + Monte Carlo p-values)
+- **Compositional Analysis** — CLR / ILR log-ratio transforms plus PCA for Wt% chemistry data, avoiding the closure-problem artifacts of running ordinary statistics on raw percentages
+- **Analysis Log** — a running, filterable/searchable log of operations performed during the session
 
 ## 🏗️ Modular Architecture
 
@@ -18,43 +20,45 @@ The package is organized into logical modules, each handling specific functional
 
 ### Core
 - **`R/dependencies.R`** — package dependency checking/loading
-- **`R/config.R`** — configuration management (`ternary_config.json`)
-- **`R/cache.R`**, **`R/cache_performance.R`** — in-memory result caching and performance monitoring
-- **`R/options.R`** — app-wide options and constants
-- **`R/file_management.R`** — file handling utilities
+- **`R/options.R`** — app-wide point-size constants
+- **`R/file_management.R`** — output-directory creation, file naming, and timestamp logic
+- **`R/plot_builder_presets.R`** — load/save Plot Builder presets (`plot_builder_presets.json`)
 
 ### Helpers
-- **`R/helpers.R`**, **`R/helpers_filters.R`**, **`R/helpers_multivariate.R`**, **`R/helpers_reporting.R`**, **`R/helpers_validation.R`**
+- **`R/helpers.R`** — logging, debug output, column-name cleaning, plot-title/summary text
+- **`R/helpers_filters.R`** — filter collection from Shiny `input` and application to a data frame
 
 ### Analysis
 - **`R/multivariate.R`** — Mahalanobis distance, Isolation Forest
 - **`R/statistical_filters.R`** — IQR / Z-score / MAD filtering (positive/high-value outliers only)
-- **`R/comprehensive_analysis.R`**
+- **`R/extreme_value_analysis.R`** — Murakami / ASTM E2283 extreme value statistics (block maxima + Gumbel fit); pure stats behind the Extreme Value Analysis tab
+- **`R/spatial_clustering_analysis.R`** — Clark-Evans nearest-neighbour CSR test with Donnelly edge correction; pure stats behind the Spatial Clustering tab
+- **`R/compositional_data_analysis.R`** — CLR / ILR log-ratio transforms + PCA; pure stats behind the Compositional Analysis tab
+- **`R/stats_display_utils.R`** — tidy, DT-ready descriptive/correlation stat tables for the Data Comparison tab
 
 ### Ternary Plotting
 - **`R/ternary_plot.R`**, **`R/ternary_plot_data_prep.R`**, **`R/ternary_plot_preview.R`**, **`R/ternary_plot_save.R`** — core single-triangle ternary plot pipeline
 - **`R/hex_ternary_plot.R`** — hexagonal joint ternary diagram compositing
 
 ### Plotting Utilities
-- **`R/plotting_utils.R`**, **`R/plotting_utils_compare.R`**, **`R/plotting_utils_multifile.R`** — chart builders behind "Multiple Plot Types"
+- **`R/plotting_utils.R`** — the Data Comparison tab's `corrplot` correlation heatmap
 - **`R/plotting_utils_builder.R`** — generic chart builder behind "Plot Builder"
-- **`R/plot_builder_presets.R`** — load/save Plot Builder presets (`plot_builder_presets.json`)
 
 ### UI (Shiny)
 - **`R/ui_components.R`** — page shell and main tabset
-- **`R/ui_ternary_plots_tab.R`**, **`R/ui_data_comparison_tab.R`**, **`R/ui_multiple_plot_types_tab.R`**, **`R/ui_multiple_ternary_tab.R`**, **`R/ui_hex_ternary_tab.R`**, **`R/ui_plot_builder_tab.R`**, **`R/ui_data_export_tab.R`**, **`R/ui_analysis_log_tab.R`**
+- **`R/ui_ternary_plots_tab.R`**, **`R/ui_data_comparison_tab.R`**, **`R/ui_multiple_ternary_tab.R`**, **`R/ui_hex_ternary_tab.R`**, **`R/ui_plot_builder_tab.R`**, **`R/ui_evs_tab.R`**, **`R/ui_spatial_tab.R`**, **`R/ui_coda_tab.R`**, **`R/ui_analysis_log_tab.R`** — one `create_*_tab()` per application tab
 
 ### Server (Shiny Backend)
 - **`R/server_logic.R`** — wires every tab's server module together
-- **`R/server_ternary_plots.R`** (+ `_batch.R`, `_groups.R`) — main and batch ternary plot handlers
-- **`R/server_hex_ternary.R`** — hexagonal diagram handlers
-- **`R/server_plot_types.R`** (+ `_scatter.R`, `_histogram.R`, `_boxplot.R`, `_violin.R`, `_connected.R`, `_stacked.R`) — per-chart-type handlers
+- **`R/server_ternary_plots.R`** (+ `_batch.R`, `_groups.R`) — single-file "Ternary Plots" handlers, the "Multiple Ternary Creator" batch handlers, and the categorical group-selection UI
+- **`R/server_file_handlers.R`** — Dataset 1/2 upload and copy-settings for the Ternary Plots tab
+- **`R/server_hex_ternary.R`** — Hexagonal Ternary Diagram handlers
 - **`R/server_plot_builder.R`** — Plot Builder handlers
-- **`R/server_filter_management.R`**, **`R/server_cache_management.R`**, **`R/server_file_handlers.R`**, **`R/server_directory_management.R`**
-- **`R/server_export.R`** (+ `_data.R`, `_reports.R`)
-- **`R/server_data_comparison.R`** (+ `_stats.R`, `_multivariate.R`, `_preview.R`)
-- **`R/server_status_outputs.R`**, **`R/server_help_system.R`**, **`R/server_analysis_log.R`**, **`R/server_ui_coordination.R`**
-- **`R/server_multiple_ternary.R`** — superseded by `server_ternary_plots_batch.R`; kept for reference but not wired up
+- **`R/server_evs.R`**, **`R/server_spatial.R`**, **`R/server_coda.R`** — Shiny wiring for the Extreme Value Analysis / Spatial Clustering / Compositional Analysis tabs (front-ends to the matching `*_analysis.R` modules)
+- **`R/server_data_comparison.R`** (+ `_upload.R`, `_stats.R`, `_multivariate.R`, `_preview.R`) — Data Comparison tab
+- **`R/server_analysis_log.R`** — Analysis Log tab
+- **`R/server_directory_management.R`** — working / output directory pickers
+- **`R/server_status_outputs.R`** — app-shell status text
 
 ### Application Entry
 - **`R/app.R`** — `run_app()` / `create_app()`
@@ -64,10 +68,12 @@ The package is organized into logical modules, each handling specific functional
 ### Installation
 
 ```r
-# Install required packages first
+# Install required packages first (matches DESCRIPTION's Imports:)
 install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally",
-                    "Ternary", "PlotTools", "robustbase", "isotree",
-                    "magick", "png", "rlang"))
+                    "Ternary", "PlotTools", "shinyFiles", "shinyjqui", "shinyBS",
+                    "rmarkdown", "knitr", "colourpicker", "isotree", "RColorBrewer",
+                    "plotly", "writexl", "jsonlite", "fs", "viridisLite",
+                    "magick", "png", "rlang", "RANN"))
 
 # Install vidternary from GitHub
 devtools::install_github("vidkudermarusic/vidternary")
@@ -121,14 +127,6 @@ shiny::runApp(app)
 ### Export Capabilities
 - Multiple plot formats (PNG, PDF, JPEG, TIFF)
 - Data export (Excel, CSV, RDS, JSON)
-
-## 🔧 Configuration
-
-```r
-config <- load_config()
-set_config_value("plotting", "default_color_palette", "viridis")
-save_config(config)
-```
 
 ## 🧪 Testing
 

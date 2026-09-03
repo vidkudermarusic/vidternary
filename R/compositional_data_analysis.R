@@ -29,14 +29,27 @@
 # full, since the full method needs a detection-limit per element that
 # this app's data doesn't carry.
 
-# Replace zeros/NA with a small pseudo-count so logs are always defined.
+# Replace zeros/NA/non-finite values with a small pseudo-count so logs are
+# always defined. Non-finite (Inf/-Inf) values are handled the same way as
+# zero/NA here, matching the guard server_spatial.R's combined_data() and
+# extreme_value_analysis.R's compute_block_maxima() already apply to their
+# own numeric inputs - this function was the one sibling missing it. A
+# single Inf slipping through (e.g. from an upstream divide-by-zero in a
+# real EDS export, the same scenario already documented for multivariate.R)
+# doesn't just corrupt its own cell: log(Inf) feeds into this transform's
+# per-row mean, so rowMeans() picks up that Inf and the ENTIRE row goes
+# non-finite (NaN for the Inf column itself, -Inf for every other column in
+# that row) - confirmed empirically, not assumed. That silently poisoned
+# data used to reach stats::prcomp() downstream and fail with a raw,
+# unfriendly "infinite or missing values in 'x'" instead of ever being
+# caught here, at the actual source.
 .coda_replace_zeros <- function(mat, zero_replacement = NULL) {
   if (is.null(zero_replacement)) {
     positive_vals <- mat[mat > 0 & is.finite(mat)]
     if (length(positive_vals) == 0) stop("No positive values found in the selected compositional columns.")
     zero_replacement <- min(positive_vals) / 2
   }
-  mat[is.na(mat) | mat <= 0] <- zero_replacement
+  mat[!is.finite(mat) | mat <= 0] <- zero_replacement
   mat
 }
 

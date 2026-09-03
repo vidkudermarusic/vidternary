@@ -10,8 +10,7 @@ create_server_hex_ternary(
   session,
   rv,
   show_message,
-  log_operation,
-  directory_management = NULL
+  log_operation
 )
 }
 \arguments{
@@ -26,9 +25,6 @@ create_server_hex_ternary(
 \item{show_message}{Function to show a user-facing status message.}
 
 \item{log_operation}{Function to record a structured log entry.}
-
-\item{directory_management}{Optional directory-management module, used
-to resolve the output directory for saved diagrams.}
 }
 \value{
 A list with \code{module_name}.

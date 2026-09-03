@@ -26,11 +26,12 @@ test_that("Statistical filtering functions are available", {
 })
 
 test_that("Plotting functions are available", {
-  # Test that plotting functions exist
-  expect_true(exists("create_ternary_plot"))
+  # Test that plotting functions exist. create_ternary_plot()/save_plot()/
+  # apply_consistent_theme() were removed as confirmed-dead code (the app's
+  # real ternary diagrams are built via general_ternary_plot()/the Ternary
+  # package, not these ggplot2 helpers) - create_correlation_plot() is the
+  # one genuinely wired into the Data Comparison tab.
   expect_true(exists("create_correlation_plot"))
-  expect_true(exists("save_plot"))
-  expect_true(exists("apply_consistent_theme"))
 })
 
 test_that("UI components are available", {
@@ -43,65 +44,13 @@ test_that("UI components are available", {
   expect_true(exists("create_server_logic"))
 })
 
-test_that("Configuration functions work", {
-  # Test configuration functionality
-  # Note: load_config() returns NULL when no ternary_config.json file is
-  # present (it doesn't fall back to defaults - that's initialize_config()'s
-  # job). validate_and_fix_config() is the real, exported entry point for
-  # "give me a complete, valid config" without initialize_config()'s
-  # file-write side effect; directories are overridden to a safe tempdir()
-  # so validate_and_fix_config()'s dir.create() never touches the real
-  # default_config$directories (the user's home directory).
-  safe_defaults <- vidternary:::default_config
-  safe_defaults$directories <- list(working_dir = tempdir(), output_dir = file.path(tempdir(), "output"))
-  config <- validate_and_fix_config(safe_defaults)
-
-  expect_true(is.list(config))
-  expect_true("directories" %in% names(config))
-  expect_true("plotting" %in% names(config))
-  expect_true("analysis" %in% names(config))
-})
-
 test_that("Helper functions work correctly", {
-  # Test helper function functionality
+  # Test helper function functionality. safe_column_names() was removed as
+  # confirmed-dead code (zero app-code callers) in the same pass.
   test_names <- c("SiO2.(Wt%)", "Al2O3.(Wt%)", "Fe2O3.(Wt%)")
   cleaned_names <- clean_column_names(test_names)
-  
+
   expect_equal(cleaned_names, c("SiO2", "Al2O3", "Fe2O3"))
-  
-  # Test safe column names
-  safe_names <- safe_column_names(test_names)
-  expect_true(all(grepl("^[a-zA-Z0-9_]+$", safe_names)))
-})
-
-test_that("Cache system works", {
-  # Test cache functionality
-  # Note: there is no set_cached_data()/clear_cache() at the package level -
-  # those names never existed in cache.R. The real generic set/get pair is
-  # cache_result()/get_cached_result() (get_cached_data() is a different,
-  # file-specific function - it takes a file path and hashes mtime/size
-  # internally, not a plain string key). clear_all_cache() is the exported
-  # clear function; clear_cache() is a local variable scoped inside
-  # create_server_cache_management(), not callable from here.
-  test_data <- data.frame(x = 1:10, y = 11:20)
-  test_key <- "test_key"
-
-  # Set cache
-  cache_result(test_key, test_data)
-
-  # Get cache
-  cached_data <- get_cached_result(test_key)
-  expect_equal(cached_data, test_data)
-
-  # Get cache stats. Note: get_cache_stats() returns a formatted summary
-  # string (see cache.R), never a list - the original assumption here was
-  # simply wrong about the return type.
-  stats <- get_cache_stats()
-  expect_true(is.character(stats))
-
-  # Clear cache
-  clear_all_cache()
-  expect_null(get_cached_result(test_key))
 })
 
 test_that("Filter functions work", {
@@ -132,27 +81,6 @@ test_that("Filter functions work", {
   expect_true(nrow(mad_filtered) < nrow(test_data))
 })
 
-test_that("Plotting utilities work", {
-  # Test plotting functionality
-  test_points <- data.frame(
-    A = c(0.3, 0.4, 0.5),
-    B = c(0.3, 0.4, 0.5),
-    C = c(0.4, 0.2, 0.0)
-  )
-  
-  # Test ternary plot creation
-  plot_obj <- create_ternary_plot(test_points, title = "Test Plot")
-  expect_true(inherits(plot_obj, "ggplot"))
-  
-  # Test theme application
-  themed_plot <- apply_consistent_theme(plot_obj, "minimal")
-  expect_true(inherits(themed_plot, "ggplot"))
-  
-  # Test color palette creation
-  colors <- create_color_palette(5, "viridis")
-  expect_equal(length(colors), 5)
-})
-
 test_that("Main ternary plot function structure is correct", {
   # Test that the main function has the expected parameters
   func_formals <- formals(general_ternary_plot)
@@ -180,8 +108,6 @@ test_that("Package structure is complete", {
   # just when invoked a particular way.
   pkg_root <- file.path("..", "..")
   expect_true(file.exists(file.path(pkg_root, "R", "dependencies.R")))
-  expect_true(file.exists(file.path(pkg_root, "R", "config.R")))
-  expect_true(file.exists(file.path(pkg_root, "R", "cache.R")))
   expect_true(file.exists(file.path(pkg_root, "R", "helpers.R")))
   expect_true(file.exists(file.path(pkg_root, "R", "multivariate.R")))
   expect_true(file.exists(file.path(pkg_root, "R", "statistical_filters.R")))
@@ -193,31 +119,6 @@ test_that("Package structure is complete", {
   expect_true(file.exists(file.path(pkg_root, "DESCRIPTION")))
   expect_true(file.exists(file.path(pkg_root, "NAMESPACE")))
   expect_true(file.exists(file.path(pkg_root, "README.md")))
-})
-
-test_that("Configuration values are reasonable", {
-  # Test that configuration values make sense. See "Configuration functions
-  # work" above for why this uses validate_and_fix_config() on a
-  # tempdir()-safe copy of the real default_config, rather than load_config().
-  safe_defaults <- vidternary:::default_config
-  safe_defaults$directories <- list(working_dir = tempdir(), output_dir = file.path(tempdir(), "output"))
-  config <- validate_and_fix_config(safe_defaults)
-
-  # Test directories
-  expect_true(is.character(config$directories$working_dir))
-  expect_true(is.character(config$directories$output_dir))
-
-  # Test plotting defaults
-  expect_true(config$plotting$default_point_size > 0)
-  expect_true(config$plotting$default_point_size <= 5)
-  expect_true(config$plotting$default_alpha > 0)
-  expect_true(config$plotting$default_alpha <= 1)
-
-  # Test analysis defaults
-  expect_true(config$analysis$default_lambda > 0)
-  expect_true(config$analysis$iqr_multiplier > 0)
-  expect_true(config$analysis$zscore_threshold > 0)
-  expect_true(config$analysis$mad_threshold > 0)
 })
 
 test_that("Error handling works", {

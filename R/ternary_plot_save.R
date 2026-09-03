@@ -21,9 +21,15 @@ save_ternary_plot_to_file <- function(pd) {
       dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
     }
 
-    # Generate simple filename
+    # Generate simple filename. extract_file_base() (file_management.R) is
+    # the safe version - it basename()s xlsx_display_name before stripping
+    # the extension, so a crafted upload filename containing path
+    # separators can't steer this save outside output_dir. It's already
+    # used on the preview path via create_ternary_output_dir(); this was
+    # the one production Save path still building file_base inline without
+    # that guard.
     timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-    file_base <- if (!is.null(xlsx_display_name)) tools::file_path_sans_ext(xlsx_display_name) else if (!is.null(xlsx_file)) tools::file_path_sans_ext(basename(xlsx_file)) else "ternary_plot"
+    file_base <- extract_file_base(xlsx_file, xlsx_display_name)
     filename <- file.path(output_dir, paste0("charge_", file_base, "_", timestamp, ".", output_format))
 
     # Calculate plot dimensions based on title length
@@ -39,6 +45,12 @@ save_ternary_plot_to_file <- function(pd) {
     } else if (output_format == "tiff") {
       tiff(filename, width = plot_dims$width, height = plot_dims$height, res = 200, compression = "lzw")
     }
+    # Guarantee the device is closed even if an error occurs anywhere below
+    # (a bad legend call, non-finite data, etc.) - previously only the
+    # dev.off() at the very end of this function closed it, so any error in
+    # between left the device open for the lifetime of the R process, and
+    # R has a hard cap on simultaneously open devices.
+    on.exit(dev.off(), add = TRUE)
 
     # Set outer margins to prevent clipping of multi-line titles and notes
     op <- par(oma = c(4, 0, 3, 0))
@@ -240,10 +252,7 @@ save_ternary_plot_to_file <- function(pd) {
     # Restore original par settings
     par(op)
 
-    # Close the device
-    dev.off()
-
-    log_operation("Plot saving", paste("Plot saved to:", filename))
+    log_operation("SUCCESS", "Plot saved", filename)
 
     filename
   })

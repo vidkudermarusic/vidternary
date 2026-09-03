@@ -77,7 +77,13 @@ get_mad_outlier_flags <- function(data, cols, threshold = 3) {
 #' @return The filtered data frame.
 #' @export
 apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE) {
-  if (!is.numeric(multiplier) || multiplier < 0) stop("multiplier must be a non-negative number.")
+  # A cleared/backspaced numericInput reports as NA_real_ in Shiny, not
+  # NULL - is.numeric(NA_real_) is TRUE, so without an explicit is.na()
+  # check `multiplier < 0` silently evaluates to NA and if(NA) is a hard
+  # "missing value where TRUE/FALSE needed" crash rather than this
+  # function's intended graceful stop(), matching the exact hazard already
+  # fixed in validate_mahalanobis_inputs() (multivariate.R).
+  if (!is.numeric(multiplier) || is.na(multiplier) || multiplier < 0) stop("multiplier must be a non-negative number.")
   # IQR-based outlier filtering - only considers positive outliers (values > Q3 + multiplier*IQR)
   outlier_indices <- get_iqr_outlier_flags(data, cols, multiplier)
 
@@ -104,7 +110,9 @@ apply_iqr_filter <- function(data, cols, multiplier = 1.5, keep_outliers = FALSE
 #' @return The filtered data frame.
 #' @export
 apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
-  if (!is.numeric(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
+  # Same NA_real_-from-a-cleared-numericInput hazard as apply_iqr_filter()
+  # above - see its comment for the full explanation.
+  if (!is.numeric(threshold) || is.na(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
   # Z-score based outlier filtering - only considers positive outliers (z-scores > threshold)
   outlier_indices <- get_zscore_outlier_flags(data, cols, threshold)
 
@@ -132,7 +140,9 @@ apply_zscore_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE
 #' @return The filtered data frame.
 #' @export
 apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
-  if (!is.numeric(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
+  # Same NA_real_-from-a-cleared-numericInput hazard as apply_iqr_filter()
+  # above - see its comment for the full explanation.
+  if (!is.numeric(threshold) || is.na(threshold) || threshold < 0) stop("threshold must be a non-negative number.")
   # Median Absolute Deviation (MAD) based filtering - only considers positive outliers (values > median + threshold*MAD)
   outlier_indices <- get_mad_outlier_flags(data, cols, threshold)
 

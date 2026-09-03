@@ -26,7 +26,7 @@ Vidternary is a comprehensive R package for creating ternary plots with advanced
 
 ```{r install, eval=FALSE}
 # Install required packages first
-install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally", "Ternary", "PlotTools", "robustbase", "isotree"))
+install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally", "Ternary", "PlotTools", "isotree"))
 
 # Install from GitHub
 devtools::install_github("vidkudermarusic/vidternary")

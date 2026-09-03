@@ -4,9 +4,16 @@
 # reactive, column-choice observer, eventReactive for the fit).
 #
 # NOTE: shiny::validate()/shiny::need() must be fully qualified in this
-# package - `import(jsonlite)` in NAMESPACE masks the unqualified name
-# with jsonlite::validate, as discovered while building the Plot Builder
-# tab.
+# package - jsonlite also exports its own validate() (a JSON schema
+# validator), and this package attaches its dependencies at app-launch
+# time via dependencies.R's initialize_packages() (a sequence of
+# library() calls), not via NAMESPACE import()/importFrom() - so an
+# unqualified validate()/need() resolves to whichever of shiny/jsonlite
+# was library()'d most recently (attach order), not necessarily shiny.
+# jsonlite is library()'d after shiny there, so it wins - confirmed
+# empirically while building the Plot Builder tab. (An earlier version of
+# this comment blamed a NAMESPACE `import(jsonlite)` for the masking -
+# NAMESPACE has no blanket import() at all; this is the real mechanism.)
 
 #' Wire up the Spatial Clustering tab's server logic
 #'
@@ -20,11 +27,9 @@
 #' @param rv The app's shared `reactiveValues` object.
 #' @param show_message Function to show a user-facing status message.
 #' @param log_operation Function to record a structured log entry.
-#' @param directory_management Optional directory-management module (unused
-#'   by this tab, accepted for interface consistency with other tabs).
 #' @return A list with `module_name`.
 #' @export
-create_server_spatial <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+create_server_spatial <- function(input, output, session, rv, show_message, log_operation) {
 
   combined_data <- reactive({
     req(input$spatial_files)
@@ -83,12 +88,28 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     list(ce = ce, x = x[valid], y = y[valid], color_by = color_by, color_label = input$spatial_color_col)
   })
 
+  spatial_placeholder_msg <- "Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\"."
+
   output$spatial_status <- renderText({
-    res <- tryCatch(result(), error = function(e) NULL)
-    if (is.null(res)) return("Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\".")
-    ce <- res$ce
-    sprintf("n = %d points | R = %.3f | Asymptotic p = %.4f | Monte Carlo p = %.4f (n_sim = %d, %s method)\n%s",
-            ce$n, ce$R, ce$p_value_asymptotic, ce$p_value_monte_carlo, ce$n_sim, ce$nn_method, ce$verdict)
+    # Same fix as server_evs.R's output$evs_status - see that comment for
+    # the full explanation. In short: a plain tryCatch(..., error =
+    # function(e) NULL) catches shiny::validate()'s condition the same way
+    # it catches req()'s, so every validate() failure (bad X/Y column,
+    # etc.) showed this same generic placeholder instead of the specific
+    # message telling the user what to fix. req()'s condition has the same
+    # class but an empty message, which is how the two are told apart below.
+    if (is.null(input$spatial_analyze) || input$spatial_analyze == 0) {
+      return(spatial_placeholder_msg)
+    }
+    tryCatch({
+      res <- result()
+      ce <- res$ce
+      sprintf("n = %d points | R = %.3f | Asymptotic p = %.4f | Monte Carlo p = %.4f (n_sim = %d, %s method)\n%s",
+              ce$n, ce$R, ce$p_value_asymptotic, ce$p_value_monte_carlo, ce$n_sim, ce$nn_method, ce$verdict)
+    }, shiny.silent.error = function(e) {
+      if (!nzchar(conditionMessage(e))) return(spatial_placeholder_msg)
+      stop(e)
+    })
   })
 
   # geom_point()'s `size` is a fixed *physical* size (mm), not relative to

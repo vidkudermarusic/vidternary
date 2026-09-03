@@ -78,6 +78,14 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
     y_apex <- (h + h_tri) / 2
     maskfile <- tempfile(fileext = ".png")
     grDevices::png(maskfile, width = w, height = h, bg = "black")
+    # dev.off() below must run before image_read() - the file isn't fully
+    # written until the device closes, so that call stays explicit. This
+    # on.exit is only a backstop for an error between opening the device
+    # and that explicit close (e.g. a bad polygon() call); it's guarded to
+    # become a no-op once the device has already been closed normally,
+    # since closing an already-closed device number is itself an error.
+    mask_dev <- grDevices::dev.cur()
+    on.exit(if (mask_dev %in% grDevices::dev.list()) grDevices::dev.off(mask_dev), add = TRUE)
     graphics::par(mar = rep(0, 4))
     graphics::plot.new(); graphics::plot.window(xlim = c(0, w), ylim = c(0, h), asp = 1)
     graphics::polygon(x = c(w / 2, 0, w), y = c(y_apex, y_base, y_base), col = "white", border = NA)
@@ -113,6 +121,12 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
     file_name <- paste0(gsub("[^A-Za-z0-9]", "_", plot_title), ".png")
     file_path <- normalizePath(file.path(custom_folder, file_name), winslash = "/", mustWork = FALSE)
     grDevices::png(file_path, width = 800, height = 800, bg = "transparent")
+    # Same guarded backstop as cut_triangle() above - dev.off() below must
+    # run before cut_triangle() reads this file back in, so it stays
+    # explicit; this on.exit only catches an error before that point (e.g.
+    # a bad TernaryPlot()/TernaryPoints() call).
+    plot_dev <- grDevices::dev.cur()
+    on.exit(if (plot_dev %in% grDevices::dev.list()) grDevices::dev.off(plot_dev), add = TRUE)
     graphics::par(mar = c(0, 0, 0, 0))
     Ternary::TernaryPlot(
       atip = NULL, btip = NULL, ctip = NULL,
@@ -130,22 +144,33 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
     cut_triangle(file_path)
   }
 
-  for (i in seq_along(element_configs)) {
+  # Collect each triangle's own file path directly from plot_ternary()'s
+  # return value (which is cut_triangle()'s own return value - the exact
+  # file it just wrote), in generation order. This used to instead re-scan
+  # custom_folder for *.png and sort by file ctime, which - since ctime has
+  # only whole-second resolution and custom_folder can be reused across
+  # calls (server_hex_ternary.R builds it from tempdir()/Sys.time() at
+  # second resolution) - could silently pick up stale files from an
+  # earlier generation if a user re-clicked "Generate" within the same
+  # wall-clock second, with no error or warning.
+  png_files_sorted <- vapply(seq_along(element_configs), function(i) {
     config <- element_configs[[i]]
     plot_ternary(M, elements_A = config$A, elements_B = config$B, elements_C = config$C,
                  custom_folder = custom_folder, plot_num = i)
-  }
+  }, character(1))
 
-  png_files <- list.files(custom_folder, pattern = "\\.png$", full.names = TRUE)
-  if (length(png_files) < 6) {
+  if (length(png_files_sorted) < 6 || anyNA(png_files_sorted) || !all(file.exists(png_files_sorted))) {
     warning("Not enough PNG files found to create a hexagonal composite plot.")
     return(NULL)
   }
 
-  file_ctimes <- file.info(png_files)$ctime
-  png_files_sorted <- png_files[order(file_ctimes, decreasing = FALSE)]
   composite_path <- file.path(custom_folder, paste0("Hexagonal_Ternary_of_", elements_labels_safe, ".png"))
   grDevices::png(composite_path, width = 1400, height = 1400, bg = "white")
+  # Guarantee the device is closed even if an error occurs anywhere below
+  # (a bad rasterImage()/text() call, etc.) - previously only the dev.off()
+  # at the very end of this function closed it, so any error in between
+  # left the device open for the lifetime of the R process.
+  on.exit(grDevices::dev.off(), add = TRUE)
   graphics::plot(NA, xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5), asp = 1, axes = FALSE, xlab = "", ylab = "")
 
   graphics::title(main = paste("Združeni ternarni diagrami:", paste(element_labels, collapse = ", ")),
@@ -191,6 +216,5 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
   graphics::text(-0.8, -1.4, element_labels[6], cex = 2.0)
   graphics::text(0.8, -1.4, element_labels[7], cex = 2.0)
 
-  grDevices::dev.off()
   composite_path
 }

@@ -1,7 +1,32 @@
 # ---- Server Analysis Log Module ----
 # This module contains analysis log functionality including controls and rendering
 
-create_server_analysis_log <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+#' Wire up the "Analysis Log" tab's server logic
+#'
+#' Registers the "Clear Log" handler, the level/search filtering
+#' (`input$log_level`/`input$search_log`, applied via a shared
+#' `filtered_log_entries()` helper so the on-screen display and "Export
+#' Log" can never disagree about which entries are shown), the on-screen
+#' log display (`output$analysis_log`), the filtered entry-count summary
+#' (`output$log_stats`), and the "Export Log" download handler. There used
+#' to also be a separate "Save Log to File" button that wrote the same
+#' entries to a pre-chosen server-side folder - removed as a fully
+#' redundant duplicate of "Export Log" (see the vidternary Structural
+#' Audit's §03), not converted to anything, once the global directory
+#' picker it depended on went away.
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object (reads
+#'   `rv$analysis_log`, the entries every tab's [log_operation()] call
+#'   appends to).
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @return An empty list - this function's effect is entirely the
+#'   observers/outputs it registers.
+#' @export
+create_server_analysis_log <- function(input, output, session, rv, show_message, log_operation) {
 
   # ---- Shared filter/search logic ----
   # Used by the on-screen display, "Save Log to File", and "Export Log" so
@@ -47,23 +72,10 @@ create_server_analysis_log <- function(input, output, session, rv, show_message,
     show_message("Analysis log cleared.", "info")
   })
 
-  # Save analysis log to the configured output directory
-  observeEvent(input$save_log, {
-    tryCatch({
-      output_dir <- if (!is.null(directory_management)) directory_management$output_dir() else file.path(getwd(), "output")
-      if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
-
-      filename <- paste0("analysis_log_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx")
-      filepath <- file.path(output_dir, filename)
-      writexl::write_xlsx(log_entries_to_dataframe(filtered_log_entries()), filepath)
-
-      show_message(paste("Analysis log saved to:", filepath), "success")
-      log_operation("INFO", "Analysis log saved to file", filepath)
-    }, error = function(e) {
-      show_message(paste("Error saving analysis log:", e$message), "error")
-      log_operation("ERROR", "Failed to save analysis log", e$message)
-    })
-  })
+  # "Save Log to File" (an actionButton writing to the old global Output
+  # Directory) used to live here - removed as a fully redundant duplicate
+  # of "Export Log" below, which already does the identical computation
+  # and download via a real downloadHandler (see this function's own doc).
 
   # Search analysis log (filtering itself is already live/reactive via
   # input$log_search - this just records that a search was performed)
@@ -94,17 +106,26 @@ create_server_analysis_log <- function(input, output, session, rv, show_message,
     }
   })
 
-  # Log statistics display
+  # Log statistics display. Uses filtered_log_entries() - the same entries
+  # "Recent Activities", "Save Log to File", and "Export Log" all agree on -
+  # rather than the raw rv$analysis_log, so a user filtering to e.g. ERROR
+  # only sees stats for what's actually showing, not the whole unfiltered
+  # log.
   output$log_stats <- renderText({
     if (length(rv$analysis_log) == 0) {
       "No log entries"
     } else {
-      total_entries <- length(rv$analysis_log)
-      info_count <- sum(sapply(rv$analysis_log, function(entry) entry$level == "INFO"))
-      warning_count <- sum(sapply(rv$analysis_log, function(entry) entry$level == "WARNING"))
-      error_count <- sum(sapply(rv$analysis_log, function(entry) entry$level == "ERROR"))
+      entries <- filtered_log_entries()
+      if (length(entries) == 0) return("No log entries match the current filter/search criteria.")
+
+      total_entries <- length(entries)
+      success_count <- sum(sapply(entries, function(entry) entry$level == "SUCCESS"))
+      info_count <- sum(sapply(entries, function(entry) entry$level == "INFO"))
+      warning_count <- sum(sapply(entries, function(entry) entry$level == "WARNING"))
+      error_count <- sum(sapply(entries, function(entry) entry$level == "ERROR"))
 
       paste("Total Entries:", total_entries,
+            "\nSUCCESS:", success_count,
             "\nINFO:", info_count,
             "\nWARNING:", warning_count,
             "\nERROR:", error_count)
