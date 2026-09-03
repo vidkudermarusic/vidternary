@@ -1,8 +1,9 @@
 # ---- Server: "Hexagonal Ternary Diagram" tab ----
-# Mirrors the two-step preview/save workflow used by the "Multiple Ternary
-# Creator" tab (server_ternary_plots_batch.R): "Generate" renders into
-# tempdir() for preview, "Save" writes into a timestamped subfolder under
-# the app's configured output directory.
+# Two-step workflow: "Generate" renders into tempdir() for an on-page
+# preview; "Save" (a downloadButton/downloadHandler) builds the same
+# composite into its own fresh tempdir and hands it to the browser's
+# native Save dialog - see the vidternary Structural Audit's §03 for why
+# this moved off the old global Output Directory picker.
 
 #' Wire up the Hexagonal Ternary Diagram tab's server logic
 #'
@@ -16,11 +17,9 @@
 #' @param rv The app's shared `reactiveValues` object.
 #' @param show_message Function to show a user-facing status message.
 #' @param log_operation Function to record a structured log entry.
-#' @param directory_management Optional directory-management module, used
-#'   to resolve the output directory for saved diagrams.
 #' @return A list with `module_name`.
 #' @export
-create_server_hex_ternary <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+create_server_hex_ternary <- function(input, output, session, rv, show_message, log_operation) {
 
   hex_result_path <- reactiveVal(NULL)
 
@@ -74,49 +73,52 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
     })
   })
 
-  observeEvent(input$hex_save, {
-    req(input$hex_xlsx_file)
-    el_strings <- collect_element_strings()
-    if (is.null(el_strings)) {
-      output$hex_status <- renderText("Please select at least one column for all 7 element positions (A-G)")
-      return()
-    }
-
-    tryCatch({
-      timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-      user_output_dir <- if (!is.null(directory_management) && !is.null(directory_management$output_dir)) {
-        directory_management$output_dir()
-      } else {
-        file.path(getwd(), "output")
-      }
-
+  # Hands the composite PNG straight to the browser's own Save dialog
+  # (downloadButton/downloadHandler) instead of writing it into a
+  # pre-chosen server-side folder - see the vidternary Structural Audit's
+  # §03 for why the previous global Output Directory picker was removed.
+  # create_hex_ternary_diagram() still needs a real output_dir to work
+  # with; a fresh, single-use temp directory supplies that.
+  output$hex_save <- downloadHandler(
+    filename = function() {
       folder_name <- if (!is.null(input$hex_output_folder) && nchar(trimws(input$hex_output_folder)) > 0) {
         trimws(input$hex_output_folder)
       } else {
         "hex_ternary_diagrams"
       }
-
-      out_dir <- file.path(user_output_dir, paste0(folder_name, "_", timestamp))
-      dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
-      output$hex_status <- renderText(paste("Saving hexagonal ternary diagram to:", out_dir, "..."))
-
-      composite <- do.call(create_hex_ternary_diagram,
-                            c(list(xlsx_file = input$hex_xlsx_file$datapath, output_dir = out_dir, working_dir = NULL),
-                              as.list(el_strings)))
-
-      if (!is.null(composite) && file.exists(composite)) {
-        hex_result_path(composite)
-        output$hex_status <- renderText(paste("Successfully saved hexagonal ternary diagram to:", out_dir))
-        log_operation("SUCCESS", "Hex ternary diagram saved", out_dir)
-      } else {
-        output$hex_status <- renderText("Diagram was not saved - check the selected columns.")
+      paste0(folder_name, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")
+    },
+    content = function(file) {
+      if (is.null(input$hex_xlsx_file)) stop("Please upload a file first.")
+      el_strings <- collect_element_strings()
+      if (is.null(el_strings)) {
+        stop("Please select at least one column for all 7 element positions (A-G).")
       }
-    }, error = function(e) {
-      output$hex_status <- renderText(paste("Error saving diagram:", e$message))
-      log_operation("ERROR", "Failed to save hex ternary diagram", e$message)
-    })
-  })
+
+      composite <- tryCatch({
+        out_dir <- tempfile("hex_save_")
+        dir.create(out_dir, recursive = TRUE)
+
+        do.call(create_hex_ternary_diagram,
+                c(list(xlsx_file = input$hex_xlsx_file$datapath, output_dir = out_dir, working_dir = NULL),
+                  as.list(el_strings)))
+      }, error = function(e) {
+        output$hex_status <- renderText(paste("Error saving diagram:", e$message))
+        log_operation("ERROR", "Failed to save hex ternary diagram", e$message)
+        stop(e$message)
+      })
+
+      if (is.null(composite) || !file.exists(composite)) {
+        output$hex_status <- renderText("Diagram was not saved - check the selected columns.")
+        stop("Diagram was not saved - check the selected columns.")
+      }
+
+      hex_result_path(composite)
+      output$hex_status <- renderText(paste("Successfully saved hexagonal ternary diagram:", basename(composite)))
+      log_operation("SUCCESS", "Hex ternary diagram saved", composite)
+      file.copy(composite, file, overwrite = TRUE)
+    }
+  )
 
   output$hex_plot_container <- renderUI({
     if (is.null(hex_result_path())) {
@@ -128,8 +130,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
       # browser widths it renders well over 700px tall. A fixed-height
       # container doesn't grow to match, so the image overflowed past its
       # box while the page layout still treated the container as only
-      # 700px tall - the Directory Settings section right after it in the
-      # page ended up visually overlapping the middle of the image.
+      # 700px tall, overlapping whatever came after it on the page.
       imageOutput(session$ns("hex_plot"), height = "auto")
     }
   })

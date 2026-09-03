@@ -118,7 +118,7 @@ general_ternary_plot <- function(
 ) {
 
   # Input validation
-  log_operation("Input validation", "Starting validation of function parameters")
+  log_operation("INFO", "Starting validation of function parameters")
 
   # COMPREHENSIVE DEBUGGING: Log all input parameters
   if (getOption("ternary.debug", FALSE)) {

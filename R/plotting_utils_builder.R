@@ -1,10 +1,9 @@
 # ---- Plotting Utilities: Custom Plot Builder ----
-# One generic chart builder for the "Plot Builder" tab, as opposed to the
-# six fixed per-type builders in plotting_utils_compare.R (used by the
-# "Multiple Plot Types" tab). Column names are arbitrary/user-chosen (this
-# app has no fixed data schema), so every axis/color argument is a plain
-# string column name resolved via rlang::sym(), matching the existing
-# tidy-eval style already used in plotting_utils_compare.R.
+# One generic chart builder for the "Plot Builder" tab: violin, box, bar,
+# histogram, scatter, or rose diagram, all through the same function.
+# Column names are arbitrary/user-chosen (this app has no fixed data
+# schema), so every axis/color argument is a plain string column name
+# resolved via rlang::sym() (tidy-eval style) rather than a hardcoded aes().
 
 #' Build a Plot Builder chart from arbitrary column names
 #'
@@ -106,7 +105,25 @@ build_custom_plot <- function(data, type, x, y = NULL, color_by = "none",
       # down are the breakdown values, not which X groups exist.
       filter_col <- if (has_color) fill_var else x
       if (!is.null(bar_values)) data <- data[data[[filter_col]] %in% bar_values, , drop = FALSE]
-      if (percent) {
+      if (nrow(data) == 0) {
+        # A "Filter by value" selection that matches nothing legitimately
+        # leaves a 0-row data frame here. table() on a length-0 *plain*
+        # vector (as opposed to a factor, which keeps its declared levels
+        # at count 0) returns a dimnames-less "table of extent 0" -
+        # as.data.frame(table(...)) on that produces only a bare Freq
+        # column, with no x-axis variable column at all - so every one of
+        # this block's four count-computing branches below would error on
+        # its own names(d2) <- c(x, ...) ("'names' attribute [N] must be
+        # the same length as the vector [N-1]") instead of showing a
+        # graceful empty-data state. Handled once, here, before any of
+        # them run.
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5, label = "No data matches the selected filter", size = 5, color = "grey40") +
+          ggplot2::theme_void()
+      } else if (percent && has_color) {
+        # Percentage within each X group's own breakdown (stacked bars sum
+        # to 100% per X category) - fill_var is a real second dimension
+        # here, distinct from x.
         d2 <- as.data.frame(table(data[[x]], data[[fill_var]]), stringsAsFactors = FALSE)
         names(d2) <- c(x, fill_var, "n")
         d2 <- d2[d2$n > 0, , drop = FALSE]
@@ -115,6 +132,18 @@ build_custom_plot <- function(data, type, x, y = NULL, color_by = "none",
         ggplot2::ggplot(d2, ggplot2::aes(x = !!rlang::sym(x), y = pct, fill = !!rlang::sym(fill_var))) +
           ggplot2::geom_col(position = "stack") +
           ggplot2::labs(x = x, y = "Percentage (%)", fill = fill_var)
+      } else if (percent) {
+        # No Color/group-by set: fill_var defaults to x itself, so a 2-way
+        # table(x, fill_var) would just cross-tabulate x against itself -
+        # every category's own count would equal its own "total" and every
+        # bar would render at a meaningless 100%. Percentage here instead
+        # means "share of all rows", computed against the one real total.
+        d2 <- as.data.frame(table(data[[x]]), stringsAsFactors = FALSE)
+        names(d2) <- c(x, "n")
+        d2$pct <- d2$n / sum(d2$n) * 100
+        ggplot2::ggplot(d2, ggplot2::aes(x = stats::reorder(!!rlang::sym(x), pct), y = pct, fill = !!rlang::sym(x))) +
+          ggplot2::geom_col(alpha = 0.8) + ggplot2::coord_flip() +
+          ggplot2::labs(x = x, y = "Percentage (%)") + ggplot2::theme(legend.position = "none")
       } else if (has_color) {
         # Grouped (dodged) counts: one sub-bar per selected category,
         # within each X group - e.g. several categories compared side by

@@ -22,8 +22,7 @@ create_analysis_log_tab <- function(id) {
 
             h4("Log Controls"),
             actionButton(ns("clear_log"), "Clear Log", class = "btn-warning"),
-            downloadButton(ns("export_log"), "Export Log", class = "btn-info"),
-            actionButton(ns("save_log"), "Save Log to File", class = "btn-success")
+            downloadButton(ns("export_log"), "Export Log", class = "btn-info")
           ),
           column(4,
             h4("Log Statistics"),
@@ -31,7 +30,7 @@ create_analysis_log_tab <- function(id) {
 
             h4("Filter Log"),
             selectInput(ns("log_level"), "Log Level:",
-              choices = c("All" = "all", "INFO" = "INFO", "WARNING" = "WARNING", "ERROR" = "ERROR"),
+              choices = c("All" = "all", "SUCCESS" = "SUCCESS", "INFO" = "INFO", "WARNING" = "WARNING", "ERROR" = "ERROR"),
               selected = "all"),
 
             h4("Search Log"),

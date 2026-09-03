@@ -4,15 +4,7 @@
 \alias{create_server_evs}
 \title{Wire up the Extreme Value Analysis tab's server logic}
 \usage{
-create_server_evs(
-  input,
-  output,
-  session,
-  rv,
-  show_message,
-  log_operation,
-  directory_management = NULL
-)
+create_server_evs(input, output, session, rv, show_message, log_operation)
 }
 \arguments{
 \item{input}{The Shiny \code{input} object.}
@@ -26,9 +18,6 @@ create_server_evs(
 \item{show_message}{Function to show a user-facing status message.}
 
 \item{log_operation}{Function to record a structured log entry.}
-
-\item{directory_management}{Optional directory-management module (unused
-by this tab, accepted for interface consistency with other tabs).}
 }
 \value{
 A list with \code{module_name}.

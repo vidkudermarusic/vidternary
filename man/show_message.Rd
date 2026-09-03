@@ -18,5 +18,5 @@ show_message(message, type = "info")
 Within a running app, \code{create_server_logic()} overrides this with a
 version that also pushes a toast to the browser via
 \code{session$sendCustomMessage()}; this top-level definition is the fallback
-used outside a Shiny session (e.g. by \code{safe_execute()}).
+used outside a Shiny session.
 }

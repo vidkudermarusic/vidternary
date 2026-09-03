@@ -53,17 +53,6 @@ collect_individual_filters <- function(elements, element_type, input) {
   collect_filters(elements, element_type, input, prefix = "multiple_filter")
 }
 
-#' `collect_filters()` for the Multiple Ternary Creator's optional-parameter filters
-#'
-#' @param elements Character vector of element/column names.
-#' @param param_type Parameter-type label used in the input ID (e.g. `"op1"`).
-#' @param input The Shiny `input` object.
-#' @return A named list of non-empty filter values.
-#' @export
-collect_optional_param_filters <- function(elements, param_type, input) {
-  collect_filters(elements, param_type, input, prefix = "multiple_filter")
-}
-
 #' `collect_filters()` for the main Ternary Plots tab's element filters
 #'
 #' @param elements Character vector of element/column names.
@@ -74,23 +63,6 @@ collect_optional_param_filters <- function(elements, param_type, input) {
 #' @export
 collect_main_ternary_filters <- function(elements, element_type, dataset_num, input) {
   collect_filters(elements, element_type, input, prefix = "filter", dataset_num = dataset_num)
-}
-
-#' Collect every element/optional-parameter filter for the Multiple Ternary Creator
-#'
-#' @param input The Shiny `input` object.
-#' @return A list with `individual_filters_A/B/C` and
-#'   `optional_param1_filters`/`optional_param2_filters`, each a named list
-#'   of non-empty filter values.
-#' @export
-collect_all_multiple_filters <- function(input) {
-  list(
-    individual_filters_A = collect_filters(input$multiple_element_A, "A", input, prefix = "multiple_filter"),
-    individual_filters_B = collect_filters(input$multiple_element_B, "B", input, prefix = "multiple_filter"),
-    individual_filters_C = collect_filters(input$multiple_element_C, "C", input, prefix = "multiple_filter"),
-    optional_param1_filters = collect_filters(input$multiple_optional_param1, "op1", input, prefix = "multiple_filter"),
-    optional_param2_filters = collect_filters(input$multiple_optional_param2, "op2", input, prefix = "multiple_filter")
-  )
 }
 
 #' Apply a single comparison-operator filter string to a data frame column
@@ -129,42 +101,19 @@ apply_filter <- function(df, col, filter) {
   stop("Invalid filter format. Use operators: >, <, >=, <=, ==, !=")
 }
 
-# Function to get individual filters for elements
-get_individual_filters <- function(elements, dataset_suffix) {
-  if (is.null(elements) || length(elements) == 0) {
-    return(list())
-  }
-
-  # For global scope usage, return empty list (will be populated by UI)
-  # This function is primarily used in the Shiny server context where 'input' is available
-  filters <- list()
-  for (element in elements) {
-    filters[[element]] <- NULL  # Will be filled by UI
-  }
-  return(filters)
-}
-
-# Apply individual filters
-apply_individual_filters <- function(data, element, individual_filters, element_name, preview = FALSE) {
-  if (is.null(individual_filters) || length(individual_filters) == 0) {
-    return(data)
-  }
-
-  filtered_data <- data
-
-  for (filter_name in names(individual_filters)) {
-    filter_value <- individual_filters[[filter_name]]
-    if (!is.null(filter_value) && length(filter_value) > 0) {
-      filtered_data <- apply_filter(filtered_data, filter_name, filter_value)
-    }
-  }
-
-  if (preview) {
-    message(paste("Applied filters for", element_name, ":", nrow(filtered_data), "rows remaining"))
-  }
-
-  return(filtered_data)
-}
+# An apply_individual_filters() used to live here too, but it was dead code:
+# prepare_ternary_plot_data() (ternary_plot_data_prep.R) defines its own
+# apply_individual_filters() as a *local* function, which - by ordinary R
+# lexical scoping - always shadowed this top-level one for the only real
+# call sites in the app (the element A/B/C filtering calls in that same
+# function). The two had drifted into completely different implementations
+# (this one treated `individual_filters` as a flat list of filter strings
+# keyed by column name and never read `element` at all; the local one reads
+# `element$col`/`element$filter`, handles single- vs. multi-column elements,
+# and calls parse_filter_condition() instead of apply_filter()) - a leftover
+# from an incomplete attempt to centralize the function here, confirmed to
+# have zero real callers anywhere in the package, and removed. See
+# prepare_ternary_plot_data()'s own comment for the real implementation.
 
 #' Build the full parameter list for `general_ternary_plot()` from Shiny inputs
 #'
@@ -180,15 +129,16 @@ apply_individual_filters <- function(data, element, individual_filters, element_
 #' @param dataset_num Dataset number (1 or 2); ignored when `multiple_mode = TRUE`.
 #' @param preview Whether this is for a live preview (`TRUE`) or an actual
 #'   save (`FALSE`). Default `FALSE`.
-#' @param directory_management Optional directory-management module (from
-#'   `create_server_directory_management()`), used to resolve the output
-#'   directory. If `NULL`, falls back to `<cwd>/output`.
 #' @param multiple_mode Whether to read the Multiple Ternary Creator's
 #'   inputs instead of the main Ternary Plots tab's. Default `FALSE`.
 #' @return A named list of parameters ready to pass to `general_ternary_plot()`,
-#'   or `NULL` if element A/B/C aren't all set yet.
+#'   or `NULL` if element A/B/C aren't all set yet. `output_dir` defaults to
+#'   `NULL` (no save) - every real save path (a `downloadHandler`'s own
+#'   `content()` function) overrides it explicitly with a fresh temp
+#'   directory before calling `general_ternary_plot()`, the same way the
+#'   Multiple Ternary Creator's batch handler already does.
 #' @export
-extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, directory_management = NULL, multiple_mode = FALSE) {
+extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, multiple_mode = FALSE) {
   # Essential parameters
   xlsx_file <- rv[[paste0("xlsx_file", dataset_num)]]
 
@@ -214,9 +164,15 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, dire
   optional_param1 <- NULL
   optional_param1_representation <- "point_size"
   if (multiple_mode) {
+    # multiple_optional_param1 comes from a selectizeInput(multiple = TRUE)
+    # (ui_multiple_ternary_tab.R) and so can be a length-&gt;1 character
+    # vector when 2+ columns are picked - a plain `!= ""` then returns a
+    # vector, and && on that is a hard error on R &gt;= 4.3.0. !any(... == "")
+    # is the vector-safe equivalent of "none of the selected values is an
+    # empty string".
     if (!is.null(input$multiple_optional_param1) &&
-        input$multiple_optional_param1 != "" &&
-        length(input$multiple_optional_param1) > 0) {
+        length(input$multiple_optional_param1) > 0 &&
+        !any(input$multiple_optional_param1 == "")) {
       # Get optional parameter 1 filters for multiple mode
       optional_param1_filters <- collect_filters(input$multiple_optional_param1, "op1", input, prefix = "multiple_filter")
       # Extract the first filter value from the list
@@ -272,9 +228,11 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, dire
   optional_param2 <- NULL
   color_palette <- "blue"
   if (multiple_mode) {
+    # Same vector-safety fix as multiple_optional_param1 above - see that
+    # comment for why the check is written this way.
     if (!is.null(input$multiple_optional_param2) &&
-        input$multiple_optional_param2 != "" &&
-        length(input$multiple_optional_param2) > 0) {
+        length(input$multiple_optional_param2) > 0 &&
+        !any(input$multiple_optional_param2 == "")) {
       # Get optional parameter 2 filters for multiple mode
       optional_param2_filters <- collect_filters(input$multiple_optional_param2, "op2", input, prefix = "multiple_filter")
       # Extract the first filter value from the list
@@ -395,7 +353,31 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, dire
   }
 
   # Additional safety check for categorical detection
-  if (!is_categorical_group && !is.null(optional_param2) && !is.null(xlsx_file)) {
+  #
+  # length(optional_param2$col) == 1 is required here, not optional: in
+  # multiple_mode, optional_param2$col is input$multiple_optional_param2, a
+  # selectizeInput(multiple = TRUE) (ui_multiple_ternary_tab.R), so it can
+  # be a length->1 character vector whenever 2+ columns are picked. Without
+  # this guard, a multi-column selection hits two separate crashes below:
+  # `optional_param2$col %in% names(data)` returns a same-length vector,
+  # and `&&` on a vector is a hard error on R >= 4.3.0 (see the identical
+  # multiple_optional_param1/2 fix above in this same function); even past
+  # that, `data[[optional_param2$col]]` itself requires a length-1 index
+  # and errors on a vector regardless of R version. This exact reachable-
+  # in-principle case is currently dormant rather than live - the only
+  # multiple_mode = TRUE caller (server_ternary_plots_batch.R) always
+  # passes a temp_rv with no df<n> set, so `!is.null(data)` below is always
+  # FALSE and short-circuits before either crash could fire - but a future
+  # refactor that populates rv$df<n> in that path (exactly the kind of
+  # change that already happened once when batch mode was split out) would
+  # make it live. A multi-column Optional Parameter 2 was never meant to
+  # drive categorical detection anyway (ternary_plot_preview.R/
+  # ternary_plot_save.R's own "Aspect.Ratio" numeric-legend check uses the
+  # identical length-1 guard for the same reason), so skipping this
+  # safety check entirely for a multi-column selection is correct, not
+  # just crash-avoidant.
+  if (!is_categorical_group && !is.null(optional_param2) &&
+      length(optional_param2$col) == 1 && !is.null(xlsx_file)) {
     # Check if the data is actually categorical even if not detected as such
     data <- rv[[paste0("df", dataset_num)]]
     if (!is.null(data) && optional_param2$col %in% names(data)) {
@@ -415,8 +397,15 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, dire
   list(
     xlsx_file = xlsx_file,
     xlsx_display_name = if (!is.null(input$xlsx_display_name)) input$xlsx_display_name else NULL,
+    # working_dir just needs *a* real directory to setwd() into/back from
+    # for relative-path resolution - getwd() always works and nothing
+    # meaningful depends on it being user-chosen (confirmed by grep before
+    # removing the old Working Directory picker - see the vidternary
+    # Structural Audit's §03). output_dir stays NULL (no save) until a
+    # real save path overrides it with a fresh temp directory right before
+    # calling general_ternary_plot() - see this function's own @return doc.
     working_dir = getwd(),
-    output_dir = if (!is.null(directory_management)) directory_management$output_dir() else file.path(getwd(), "output"),
+    output_dir = NULL,
     element_A = element_A,
     element_B = element_B,
     element_C = element_C,

@@ -11,7 +11,29 @@
 # this refactor: register_ternary_plots_group_handlers() is now a real,
 # reachable function called from create_server_ternary_plots().
 
-register_ternary_plots_group_handlers <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+#' Wire up categorical group-selection handling for the "Ternary Plots" tab
+#'
+#' Registers the Dataset 1/2 categorical-group detection observers (which
+#' inspect whatever column is picked as Optional Parameter 2), the
+#' group-selection checklist UI and its "Select All"/"Deselect All"
+#' buttons, the group summary table, and the group-count display - all
+#' duplicated per dataset (`_1`/`_2` suffixed inputs/outputs/`rv` fields).
+#' Called from [create_server_ternary_plots()], sharing its
+#' `moduleServer("ternary_plots", ...)` namespace and `rv`.
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object (reads/writes
+#'   `group_counts_1`/`_2`, `group_selections_1`/`_2`,
+#'   `is_categorical_group_1`/`_2`).
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @return Not meaningful (whatever its last statement happens to
+#'   evaluate to, with no explicit `return()`) - called for its side
+#'   effect of registering observers/outputs.
+#' @export
+register_ternary_plots_group_handlers <- function(input, output, session, rv, show_message, log_operation) {
 
   # ---- Group Selection Management for Dataset 1 ----
 
@@ -71,7 +93,13 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
   # Select All/Deselect All for Dataset 1
   observeEvent(input$select_all_groups_1, {
     if (!is.null(rv$group_counts_1)) {
-      all_groups <- names(rv$group_counts_1)
+      # checkboxGroupInput's choices (built above) use names(group_counts) as
+      # the displayed LABEL but the "Name (N samples)" string as the actual
+      # submitted VALUE - updateCheckboxGroupInput(selected=) has to match
+      # against that value side, not the label, or nothing gets selected.
+      # Reconstructed here rather than reading it back from `choices` since
+      # that local variable isn't itself persisted in rv.
+      all_groups <- paste0(names(rv$group_counts_1), " (", rv$group_counts_1, " samples)")
       updateCheckboxGroupInput(session, "selected_groups_1", selected = all_groups)
     }
   })
@@ -129,20 +157,20 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
         # Group summary table
         div(style = "margin-bottom: 10px; padding: 8px; background-color: #e9ecef; border-radius: 4px;",
           h6("Group Summary:", style = "margin-top: 0; margin-bottom: 8px; color: #495057;"),
-          tableOutput("group_summary_1")
+          tableOutput(session$ns("group_summary_1"))
         ),
 
         div(style = "max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background-color: #f8f9fa;",
-          checkboxGroupInput("selected_groups_1", "",
+          checkboxGroupInput(session$ns("selected_groups_1"), "",
                             choices = NULL, # Populated dynamically
                             selected = NULL) # User chooses
         ),
         div(style = "margin-top: 5px;",
-          actionButton("select_all_groups_1", "Select All", class = "btn-sm btn-outline-primary"),
-          actionButton("deselect_all_groups_1", "Deselect All", class = "btn-sm btn-outline-secondary")
+          actionButton(session$ns("select_all_groups_1"), "Select All", class = "btn-sm btn-outline-primary"),
+          actionButton(session$ns("deselect_all_groups_1"), "Deselect All", class = "btn-sm btn-outline-secondary")
         ),
         div(style = "font-size: 12px; color: #666; margin-top: 5px;",
-            textOutput("group_count_1"))
+            textOutput(session$ns("group_count_1")))
       )
     }
   })
@@ -195,7 +223,8 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
   # Select All/Deselect All for Dataset 2
   observeEvent(input$select_all_groups_2, {
     if (!is.null(rv$group_counts_2)) {
-      all_groups <- names(rv$group_counts_2)
+      # Same fix as Dataset 1's handler above - see that comment.
+      all_groups <- paste0(names(rv$group_counts_2), " (", rv$group_counts_2, " samples)")
       updateCheckboxGroupInput(session, "selected_groups_2", selected = all_groups)
     }
   })
@@ -253,20 +282,20 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
         # Group summary table
         div(style = "margin-bottom: 10px; padding: 8px; background-color: #e9ecef; border-radius: 4px;",
           h6("Group Summary:", style = "margin-top: 0; margin-bottom: 8px; color: #495057;"),
-          tableOutput("group_summary_2")
+          tableOutput(session$ns("group_summary_2"))
         ),
 
         div(style = "max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background-color: #f8f9fa;",
-          checkboxGroupInput("selected_groups_2", "",
+          checkboxGroupInput(session$ns("selected_groups_2"), "",
                             choices = NULL, # Populated dynamically
                             selected = NULL) # User chooses
         ),
         div(style = "margin-top: 5px;",
-          actionButton("select_all_groups_2", "Select All", class = "btn-sm btn-outline-primary"),
-          actionButton("deselect_all_groups_2", "Deselect All", class = "btn-sm btn-outline-secondary")
+          actionButton(session$ns("select_all_groups_2"), "Select All", class = "btn-sm btn-outline-primary"),
+          actionButton(session$ns("deselect_all_groups_2"), "Deselect All", class = "btn-sm btn-outline-secondary")
         ),
         div(style = "font-size: 12px; color: #666; margin-top: 5px;",
-            textOutput("group_count_2"))
+            textOutput(session$ns("group_count_2")))
       )
     }
   })

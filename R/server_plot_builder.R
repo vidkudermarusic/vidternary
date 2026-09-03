@@ -19,11 +19,9 @@ BUILDER_TYPES_WITH_Y <- c("violin", "box", "scatter")
 #' @param rv The app's shared `reactiveValues` object (holds `plot_presets`).
 #' @param show_message Function to show a user-facing status message.
 #' @param log_operation Function to record a structured log entry.
-#' @param directory_management Optional directory-management module (unused
-#'   by this tab, accepted for interface consistency with other tabs).
 #' @return A list with `module_name`.
 #' @export
-create_server_plot_builder <- function(input, output, session, rv, show_message, log_operation, directory_management = NULL) {
+create_server_plot_builder <- function(input, output, session, rv, show_message, log_operation) {
 
   # Disambiguated per-file labels (e.g. two uploads both named "sample.xlsx"
   # get "sample" / "sample #2") - shared between the dataset-selector UI and
@@ -58,8 +56,11 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       d
     })
     dfs <- Filter(Negate(is.null), dfs)
-    # shiny::validate must be qualified - this package's `import(jsonlite)`
-    # masks the unqualified name with jsonlite::validate (a JSON validator).
+    # shiny::validate must be qualified - jsonlite also exports its own
+    # validate() (a JSON schema validator), and this package library()s
+    # both via dependencies.R's initialize_packages() rather than NAMESPACE
+    # import()/importFrom(); jsonlite is attached after shiny there, so an
+    # unqualified call resolves to jsonlite::validate, not shiny::validate.
     shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
     if (length(dfs) == 1) return(dfs[[1]])
     common_cols <- Reduce(intersect, lapply(dfs, names))
@@ -203,6 +204,33 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     tryCatch({
       print(current_plot())
     }, error = function(e) {
+      if (inherits(e, "validation")) {
+        # A shiny::validate()/req() condition bubbling up from
+        # combined_data() (no dataset selected, files unreadable, no common
+        # columns) or from current_plot()'s own req() gates (no plot
+        # type/axis chosen yet) - the same class of bug already fixed for
+        # EVS/Spatial/CoDA (see server_evs.R's output$evs_status). This
+        # handler used to catch it unconditionally too (its class includes
+        # "error"), discard its real message (a validate()/req() condition's
+        # $message is always "" by design - the actual text lives
+        # elsewhere), and re-show it as a blank "Error rendering plot: " -
+        # regardless of whether it was a genuine validate() message like
+        # "Select at least one dataset above." or just the ordinary
+        # not-ready-yet state before any file is even uploaded. Re-thrown
+        # unchanged instead: an empty-message req() condition makes Shiny
+        # show nothing (its normal, correct "not ready yet" behavior for a
+        # plot output), while a real validate() message is displayed with
+        # Shiny's own distinct validation styling - either way, untouched by
+        # this handler. Confirmed via temporary debug tracing that
+        # renderPlot() re-evaluates this expression a second time after a
+        # validation condition escapes it (not just on the first throw), so
+        # this check has to hold no matter how many times this handler
+        # actually runs - an earlier version that used a separate
+        # `shiny.silent.error =` handler to build a friendly placeholder
+        # string had that placeholder itself re-caught and re-wrapped by
+        # this very handler on that second pass, for exactly this reason.
+        stop(e)
+      }
       shiny::validate(paste("Error rendering plot:", e$message))
     })
   }, width = round(builder_plot_height_px * 10 / 7), height = builder_plot_height_px, res = builder_plot_height_px / 7)
@@ -235,6 +263,12 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       return()
     }
     y_needed <- input$builder_type %in% BUILDER_TYPES_WITH_Y
+    # Checked before the assignment below overwrites it - saving under a
+    # name that already exists previously replaced the old preset with no
+    # indication that's what happened (the success message read identically
+    # either way), so a typo'd or reused name could silently discard
+    # existing work.
+    is_overwrite <- name %in% names(rv$plot_presets)
     rv$plot_presets[[name]] <- list(
       type = input$builder_type,
       x = input$builder_x,
@@ -249,8 +283,8 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     )
     save_builder_presets(rv$plot_presets)
     update_preset_choices(selected = name)
-    show_message(paste("Preset saved:", name), "success")
-    log_operation("SUCCESS", "Plot builder preset saved", name)
+    show_message(paste0(if (is_overwrite) "Preset overwritten: " else "Preset saved: ", name), "success")
+    log_operation("SUCCESS", if (is_overwrite) "Plot builder preset overwritten" else "Plot builder preset saved", name)
   })
 
   observeEvent(input$builder_load_preset, {
@@ -260,16 +294,43 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       show_message("Preset not found.", "error")
       return()
     }
+
+    # A preset saved against a different file can name columns that don't
+    # exist in the currently-loaded data. updateSelectInput()/
+    # updateSelectizeInput() silently do nothing when `selected` isn't
+    # among the current choices - no error, no warning - so loading a
+    # stale preset previously just left some fields quietly unset with no
+    # indication why. Checked up front against combined_data() (falling
+    # back to no columns at all if nothing's loaded yet, via the same
+    # catch every validate()-gated reactive in this tab needs outside a
+    # render context) so a specific, actionable warning can replace that
+    # silence; the restore below then only writes selections that are
+    # actually valid, rather than sending ones that would just be ignored.
+    available_cols <- tryCatch(names(combined_data()), error = function(e) character(0))
+    missing_cols <- character(0)
+    if (!is.null(preset$x) && !(preset$x %in% available_cols)) missing_cols <- c(missing_cols, preset$x)
+    if (!is.null(preset$y)) missing_cols <- c(missing_cols, setdiff(preset$y, available_cols))
+    if (!is.null(preset$color_by) && preset$color_by != "none" && !(preset$color_by %in% available_cols)) {
+      missing_cols <- c(missing_cols, preset$color_by)
+    }
+    if (length(missing_cols) > 0) {
+      show_message(paste0("Preset '", input$builder_preset_select, "' references column(s) not in the current data: ",
+                           paste(unique(missing_cols), collapse = ", "), ". Those selections were left unset."), "warning")
+    }
+
     updateSelectInput(session, "builder_type", selected = preset$type)
     # X/Y selectors are rebuilt by renderUI when builder_type changes; delay
     # setting them until after that UI exists.
     session$onFlushed(function() {
-      updateSelectInput(session, "builder_x", selected = preset$x)
+      if (is.null(preset$x) || preset$x %in% available_cols) updateSelectInput(session, "builder_x", selected = preset$x)
       # builder_y is selectize-based either way (Shiny's selectInput()
       # defaults to selectize = TRUE) - updateSelectizeInput works whether
       # it's currently the single-select (scatter) or multi-select
       # (violin/box) variant, and correctly restores a multi-value selection.
-      if (!is.null(preset$y)) updateSelectizeInput(session, "builder_y", selected = preset$y)
+      if (!is.null(preset$y)) {
+        y_avail <- intersect(preset$y, available_cols)
+        if (length(y_avail) > 0) updateSelectizeInput(session, "builder_y", selected = y_avail)
+      }
       if (!is.null(preset$percent)) updateCheckboxInput(session, "builder_percent", value = preset$percent)
       if (!is.null(preset$rose_bin_width)) updateNumericInput(session, "builder_rose_bin_width", value = preset$rose_bin_width)
       if (!is.null(preset$hist_bins)) updateNumericInput(session, "builder_hist_bins", value = preset$hist_bins)
@@ -283,7 +344,9 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
         }, once = TRUE)
       }
     }, once = TRUE)
-    updateSelectInput(session, "builder_color_by", selected = preset$color_by)
+    if (is.null(preset$color_by) || preset$color_by == "none" || preset$color_by %in% available_cols) {
+      updateSelectInput(session, "builder_color_by", selected = preset$color_by)
+    }
     updateCheckboxInput(session, "builder_log_x", value = preset$log_x)
     updateCheckboxInput(session, "builder_log_y", value = preset$log_y)
     log_operation("INFO", "Plot builder preset loaded", input$builder_preset_select)

@@ -13,7 +13,7 @@
 render_ternary_plot_preview <- function(pd) {
   with(pd, {
     # Create the ternary plot
-    log_operation("Plotting", paste("Starting to plot", nrow(ternary_points1), "points"))
+    log_operation("INFO", "Starting to plot", paste(nrow(ternary_points1), "points"))
 
     # Set outer margins to prevent clipping of multi-line titles and notes
     # Top margin for titles, bottom margin for plot notes

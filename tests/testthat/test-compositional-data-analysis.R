@@ -19,6 +19,25 @@ test_that("clr_transform replaces zeros/NAs with a pseudo-count instead of error
   expect_true(all(is.finite(as.matrix(clr))))
 })
 
+test_that("clr_transform replaces an Inf/-Inf value the same way as zero/NA instead of poisoning the whole row", {
+  # Before this fix, .coda_replace_zeros() only guarded is.na()/<=0, missing
+  # non-finite values - the same guard server_spatial.R's combined_data()
+  # and extreme_value_analysis.R's compute_block_maxima() already apply to
+  # their own numeric inputs. A single Inf didn't just corrupt its own
+  # cell: log(Inf) fed into this transform's per-row mean, so rowMeans()
+  # picked up that Inf and the ENTIRE row went non-finite (NaN for the Inf
+  # column itself, -Inf for every other column in that row).
+  d <- data.frame(a = c(1, 2, Inf, 4), b = c(2, 3, 4, 5), c = c(3, 4, 5, 6))
+  clr <- clr_transform(d, c("a", "b", "c"))
+  expect_true(all(is.finite(as.matrix(clr))))
+  # A regression check that -Inf is caught too (it happened to already be
+  # caught by the old `mat <= 0` condition, but confirmed here so it stays
+  # covered alongside the +Inf fix rather than assumed).
+  d2 <- data.frame(a = c(1, 2, -Inf, 4), b = c(2, 3, 4, 5), c = c(3, 4, 5, 6))
+  clr2 <- clr_transform(d2, c("a", "b", "c"))
+  expect_true(all(is.finite(as.matrix(clr2))))
+})
+
 test_that("clr_transform errors when no positive values are present", {
   d <- data.frame(a = c(0, 0), b = c(NA, NA))
   expect_error(clr_transform(d, c("a", "b")))

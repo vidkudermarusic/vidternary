@@ -111,13 +111,30 @@ fit_evs_gumbel <- function(sqrt_area_max) {
 #' @param seed RNG seed for the bootstrap; the caller's RNG state is saved
 #'   and restored afterward.
 #' @return A list: `statistic` (observed A²), `n`, `n_sim`, `p_value`,
-#'   `p_value_bracket` (formatted string), `reject_at_05` (logical).
+#'   `p_value_bracket` (formatted string), `reject_at_05` (logical) - or
+#'   `NULL` if the fit is degenerate (see below), matching how the rest of
+#'   this pipeline signals "not applicable."
 #' @export
 gumbel_goodness_of_fit <- function(fit, n_sim = 999, seed = 42) {
   x <- sort(fit$data$sqrt_area_max)
   n <- length(x)
   a <- fit$intercept
   b <- fit$slope
+
+  # A degenerate fit - block maxima that are numerically all identical
+  # (duplicate rows, or measurements tied at the same rounded value, both
+  # plausible with coarse SEM resolution or a small/synthetic dataset)
+  # drives the OLS slope to exactly/near zero. compute_A2() below divides
+  # by `b`; with a zero-variance x that silently returns NaN with no R
+  # condition raised, and that NaN would otherwise propagate all the way to
+  # `reject_at_05` as NA, crashing an unguarded `if()` in server_evs.R
+  # instead of failing here where it's cheap to catch. Checked directly on
+  # the data's spread, not just on `b` itself, since floating-point noise
+  # in the regression could nudge `b` slightly off exact zero even when `x`
+  # is degenerate.
+  if (!is.finite(b) || diff(range(x)) < sqrt(.Machine$double.eps) * max(1, mean(abs(x)))) {
+    return(NULL)
+  }
 
   compute_A2 <- function(x_sorted, a, b) {
     Fx <- exp(-exp(-(x_sorted - a) / b))

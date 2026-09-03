@@ -3,11 +3,26 @@
 # functionality: parameter building, live previews, the analysis-report
 # text, and the Save Plot 1/2/Both handlers.
 #
-# Related handlers live in sibling modules, split out for size:
-#   server_ternary_plots_batch.R  - "Multiple Ternary Creator" batch preview/save
+# Related handlers live in sibling files, split out for size, both called
+# from within this tab's own moduleServer() wrapper in server_logic.R:
 #   server_ternary_plots_groups.R - categorical group-selection UI
+#   server_file_handlers.R        - Dataset 1/2 upload + copy-settings
 #
-# BUGFIX (as part of this split): generate_analysis_report() below was
+# "Multiple Ternary Creator" used to be registered from inside this same
+# function (register_ternary_plots_batch_handlers(), called below) - it's
+# now a fully independent sibling tab/module (server_ternary_plots_batch.R,
+# wired directly from server_logic.R's own moduleServer("multiple_ternary",
+# ...) call), not nested here, since the two turned out to be one entangled
+# server unit rather than genuinely separate tabs (see the vidternary
+# Structural Audit for the full cross-tab dependency map that found this).
+#
+# The per-element dynamic filter UI (dynamic_filters_A1/B1/C1/A2/B2/C2) and
+# the "only one filter method active at a time" enforcement used to live in
+# a shared server_filter_management.R that also built Multiple Ternary
+# Creator's filter UI in the same registration call - split apart for the
+# same reason, with this tab's half moved directly into this file below.
+#
+# BUGFIX (as part of an earlier split): generate_analysis_report() below was
 # previously missing its closing brace, so everything that followed it in
 # the original single file - the analysis report renderer, the Save Plot
 # buttons, and the group-selection UI - was accidentally nested inside its
@@ -15,7 +30,139 @@
 # after its return(), and the code that used to trail it is registered
 # properly (below, and in server_ternary_plots_groups.R).
 
-create_server_ternary_plots <- function(input, output, session, rv, show_message, log_operation, filter_management = NULL, directory_management = NULL) {
+#' Wire up the "Ternary Plots" tab's single-file server logic
+#'
+#' Registers this tab's core handlers: the mutually-exclusive
+#' statistical/multivariate filter checkboxes, the per-element dynamic
+#' filter UI (`dynamic_filters_A1`/`B1`/`C1`/`A2`/`B2`/`C2`), the Dataset
+#' 1/2 live preview renders, the analysis-report text, and the Save Plot
+#' 1/2/Both handlers. Also calls
+#' [register_ternary_plots_group_handlers()] for the categorical
+#' group-selection UI; Dataset 1/2 upload and "Copy Settings" are wired
+#' separately by [create_server_file_handlers()] (both called from the
+#' same `moduleServer("ternary_plots", ...)` wrapper in `server_logic.R`,
+#' sharing this tab's namespace and `rv`).
+#'
+#' @param input The Shiny `input` object.
+#' @param output The Shiny `output` object.
+#' @param session The Shiny session object.
+#' @param rv The app's shared `reactiveValues` object.
+#' @param show_message Function to show a user-facing status message.
+#' @param log_operation Function to record a structured log entry.
+#' @return An empty list - this function's effect is entirely the
+#'   observers/renderers it registers.
+#' @export
+create_server_ternary_plots <- function(input, output, session, rv, show_message, log_operation) {
+
+  # ---- Enforce one filter per ternary plot ----
+  # Mahalanobis, Isolation Forest, IQR, Z-score, and MAD are alternative
+  # ways to flag outliers, not stages meant to compound on the same plot.
+  # Checking one here unchecks the other four, so the checkbox UI can only
+  # ever represent zero or one active filter at a time (general_ternary_plot()
+  # also enforces this server-side as a defense-in-depth backstop for any
+  # caller that bypasses this UI, e.g. batch/programmatic use).
+  filter_method_checkboxes <- c("use_mahalanobis", "use_isolation_forest",
+                                 "use_iqr_filter", "use_zscore_filter", "use_mad_filter")
+
+  lapply(filter_method_checkboxes, function(checkbox_id) {
+    observeEvent(input[[checkbox_id]], {
+      if (isTRUE(input[[checkbox_id]])) {
+        other_checkboxes <- setdiff(filter_method_checkboxes, checkbox_id)
+        for (other_id in other_checkboxes) {
+          if (isTRUE(input[[other_id]])) {
+            updateCheckboxInput(session, other_id, value = FALSE)
+          }
+        }
+      }
+    }, ignoreInit = TRUE)
+  })
+
+  # ---- Dynamic Filter UI Generation (per-element, Dataset 1/2) ----
+  output$dynamic_filters_A1 <- renderUI({
+    req(input$element_A1)
+    lapply(input$element_A1, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_A1_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  output$dynamic_filters_B1 <- renderUI({
+    req(input$element_B1)
+    lapply(input$element_B1, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_B1_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  output$dynamic_filters_C1 <- renderUI({
+    req(input$element_C1)
+    lapply(input$element_C1, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_C1_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  output$dynamic_filters_A2 <- renderUI({
+    req(input$element_A2)
+    lapply(input$element_A2, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_A2_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  output$dynamic_filters_B2 <- renderUI({
+    req(input$element_B2)
+    lapply(input$element_B2, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_B2_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  output$dynamic_filters_C2 <- renderUI({
+    req(input$element_C2)
+    lapply(input$element_C2, function(element) {
+      div(
+        style = "margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;",
+        h6(paste("Filter for", element)),
+        textInput(session$ns(paste0("filter_C2_", gsub("[^A-Za-z0-9]", "_", element))),
+                 paste("Threshold for", element),
+                 placeholder = paste("e.g., > 10"))
+      )
+    })
+  })
+
+  # ---- Application status (baseline; Save Plot 1/2/Both below overwrite
+  # this with a one-shot save-result message once clicked) ----
+  output$status <- renderText({
+    paste("Application Status: Ready\n",
+          "Dataset 1:", ifelse(is.null(rv$df1), "Not loaded", paste(nrow(rv$df1), "rows,", ncol(rv$df1), "columns")), "\n",
+          "Dataset 2:", ifelse(is.null(rv$df2), "Not loaded", paste(nrow(rv$df2), "rows,", ncol(rv$df2), "columns")))
+  })
 
   # ---- Helper Functions ----
 
@@ -25,7 +172,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   # Simplified parameter extraction using unified function
   build_ternary_plot_params <- function(dataset_num, preview = FALSE) {
     req(rv[[paste0("df", dataset_num)]])
-    params <- extract_ternary_params(input, rv, dataset_num, preview, directory_management, multiple_mode = FALSE)
+    params <- extract_ternary_params(input, rv, dataset_num, preview, multiple_mode = FALSE)
 
     # Add the original filename for proper plot titles
     if (dataset_num == 1 && !is.null(input$xlsx_file1)) {
@@ -151,9 +298,11 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     if (getOption("ternary.debug", FALSE)) cat("=== PREVIEW 2 DEBUGGING END ===\n\n")
   }, width = safe_plot_dim("ternary_preview2", "width", 450), height = safe_plot_dim("ternary_preview2", "height", 500))
 
-  # ---- Batch and group-selection handlers (sibling modules) ----
-  register_ternary_plots_batch_handlers(input, output, session, rv, show_message, log_operation, directory_management)
-  register_ternary_plots_group_handlers(input, output, session, rv, show_message, log_operation, directory_management)
+  # ---- Group-selection handlers (sibling file, same tab/module) ----
+  # Multiple Ternary Creator's batch handlers used to also be registered
+  # here - now wired independently from server_logic.R (see this file's
+  # header comment).
+  register_ternary_plots_group_handlers(input, output, session, rv, show_message, log_operation)
 
   # Observer to populate multivariate column selector when datasets are loaded
   observe({
@@ -175,9 +324,15 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
   # Analysis Report Generator
   generate_analysis_report <- function(input, rv) {
-    # Ensure all required inputs are available
-    req(input$use_mahalanobis, input$use_isolation_forest,
-        input$use_iqr_filter, input$use_zscore_filter, input$use_mad_filter)
+    # Ensure at least one filter method is active. Passing these as separate
+    # req() arguments (the previous form) requires every single one to be
+    # TRUE at once to proceed - but this tab enforces "only one filter
+    # active at a time" (see the mutual-exclusivity observers above), so
+    # that older form could never actually pass in normal use and the
+    # report body below never ran. Matches the `||` gate already used by
+    # this function's one caller, output$analysis_report, below.
+    req(input$use_mahalanobis || input$use_isolation_forest ||
+        input$use_iqr_filter || input$use_zscore_filter || input$use_mad_filter)
 
     report_lines <- c()
     report_lines <- c(report_lines, "=== ANALYSIS METHODS REPORT ===")
@@ -190,39 +345,36 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     # Element A
     if (!is.null(input$element_A1) && length(input$element_A1) > 0) {
       report_lines <- c(report_lines, paste("Element A:", paste(input$element_A1, collapse = " + ")))
-      # Add individual filters for Element A
-      if (!is.null(input$filter_A1) && length(input$filter_A1) > 0) {
-        for (filter_name in names(input$filter_A1)) {
-          if (!is.null(input$filter_A1[[filter_name]]) && nchar(input$filter_A1[[filter_name]]) > 0) {
-            report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", input$filter_A1[[filter_name]]))
-          }
-        }
+      # Add individual filters for Element A. Reads the same dynamically-
+      # named filter_A1_<element> inputs (built by the dynamic_filters_A1
+      # renderUI above) that the actual plot filtering already reads via
+      # collect_main_ternary_filters() inside extract_ternary_params() -
+      # this used to look up a single "filter_A1" input that never existed
+      # (the real ones are per-element), so no filter ever showed up here
+      # even though it was genuinely being applied to the plot.
+      filters_A1 <- collect_main_ternary_filters(input$element_A1, "A", 1, input)
+      for (filter_name in names(filters_A1)) {
+        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_A1[[filter_name]]))
       }
     }
 
     # Element B
     if (!is.null(input$element_B1) && length(input$element_B1) > 0) {
       report_lines <- c(report_lines, paste("Element B:", paste(input$element_B1, collapse = " + ")))
-      # Add individual filters for Element B
-      if (!is.null(input$filter_B1) && length(input$filter_B1) > 0) {
-        for (filter_name in names(input$filter_B1)) {
-          if (!is.null(input$filter_B1[[filter_name]]) && nchar(input$filter_B1[[filter_name]]) > 0) {
-            report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", input$filter_B1[[filter_name]]))
-          }
-        }
+      # Add individual filters for Element B - see the Element A comment above.
+      filters_B1 <- collect_main_ternary_filters(input$element_B1, "B", 1, input)
+      for (filter_name in names(filters_B1)) {
+        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_B1[[filter_name]]))
       }
     }
 
     # Element C
     if (!is.null(input$element_C1) && length(input$element_C1) > 0) {
       report_lines <- c(report_lines, paste("Element C:", paste(input$element_C1, collapse = " + ")))
-      # Add individual filters for Element C
-      if (!is.null(input$filter_C1) && length(input$filter_C1) > 0) {
-        for (filter_name in names(input$filter_C1)) {
-          if (!is.null(input$filter_C1[[filter_name]]) && nchar(input$filter_C1[[filter_name]]) > 0) {
-            report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", input$filter_C1[[filter_name]]))
-          }
-        }
+      # Add individual filters for Element C - see the Element A comment above.
+      filters_C1 <- collect_main_ternary_filters(input$element_C1, "C", 1, input)
+      for (filter_name in names(filters_C1)) {
+        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_C1[[filter_name]]))
       }
     }
 
@@ -487,147 +639,165 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   })
 
   # ---- Save Plot Buttons for Main Ternary Plots ----
+  # Each hands the saved file straight to the browser's own Save dialog
+  # (downloadButton/downloadHandler) instead of writing to a pre-chosen
+  # server-side folder - see the vidternary Structural Audit's §03 for why
+  # the previous global Working/Output Directory picker was removed.
+  # general_ternary_plot() still needs a real output_dir to actually save
+  # (preview = FALSE, output_dir = NULL would just draw and return NULL,
+  # same as a live preview) - a fresh, single-use temp directory supplies
+  # that; its contents are copied into the browser's download and then
+  # left for the OS's normal temp-file cleanup, exactly like every other
+  # downloadHandler in this app already does for its own generated files.
 
   # Save Plot 1
-  observeEvent(input$plot1, {
-    req(input$xlsx_file1)
-    req(input$element_A1, input$element_B1, input$element_C1)
-
-    if (getOption("ternary.debug", FALSE)) {
-      cat("DEBUG: Save Plot 1 button clicked\n")
-      cat("DEBUG: File:", input$xlsx_file1$name, "\n")
-      cat("DEBUG: Elements A:", paste(input$element_A1, collapse = ", "), "\n")
-      cat("DEBUG: Elements B:", paste(input$element_B1, collapse = ", "), "\n")
-      cat("DEBUG: Elements C:", paste(input$element_C1, collapse = ", "), "\n")
-    }
-
-    tryCatch({
-      # Build parameters for ternary plot
-      params <- build_ternary_plot_params(1, FALSE)
-
-      if (is.null(params)) {
-        if (getOption("ternary.debug", FALSE)) cat("DEBUG: build_ternary_plot_params returned NULL for Plot 1\n")
-        output$status <- renderText("Error: Invalid parameters for Plot 1")
-        return()
+  output$plot1 <- downloadHandler(
+    filename = function() paste0("Plot1_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", input$output_format %||% "png"),
+    content = function(file) {
+      if (is.null(input$xlsx_file1) || is.null(input$element_A1) || is.null(input$element_B1) || is.null(input$element_C1)) {
+        stop("Please upload a file and select elements A, B, and C first.")
       }
 
-      if (getOption("ternary.debug", FALSE)) {
-        cat("DEBUG: Parameters built successfully for Plot 1\n")
-        cat("DEBUG: About to call general_ternary_plot for Plot 1\n")
-      }
+      result <- tryCatch({
+        params <- build_ternary_plot_params(1, FALSE)
+        if (is.null(params)) stop("Invalid parameters for Plot 1.")
 
-      # Call the main ternary plot function
-      result <- do.call(general_ternary_plot, params)
+        params$output_dir <- tempfile("plot1_save_")
+        dir.create(params$output_dir, recursive = TRUE)
 
-      if (getOption("ternary.debug", FALSE)) {
-        cat("DEBUG: general_ternary_plot result for Plot 1:", result, "\n")
-      }
+        do.call(general_ternary_plot, params)
+      }, error = function(e) {
+        output$status <- renderText(paste("Error saving Plot 1:", e$message))
+        log_operation("ERROR", "Failed to save Plot 1", e$message)
+        stop(e$message)
+      })
 
-      if (!is.null(result)) {
-        output$status <- renderText(paste("✅ Plot 1 saved successfully!\n📍 Location:", result))
-        log_operation("SUCCESS", "Plot 1 saved successfully", paste("Saved to:", result))
-      } else {
+      if (is.null(result)) {
         output$status <- renderText("❌ Failed to save Plot 1")
         log_operation("ERROR", "Failed to save Plot 1")
+        stop("Failed to save Plot 1 - see the Analysis Log.")
       }
 
-    }, error = function(e) {
-      output$status <- renderText(paste("Error saving Plot 1:", e$message))
-      log_operation("ERROR", "Failed to save Plot 1", e$message)
-    })
-  })
+      output$status <- renderText(paste("✅ Plot 1 saved successfully!\n📍 Location:", result))
+      log_operation("SUCCESS", "Plot 1 saved successfully", paste("Saved to:", result))
+      file.copy(result, file, overwrite = TRUE)
+    }
+  )
 
   # Save Plot 2
-  observeEvent(input$plot2, {
-    req(input$xlsx_file2)
-    req(input$element_A2, input$element_B2, input$element_C2)
-
-    tryCatch({
-      # Build parameters for ternary plot
-      params <- build_ternary_plot_params(2, FALSE)
-
-      if (is.null(params)) {
-        output$status <- renderText("Error: Invalid parameters for Plot 2")
-        return()
+  output$plot2 <- downloadHandler(
+    filename = function() paste0("Plot2_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", input$output_format %||% "png"),
+    content = function(file) {
+      if (is.null(input$xlsx_file2) || is.null(input$element_A2) || is.null(input$element_B2) || is.null(input$element_C2)) {
+        stop("Please upload a file and select elements A, B, and C first.")
       }
 
-      # Call the main ternary plot function
-      result <- do.call(general_ternary_plot, params)
+      result <- tryCatch({
+        params <- build_ternary_plot_params(2, FALSE)
+        if (is.null(params)) stop("Invalid parameters for Plot 2.")
 
-      if (!is.null(result)) {
-        output$status <- renderText(paste("✅ Plot 2 saved successfully!\n📍 Location:", result))
-        log_operation("SUCCESS", "Plot 2 saved successfully", paste("Saved to:", result))
-      } else {
+        params$output_dir <- tempfile("plot2_save_")
+        dir.create(params$output_dir, recursive = TRUE)
+
+        do.call(general_ternary_plot, params)
+      }, error = function(e) {
+        output$status <- renderText(paste("Error saving Plot 2:", e$message))
+        log_operation("ERROR", "Failed to save Plot 2", e$message)
+        stop(e$message)
+      })
+
+      if (is.null(result)) {
         output$status <- renderText("❌ Failed to save Plot 2")
         log_operation("ERROR", "Failed to save Plot 2")
+        stop("Failed to save Plot 2 - see the Analysis Log.")
       }
 
-    }, error = function(e) {
-      output$status <- renderText(paste("Error saving Plot 2:", e$message))
-      log_operation("ERROR", "Failed to save Plot 2", e$message)
-    })
-  })
+      output$status <- renderText(paste("✅ Plot 2 saved successfully!\n📍 Location:", result))
+      log_operation("SUCCESS", "Plot 2 saved successfully", paste("Saved to:", result))
+      file.copy(result, file, overwrite = TRUE)
+    }
+  )
 
-  # Save Both Plots
-  observeEvent(input$plot_both, {
-    req(input$xlsx_file1, input$xlsx_file2)
-    req(input$element_A1, input$element_B1, input$element_C1)
-    req(input$element_A2, input$element_B2, input$element_C2)
+  # Save Both Plots - both files zipped into one download. Each plot's
+  # save attempt keeps its own independent tryCatch (unchanged from
+  # before this conversion): a real error from one can't prevent the
+  # other from being attempted, so a genuine one-succeeds-one-fails
+  # outcome still delivers the one that worked - as a one-file zip, with
+  # an errors.txt alongside it naming what didn't, rather than discarding
+  # the successful plot just because its sibling failed.
+  output$plot_both <- downloadHandler(
+    filename = function() paste0("TernaryPlots_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".zip"),
+    content = function(file) {
+      if (is.null(input$xlsx_file1) || is.null(input$xlsx_file2) ||
+          is.null(input$element_A1) || is.null(input$element_B1) || is.null(input$element_C1) ||
+          is.null(input$element_A2) || is.null(input$element_B2) || is.null(input$element_C2)) {
+        stop("Please upload both files and select elements A, B, and C for each.")
+      }
 
-    tryCatch({
+      out_dir <- tempfile("plot_both_save_")
+      dir.create(out_dir, recursive = TRUE)
+
       plots_saved <- 0
       errors <- c()
       saved_files <- c()
 
-      # Save Plot 1
-      params1 <- build_ternary_plot_params(1, FALSE)
-      if (!is.null(params1)) {
-        result1 <- do.call(general_ternary_plot, params1)
-        if (!is.null(result1)) {
-          plots_saved <- plots_saved + 1
-          saved_files <- c(saved_files, result1)
+      tryCatch({
+        params1 <- build_ternary_plot_params(1, FALSE)
+        if (!is.null(params1)) {
+          params1$output_dir <- out_dir
+          result1 <- do.call(general_ternary_plot, params1)
+          if (!is.null(result1)) {
+            plots_saved <- plots_saved + 1
+            saved_files <- c(saved_files, result1)
+          } else {
+            errors <- c(errors, "Plot 1: Failed to save (see Analysis Log)")
+          }
+        } else {
+          errors <- c(errors, "Plot 1: Invalid parameters")
         }
-      } else {
-        errors <- c(errors, "Plot 1: Invalid parameters")
-      }
+      }, error = function(e) {
+        errors <<- c(errors, paste("Plot 1:", e$message))
+      })
 
-      # Save Plot 2
-      params2 <- build_ternary_plot_params(2, FALSE)
-      if (!is.null(params2)) {
-        result2 <- do.call(general_ternary_plot, params2)
-        if (!is.null(result2)) {
-          plots_saved <- plots_saved + 1
-          saved_files <- c(saved_files, result2)
+      tryCatch({
+        params2 <- build_ternary_plot_params(2, FALSE)
+        if (!is.null(params2)) {
+          params2$output_dir <- out_dir
+          result2 <- do.call(general_ternary_plot, params2)
+          if (!is.null(result2)) {
+            plots_saved <- plots_saved + 1
+            saved_files <- c(saved_files, result2)
+          } else {
+            errors <- c(errors, "Plot 2: Failed to save (see Analysis Log)")
+          }
+        } else {
+          errors <- c(errors, "Plot 2: Invalid parameters")
         }
-      } else {
-        errors <- c(errors, "Plot 2: Invalid parameters")
-      }
+      }, error = function(e) {
+        errors <<- c(errors, paste("Plot 2:", e$message))
+      })
 
-      # Update status with file locations
+      # One status message reflecting the actual combined outcome - same
+      # convention as before this conversion: exactly one message per
+      # outcome, always including any errors that actually occurred.
       if (plots_saved == 2) {
         status_msg <- paste("✅ Both plots saved successfully!\n📍 Locations:\n• Plot 1:", saved_files[1], "\n• Plot 2:", saved_files[2])
-        output$status <- renderText(status_msg)
         log_operation("SUCCESS", "Both plots saved successfully", paste("Saved to:", paste(saved_files, collapse = "; ")))
       } else if (plots_saved == 1) {
-        status_msg <- paste("⚠️ One plot saved successfully, one failed\n📍 Saved:", saved_files[1])
-        output$status <- renderText(status_msg)
-        log_operation("WARNING", "One plot saved, one failed", paste("Saved to:", saved_files[1]))
+        status_msg <- paste0("⚠️ One plot saved, one failed\n📍 Saved: ", saved_files[1], "\n❌ ", errors[1])
+        log_operation("WARNING", "One plot saved, one failed", paste("Saved:", saved_files[1], "| Error:", errors[1]))
       } else {
-        output$status <- renderText("❌ Failed to save both plots")
-        log_operation("ERROR", "Failed to save both plots")
+        status_msg <- paste("❌ Failed to save both plots\n", paste(errors, collapse = "\n"))
+        log_operation("ERROR", "Failed to save both plots", paste(errors, collapse = "; "))
       }
+      output$status <- renderText(status_msg)
 
-      if (length(errors) > 0) {
-        error_msg <- paste("Errors:", paste(errors, collapse = "; "))
-        output$status <- renderText(paste("Error saving plots:", error_msg))
-        log_operation("ERROR", "Failed to save plots", error_msg)
-      }
+      if (plots_saved == 0) stop(paste("Failed to save both plots:", paste(errors, collapse = "; ")))
+      if (length(errors) > 0) writeLines(errors, file.path(out_dir, "errors.txt"))
 
-    }, error = function(e) {
-      output$status <- renderText(paste("Error saving both plots:", e$message))
-      log_operation("ERROR", "Failed to save both plots", e$message)
-    })
-  })
+      zip::zip(file, files = list.files(out_dir), root = out_dir)
+    }
+  )
 
   # Return the ternary plot functions for integration
   return(list(

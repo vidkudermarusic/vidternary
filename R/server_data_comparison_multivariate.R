@@ -62,6 +62,18 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     NULL
   }
 
+  # This single-method panel had the same silent-recompute-on-every-keystroke
+  # bug the comprehensive panel below was fixed for: output$mahalanobis_output
+  # used to be assigned a renderPrint() whose OWN body read
+  # input$comparison_mv_lambda/omega/mdthresh_mode/custom_mdthresh directly -
+  # assigning that renderPrint() inside this observeEvent() only controls
+  # when a NEW render function gets installed, not when the installed render
+  # function itself re-fires. Once installed, any reactive value its own body
+  # reads (lambda, omega, ...) is a live dependency, so it recomputed and
+  # redrew on every parameter tweak with no click required, exactly like the
+  # comprehensive panel used to. Fixed the same way: everything below runs
+  # once, now, inside this observeEvent - not inside the renderPrint() at the
+  # end - so that renderPrint()'s body has no reactive reads of its own.
   observeEvent(input$mahalanobis_analysis, {
     req(rv$comparison_data, input$comparison_mv_target, input$comparison_mv_columns)
     td <- resolve_target_reference()
@@ -74,36 +86,37 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
       return()
     }
 
-    tryCatch({
-      output$mahalanobis_output <- renderPrint({
+    result <- tryCatch({
+      lambda <- if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1
+      omega <- if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0
+      mdthresh_mode <- if (!is.null(input$comparison_mv_mdthresh_mode)) input$comparison_mv_mdthresh_mode else "auto"
+      custom_mdthresh <- if (!is.null(input$comparison_mv_mdthresh_mode) && input$comparison_mv_mdthresh_mode == "manual") input$comparison_mv_custom_mdthresh else NULL
+
+      mahal_result <- compute_mahalanobis_distance(
+        td$target[, selected_cols, drop = FALSE],
+        td$reference[, selected_cols, drop = FALSE],
+        lambda = lambda, omega = omega, keep_outliers = FALSE,
+        custom_mdthresh = custom_mdthresh, selected_columns = selected_cols, mdthresh_mode = mdthresh_mode
+      )
+
+      report_text <- capture.output({
         cat("=== MAHALANOBIS DISTANCE ANALYSIS ===\n")
         cat("Target:", td$target_name, "| Reference:", td$reference_name, "\n")
         cat("Columns:", paste(selected_cols, collapse = ", "), "\n")
         cat("Target rows:", nrow(td$target), "| Reference rows:", nrow(td$reference), "\n\n")
 
-        result <- compute_mahalanobis_distance(
-          td$target[, selected_cols, drop = FALSE],
-          td$reference[, selected_cols, drop = FALSE],
-          lambda = if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1,
-          omega = if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0,
-          keep_outliers = FALSE,
-          custom_mdthresh = if (!is.null(input$comparison_mv_mdthresh_mode) && input$comparison_mv_mdthresh_mode == "manual") input$comparison_mv_custom_mdthresh else NULL,
-          selected_columns = selected_cols,
-          mdthresh_mode = if (!is.null(input$comparison_mv_mdthresh_mode)) input$comparison_mv_mdthresh_mode else "auto"
-        )
-
-        if (!is.null(result)) {
+        if (!is.null(mahal_result)) {
           cat("✅ Analysis completed successfully!\n\n")
-          cat("Threshold method:", result$threshold_method, "\n")
-          cat("Threshold value:", round(result$MDthresh, 3), "\n")
-          cat("Total points analyzed:", result$total_points, "\n")
-          cat("Outliers detected:", result$outlier_custom, "\n")
-          cat("Outlier percentage:", round(result$outlier_custom / result$total_points * 100, 1), "%\n")
-          cat("Degrees of freedom:", result$df, "\n")
-          cat("MDmean:", round(result$MDmean, 3), "\n")
-          cat("stdMD:", round(result$stdMD, 3), "\n")
-          if (!is.null(result$threshold_formula)) {
-            cat("\nThreshold formula:", result$threshold_formula, "\n")
+          cat("Threshold method:", mahal_result$threshold_method, "\n")
+          cat("Threshold value:", round(mahal_result$MDthresh, 3), "\n")
+          cat("Total points analyzed:", mahal_result$total_points, "\n")
+          cat("Outliers detected:", mahal_result$outlier_custom, "\n")
+          cat("Outlier percentage:", round(mahal_result$outlier_custom / mahal_result$total_points * 100, 1), "%\n")
+          cat("Degrees of freedom:", mahal_result$df, "\n")
+          cat("MDmean:", round(mahal_result$MDmean, 3), "\n")
+          cat("stdMD:", round(mahal_result$stdMD, 3), "\n")
+          if (!is.null(mahal_result$threshold_formula)) {
+            cat("\nThreshold formula:", mahal_result$threshold_formula, "\n")
           }
         } else {
           cat("❌ Analysis failed. Please check data quality.\n")
@@ -111,11 +124,13 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
       })
 
       log_operation("SUCCESS", "Mahalanobis analysis completed", paste("Target:", td$target_name, "Reference:", td$reference_name, "Columns:", length(selected_cols)))
-
+      paste(report_text, collapse = "\n")
     }, error = function(e) {
-      output$mahalanobis_output <- renderText(paste("Error in Mahalanobis analysis:", e$message))
       log_operation("ERROR", "Mahalanobis analysis failed", e$message)
+      paste("Error in Mahalanobis analysis:", e$message)
     })
+
+    output$mahalanobis_output <- renderPrint(cat(result, "\n"))
   })
 
   observeEvent(input$isolation_forest_analysis, {
@@ -171,8 +186,16 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
   })
 
   # ---- Comprehensive Multivariate Analysis Display ----
+  # Gated behind its own "Run Comprehensive Analysis" button, matching the
+  # two single-method panels above - it used to be a plain renderPrint()
+  # with no button, so it silently recomputed both a fresh Mahalanobis fit
+  # and a fresh 200-tree Isolation Forest fit on every change to target/
+  # columns/lambda/omega/threshold-mode, including changes that only affect
+  # one of the two methods, with no click required and no indication that
+  # the two "Run" buttons above weren't doing anything this panel didn't
+  # already do automatically.
 
-  output$mahalanobis_info <- renderPrint({
+  observeEvent(input$comparison_mv_run_comprehensive, {
     req(rv$comparison_data, input$comparison_mv_target, input$comparison_mv_columns)
     td <- resolve_target_reference()
     req(td)
@@ -180,11 +203,17 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
     col_error <- validate_mv_columns(td, selected_cols)
     if (!is.null(col_error)) {
-      cat("❌", col_error)
+      output$mahalanobis_info <- renderPrint(cat("❌", col_error))
       return()
     }
 
-    tryCatch({
+    # Everything from here down runs once, now, inside this observeEvent -
+    # not inside the renderPrint() below. Computing the results here and
+    # handing renderPrint() only the already-computed values (report_text)
+    # means that renderPrint() body has no reactive reads of its own, so it
+    # won't silently re-run itself on the next lambda/omega/etc. tweak the
+    # way it used to when this whole block lived directly inside it.
+    result <- tryCatch({
       lambda <- if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1
       omega <- if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0
       mdthresh_mode <- if (!is.null(input$comparison_mv_mdthresh_mode)) input$comparison_mv_mdthresh_mode else "auto"
@@ -203,49 +232,55 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         selected_columns = selected_cols, keep_outliers = FALSE
       )
 
-      cat("=== MULTIVARIATE ANALYSIS RESULTS ===\n")
-      cat("Target:", td$target_name, "| Reference:", td$reference_name, "\n")
-      cat("Columns used:", paste(selected_cols, collapse = ", "), "\n\n")
+      report_text <- capture.output({
+        cat("=== MULTIVARIATE ANALYSIS RESULTS ===\n")
+        cat("Target:", td$target_name, "| Reference:", td$reference_name, "\n")
+        cat("Columns used:", paste(selected_cols, collapse = ", "), "\n\n")
 
-      if (!is.null(mahal_result)) {
-        cat("📊 Mahalanobis Distance:\n")
-        cat("  Total points analyzed:", mahal_result$total_points, "\n")
-        cat("  Degrees of freedom:", mahal_result$df, "\n")
-        cat("  MDmean:", round(mahal_result$MDmean, 3), "\n")
-        cat("  stdMD:", round(mahal_result$stdMD, 3), "\n")
-        cat("  Threshold method:", mahal_result$threshold_method, "\n")
-        cat("  MDthresh:", round(mahal_result$MDthresh, 3), "\n")
-        cat("  Outliers detected:", mahal_result$outlier_custom, "(", round(mahal_result$outlier_custom / mahal_result$total_points * 100, 1), "%)\n")
-      } else {
-        cat("📊 Mahalanobis Distance: analysis failed\n")
-      }
+        if (!is.null(mahal_result)) {
+          cat("📊 Mahalanobis Distance:\n")
+          cat("  Total points analyzed:", mahal_result$total_points, "\n")
+          cat("  Degrees of freedom:", mahal_result$df, "\n")
+          cat("  MDmean:", round(mahal_result$MDmean, 3), "\n")
+          cat("  stdMD:", round(mahal_result$stdMD, 3), "\n")
+          cat("  Threshold method:", mahal_result$threshold_method, "\n")
+          cat("  MDthresh:", round(mahal_result$MDthresh, 3), "\n")
+          cat("  Outliers detected:", mahal_result$outlier_custom, "(", round(mahal_result$outlier_custom / mahal_result$total_points * 100, 1), "%)\n")
+        } else {
+          cat("📊 Mahalanobis Distance: analysis failed\n")
+        }
 
-      cat("\n")
+        cat("\n")
 
-      if (!is.null(iso_result)) {
-        # compute_isolation_forest() returns outlier_indices, not
-        # total_points/outlier_count directly.
-        iso_total_points <- length(iso_result$outlier_indices)
-        iso_outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
-        cat("🌲 Isolation Forest:\n")
-        cat("  Total points analyzed:", iso_total_points, "\n")
-        cat("  Threshold value:", round(iso_result$threshold, 3), "\n")
-        cat("  Outliers detected:", iso_outlier_count, "(", round(iso_outlier_count / iso_total_points * 100, 1), "%)\n")
-      } else {
-        cat("🌲 Isolation Forest: analysis failed\n")
-      }
+        if (!is.null(iso_result)) {
+          # compute_isolation_forest() returns outlier_indices, not
+          # total_points/outlier_count directly.
+          iso_total_points <- length(iso_result$outlier_indices)
+          iso_outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
+          cat("🌲 Isolation Forest:\n")
+          cat("  Total points analyzed:", iso_total_points, "\n")
+          cat("  Threshold value:", round(iso_result$threshold, 3), "\n")
+          cat("  Outliers detected:", iso_outlier_count, "(", round(iso_outlier_count / iso_total_points * 100, 1), "%)\n")
+        } else {
+          cat("🌲 Isolation Forest: analysis failed\n")
+        }
 
-      cat("\n💡 Interpretation:\n")
-      if (td$target_name == td$reference_name) {
-        cat("- Self-reference: points flagged as outliers stand out within", td$target_name, "itself.\n")
-      } else {
-        cat("- Cross-reference: points in", td$target_name, "are flagged relative to", td$reference_name, "'s distribution.\n")
-      }
-      cat("- Mahalanobis assumes multivariate normality; Isolation Forest makes no such assumption and can catch non-linear anomalies.\n")
+        cat("\n💡 Interpretation:\n")
+        if (td$target_name == td$reference_name) {
+          cat("- Self-reference: points flagged as outliers stand out within", td$target_name, "itself.\n")
+        } else {
+          cat("- Cross-reference: points in", td$target_name, "are flagged relative to", td$reference_name, "'s distribution.\n")
+        }
+        cat("- Mahalanobis assumes multivariate normality; Isolation Forest makes no such assumption and can catch non-linear anomalies.\n")
+      })
 
+      log_operation("SUCCESS", "Comprehensive multivariate analysis completed", paste("Target:", td$target_name, "Reference:", td$reference_name, "Columns:", length(selected_cols)))
+      paste(report_text, collapse = "\n")
     }, error = function(e) {
-      cat("❌ Error in multivariate analysis:", e$message, "\n")
       log_operation("ERROR", "Comprehensive multivariate analysis failed", e$message)
+      paste("❌ Error in multivariate analysis:", e$message)
     })
+
+    output$mahalanobis_info <- renderPrint(cat(result, "\n"))
   })
 }

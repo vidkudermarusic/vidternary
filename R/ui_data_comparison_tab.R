@@ -114,6 +114,7 @@ create_data_comparison_tab <- function(id) {
               fluidRow(
                 column(12,
                   h5("📊 Comprehensive Analysis Results"),
+                  actionButton(ns("comparison_mv_run_comprehensive"), "Run Comprehensive Analysis", class = "btn-primary btn-sm"),
                   verbatimTextOutput(ns("mahalanobis_info"))
                 )
               )

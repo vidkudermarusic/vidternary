@@ -1,12 +1,27 @@
 # ---- Package Dependencies Management ----
 # This module handles all package dependencies, checking, and loading
 
-# Required packages for the application
+# Required packages for the application. Kept in sync with DESCRIPTION's
+# Imports: - digest/htmlwidgets/robustbase/moments were removed from both
+# (confirmed zero live callers anywhere in R/); devtools moved to
+# DESCRIPTION's Suggests: (a dev-time tool - installing/running the app
+# itself never calls it) and correspondingly isn't loaded here either;
+# RANN (already correctly in DESCRIPTION's Imports: - Spatial Clustering's
+# exact-nearest-neighbor method) was missing from this list, so a user
+# following this script's own guidance specifically wouldn't have gotten
+# it installed. shinyFiles/fs were removed once the global Working/Output
+# Directory picker (server_directory_management.R) was replaced by
+# per-save browser downloads (see the vidternary Structural Audit's §03) -
+# neither is used anywhere else in R/. zip was previously removed here as
+# dead code, then reinstated for a genuine new use: the batch/multi-file
+# save handlers (server_ternary_plots.R's "Save Both Plots",
+# server_ternary_plots_batch.R's "Create & Save all ternary plots") zip
+# their outputs into one download instead of writing to a chosen folder.
 required_packages <- c(
-  "openxlsx", "Ternary", "PlotTools", "shiny", "shinyFiles", "shinyjqui", "shinyBS",
+  "openxlsx", "Ternary", "PlotTools", "shiny", "shinyjqui", "shinyBS",
   "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
-  "robustbase", "isotree", "plotly", "writexl", "jsonlite", "zip", "fs", "htmlwidgets",
-  "moments", "digest", "viridisLite", "devtools", "magick", "png", "rlang"
+  "isotree", "RColorBrewer", "plotly", "writexl", "jsonlite", "zip",
+  "viridisLite", "magick", "png", "rlang", "RANN"
 )
 
 # Essential packages that must be loaded for core functionality

@@ -11,12 +11,11 @@ LazyData: true
 RoxygenNote: 7.3.3
 Depends: 
     R (>= 4.0.0)
-Imports: 
+Imports:
     openxlsx,
     Ternary,
     PlotTools,
     shiny,
-    shinyFiles,
     shinyjqui,
     shinyBS,
     ggplot2,
@@ -26,28 +25,21 @@ Imports:
     knitr,
     colourpicker,
     DT,
-    robustbase,
     isotree,
+    RColorBrewer,
     plotly,
     writexl,
     jsonlite,
     zip,
-    fs,
-    htmlwidgets,
-    moments,
-    digest,
     viridisLite,
-    devtools,
     magick,
     png,
     rlang,
     RANN
-Suggests: 
+Suggests:
     testthat,
     knitr,
-    rmarkdown
-Vignettes:
-    vidternary-intro,
-    user-guide,
-    statistical-appendix
+    rmarkdown,
+    devtools
+VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)

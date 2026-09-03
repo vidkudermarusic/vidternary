@@ -9,7 +9,6 @@ extract_ternary_params(
   rv,
   dataset_num,
   preview = FALSE,
-  directory_management = NULL,
   multiple_mode = FALSE
 )
 }
@@ -23,16 +22,16 @@ extract_ternary_params(
 \item{preview}{Whether this is for a live preview (\code{TRUE}) or an actual
 save (\code{FALSE}). Default \code{FALSE}.}
 
-\item{directory_management}{Optional directory-management module (from
-\code{create_server_directory_management()}), used to resolve the output
-directory. If \code{NULL}, falls back to \verb{<cwd>/output}.}
-
 \item{multiple_mode}{Whether to read the Multiple Ternary Creator's
 inputs instead of the main Ternary Plots tab's. Default \code{FALSE}.}
 }
 \value{
 A named list of parameters ready to pass to \code{general_ternary_plot()},
-or \code{NULL} if element A/B/C aren't all set yet.
+or \code{NULL} if element A/B/C aren't all set yet. \code{output_dir} defaults to
+\code{NULL} (no save) - every real save path (a \code{downloadHandler}'s own
+\code{content()} function) overrides it explicitly with a fresh temp
+directory before calling \code{general_ternary_plot()}, the same way the
+Multiple Ternary Creator's batch handler already does.
 }
 \description{
 Reads elements A/B/C, optional parameters 1/2, all element/optional-param
