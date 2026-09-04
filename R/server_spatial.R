@@ -171,10 +171,32 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     )
   })
 
+  # All three download handlers below call result() - an eventReactive
+  # gated on input$spatial_analyze - with no server-side gating on the
+  # buttons themselves (see ui_spatial_tab.R: none of the 3
+  # downloadButtons sit inside a conditionalPanel, so all are clickable
+  # before "Analyze Spatial Pattern" is ever pressed). Before that click,
+  # result() throws a shiny::validate()/req() condition whose $message is
+  # always "" by design - the same blank-error gap found and fixed in
+  # server_plot_builder.R's output$builder_download (see the vidternary
+  # Structural Audit's §03 for that writeup); confirmed reachable here the
+  # same way, via direct testServer() reproduction against the unmodified
+  # handler. safe_result() gives every handler below a clear, actionable
+  # message for that case, while still surfacing a genuine error's own
+  # text.
+  safe_result <- function() {
+    tryCatch(result(), error = function(e) {
+      if (nzchar(e$message)) {
+        stop("Could not generate this download: ", e$message)
+      }
+      stop("Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\" before downloading.")
+    })
+  }
+
   output$spatial_download_scatter <- downloadHandler(
     filename = function() paste0("spatial_scatter_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      res <- result()
+      res <- safe_result()
       ggplot2::ggsave(file, plot = create_spatial_scatter_plot(res$x, res$y, res$color_by, res$color_label), width = 8, height = 7, dpi = 300)
     }
   )
@@ -182,14 +204,14 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   output$spatial_download_histogram <- downloadHandler(
     filename = function() paste0("spatial_nnd_histogram_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_nnd_histogram(result()$ce), width = 8, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_nnd_histogram(safe_result()$ce), width = 8, height = 7, dpi = 300)
     }
   )
 
   output$spatial_download_table <- downloadHandler(
     filename = function() paste0("spatial_nnd_values_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
-      res <- result()
+      res <- safe_result()
       df <- data.frame(x = res$x, y = res$y, nearest_neighbor_distance = res$ce$nnd)
       writexl::write_xlsx(df, file)
     }

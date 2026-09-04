@@ -483,23 +483,35 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
       # Get the first 10 rows (or all if less than 10)
       first_ten_rows <- min(10, nrow(rv$df1))
-      first_ten_data <- rv$df1[1:first_ten_rows, , drop = FALSE]
+      first_ten_data <- rv$df1[seq_len(first_ten_rows), , drop = FALSE]
 
-      # Determine which columns to show - selected columns if available, otherwise first 5
+      # Determine which columns to show - selected columns if available, otherwise first 5.
+      # seq_len()/seq_along() throughout this block (not 1:...) - see this
+      # function's own comment further down for the exact reachable case
+      # (input$multivariate_columns can transiently name a JUST-REPLACED
+      # file's columns during the async round-trip after a new Dataset 1
+      # upload) that made columns_to_show possibly empty here: 1:0 = c(1,
+      # 0), not an empty sequence, which silently spliced a bogus " = "
+      # line into the report below instead of producing an empty, harmless
+      # loop.
       columns_to_show <- if (!is.null(input$multivariate_columns) && length(input$multivariate_columns) > 0) {
         intersect(input$multivariate_columns, names(first_ten_data))
       } else {
-        names(first_ten_data)[1:min(5, ncol(first_ten_data))]
+        names(first_ten_data)[seq_len(min(5, ncol(first_ten_data)))]
       }
 
       report_lines <- c(report_lines, paste("First", first_ten_rows, "rows (Selected Columns):"))
 
       # Show selected columns for each row
-      for (i in 1:first_ten_rows) {
+      for (i in seq_len(first_ten_rows)) {
         row_data <- first_ten_data[i, columns_to_show, drop = FALSE]
         col_values <- as.numeric(row_data[1, ])
 
-        row_summary <- paste(sapply(1:length(columns_to_show), function(j) {
+        # seq_along(), not 1:length() - see this block's own comment above:
+        # columns_to_show can be empty (a stale input$multivariate_columns
+        # selection naming a just-replaced file's columns), and
+        # 1:length(character(0)) is 1:0 = c(1, 0), not an empty sequence.
+        row_summary <- paste(sapply(seq_along(columns_to_show), function(j) {
           paste(columns_to_show[j], "=", round(col_values[j], 3))
         }), collapse = ", ")
 
@@ -516,7 +528,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       element_C_cols <- if (!is.null(input$element_C1)) input$element_C1 else c()
 
       if (length(element_A_cols) > 0 && length(element_B_cols) > 0 && length(element_C_cols) > 0) {
-        for (i in 1:first_ten_rows) {
+        for (i in seq_len(first_ten_rows)) {
           row_data <- first_ten_data[i, , drop = FALSE]
 
           # Calculate A, B, C values

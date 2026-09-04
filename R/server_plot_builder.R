@@ -238,7 +238,25 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
   output$builder_download <- downloadHandler(
     filename = function() paste0("plot_builder_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = current_plot(), width = 10, height = 7, dpi = 300)
+      # current_plot() can throw a shiny::validate()/req() condition (its
+      # $message is always "" by design - see output$builder_plot's own
+      # comment above for the full reasoning) whenever no file is uploaded
+      # yet or the chart configuration isn't complete - "Download plot" has
+      # no conditionalPanel gating it on a plot already existing, so it's
+      # clickable at any time. Unlike renderPlot() above, a download request
+      # can't just "show nothing" on an incomplete state - it has to succeed
+      # or fail with some message - so every failure here gets a clear,
+      # actionable one instead of letting a blank-message validation
+      # condition (or any other error) propagate uncaught, which is what
+      # happened before this fix: clicking Download with nothing uploaded
+      # produced an uncaught `Error: ""`, confirmed via direct reproduction.
+      plot_obj <- tryCatch(current_plot(), error = function(e) {
+        if (nzchar(e$message)) {
+          stop("Could not generate plot to download: ", e$message)
+        }
+        stop("Please upload a file and select a valid chart configuration before downloading a plot.")
+      })
+      ggplot2::ggsave(file, plot = plot_obj, width = 10, height = 7, dpi = 300)
     }
   )
 

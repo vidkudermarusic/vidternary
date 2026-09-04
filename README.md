@@ -57,7 +57,6 @@ The package is organized into logical modules, each handling specific functional
 - **`R/server_evs.R`**, **`R/server_spatial.R`**, **`R/server_coda.R`** — Shiny wiring for the Extreme Value Analysis / Spatial Clustering / Compositional Analysis tabs (front-ends to the matching `*_analysis.R` modules)
 - **`R/server_data_comparison.R`** (+ `_upload.R`, `_stats.R`, `_multivariate.R`, `_preview.R`) — Data Comparison tab
 - **`R/server_analysis_log.R`** — Analysis Log tab
-- **`R/server_directory_management.R`** — working / output directory pickers
 - **`R/server_status_outputs.R`** — app-shell status text
 
 ### Application Entry
@@ -69,11 +68,10 @@ The package is organized into logical modules, each handling specific functional
 
 ```r
 # Install required packages first (matches DESCRIPTION's Imports:)
-install.packages(c("shiny", "openxlsx", "ggplot2", "DT", "corrplot", "GGally",
-                    "Ternary", "PlotTools", "shinyFiles", "shinyjqui", "shinyBS",
-                    "rmarkdown", "knitr", "colourpicker", "isotree", "RColorBrewer",
-                    "plotly", "writexl", "jsonlite", "fs", "viridisLite",
-                    "magick", "png", "rlang", "RANN"))
+install.packages(c("openxlsx", "Ternary", "PlotTools", "shiny", "shinyjqui", "shinyBS",
+                    "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
+                    "isotree", "RColorBrewer", "plotly", "writexl", "jsonlite", "zip",
+                    "viridisLite", "magick", "png", "rlang", "RANN"))
 
 # Install vidternary from GitHub
 devtools::install_github("vidkudermarusic/vidternary")

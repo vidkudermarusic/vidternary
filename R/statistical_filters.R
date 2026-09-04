@@ -167,34 +167,19 @@ apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE) {
 # Note: validate_data function is now in helpers.R as validate_data_enhanced to avoid duplication
 # Use the enhanced version from helpers.R for comprehensive data validation
 
-#' Compute mean/median/SD for a set of columns
-#'
-#' @param df A data frame.
-#' @param cols Character vector of numeric column names.
-#' @return A named list (by `cols`), each entry a list with `mean`,
-#'   `median`, `sd`.
-#' @export
-generate_stats <- function(df, cols) {
-  stats <- lapply(cols, function(col) {
-    vals <- as.numeric(df[[col]])
-    list(
-      mean=mean(vals, na.rm=TRUE),
-      median=median(vals, na.rm=TRUE),
-      sd=sd(vals, na.rm=TRUE)
-    )
-  })
-  names(stats) <- cols
-  return(stats)
-}
-
-#' Compute a Pearson correlation matrix for a set of columns
-#'
-#' @param df A data frame.
-#' @param cols Character vector of numeric column names.
-#' @return A correlation matrix.
-#' @export
-compute_correlation <- function(df, cols) {
-  cor(df[, cols], use="complete.obs")
-}
+# generate_stats()/compute_correlation() used to live here too - both
+# @export'ed, but confirmed dead: a full cross-reference of every call site
+# in R/, tests/, and vignettes/ found zero real callers anywhere in the
+# current app. Their only actual callers were in legacy/App6.0.1.R (the
+# pre-modularization script - not sourced by anything, see this package's
+# own "Repository hygiene" audit history for why that's healthy archival
+# practice rather than live code). The app's own current, more specialized
+# machinery has since grown past what these did: build_descriptive_stats_
+# table() (stats_display_utils.R) covers generate_stats()'s mean/median/SD,
+# and the Data Comparison tab's own correlation handlers
+# (server_data_comparison_stats.R) call stats::cor() directly rather than
+# through this wrapper. Confirmed via the user before removing, since both
+# were real, documented public API (exported, with their own man/ pages)
+# even though nothing internal used them.
 
 # Note: Functions are exported via NAMESPACE file

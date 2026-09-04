@@ -144,6 +144,63 @@ test_that("a normal, valid selection still renders successfully", {
   })
 })
 
+# ---- Download handler error handling (output$builder_download) ----
+#
+# Unlike output$builder_plot above, output$builder_download had zero error
+# handling: its content() called current_plot() directly, with nothing
+# catching the shiny::validate()/req() condition combined_data()/
+# current_plot() raise whenever no file is uploaded or the chart config
+# isn't complete. Reading a downloadHandler's output via testServer() both
+# runs content() and returns the file path it wrote (or re-throws a
+# content()-level stop() as a normal catchable error) - confirmed this
+# produced an uncaught `Error: ""` (the validation condition's always-blank
+# message) before this fix, since "Download plot" has no conditionalPanel
+# gating it on a plot already existing. Fixed by wrapping current_plot()
+# in its own tryCatch and supplying a clear, actionable message for the
+# blank-message case, while still surfacing a genuine error's own text.
+
+test_that("clicking Download before any file is uploaded gives a clear message, not an uncaught blank error", {
+  server <- make_plot_builder_server()
+  testServer(server$app, {
+    res <- tryCatch({ output[["plot_builder-builder_download"]]; list(ok = TRUE) },
+                     error = function(e) list(ok = FALSE, msg = conditionMessage(e)))
+    expect_false(res$ok)
+    expect_equal(res$msg, "Please upload a file and select a valid chart configuration before downloading a plot.")
+  })
+})
+
+test_that("clicking Download with an unreadable file surfaces the underlying message, prefixed clearly", {
+  server <- make_plot_builder_server()
+  bad_path <- tempfile(fileext = ".xlsx")
+  writeLines("not a real xlsx file", bad_path)
+  bad_upload <- data.frame(name = "corrupt.xlsx", size = file.info(bad_path)$size, type = "",
+                            datapath = bad_path, stringsAsFactors = FALSE)
+  suppressWarnings(testServer(server$app, {
+    session$setInputs(`plot_builder-builder_files` = bad_upload)
+    session$setInputs(`plot_builder-builder_selected_files` = "corrupt")
+    res <- tryCatch({ output[["plot_builder-builder_download"]]; list(ok = TRUE) },
+                     error = function(e) list(ok = FALSE, msg = conditionMessage(e)))
+    expect_false(res$ok)
+    expect_equal(res$msg, "Could not generate plot to download: None of the selected files could be read.")
+  }))
+})
+
+test_that("a normal, valid selection still downloads a real PNG file", {
+  server <- make_plot_builder_server()
+  upload <- make_upload_df(make_builder_data())
+  testServer(server$app, {
+    session$setInputs(`plot_builder-builder_files` = upload)
+    session$setInputs(`plot_builder-builder_selected_files` = "sample")
+    session$setInputs(`plot_builder-builder_type` = "scatter",
+                       `plot_builder-builder_x` = "Al", `plot_builder-builder_y` = "Si")
+    res <- tryCatch({ path <- output[["plot_builder-builder_download"]]; list(ok = TRUE, path = path) },
+                     error = function(e) list(ok = FALSE, msg = conditionMessage(e)))
+    expect_true(res$ok)
+    expect_true(file.exists(res$path))
+    expect_gt(file.info(res$path)$size, 0)
+  })
+})
+
 # ---- File upload / dynamic UI wiring ----
 
 test_that("uploading two same-named files gets a disambiguated ' #2' dataset selector label", {

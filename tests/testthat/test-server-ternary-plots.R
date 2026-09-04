@@ -101,6 +101,33 @@ test_that("re-uploading Dataset 1 resets stale categorical-group state from the 
   })
 })
 
+test_that("a text column is only detected as categorical up to 50 distinct values, not unconditionally", {
+  # Before this fix, is.character(column_data) alone granted unconditional
+  # categorical status regardless of cardinality - a per-row text
+  # identifier (e.g. a Sample_ID column) got treated as categorical the
+  # same as a real 2-3-value grouping column, producing an unbounded
+  # group-selection checklist/legend. Character and factor are never
+  # is.numeric() in R, so the fixed detection (!is.numeric() && count <=
+  # 50) still catches both - just with the same cap every other
+  # non-numeric type already had.
+  d_under_cap <- make_ternary_data(seed = 3, extra_cols = list(Label = paste0("id_", 1:20)))
+  d_over_cap <- make_ternary_data(seed = 4, n = 60, extra_cols = list(Label = paste0("id_", 1:60)))
+
+  server1 <- make_ternary_plots_server()
+  testServer(server1$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d_under_cap))
+    session$setInputs(`ternary_plots-optional_param2_1` = "Label")
+    expect_true(server1$rv$is_categorical_group_1)
+  })
+
+  server2 <- make_ternary_plots_server()
+  testServer(server2$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d_over_cap))
+    session$setInputs(`ternary_plots-optional_param2_1` = "Label")
+    expect_false(server2$rv$is_categorical_group_1)
+  })
+})
+
 test_that("Copy Settings copies element selections, per-element filters, the color palette, and multivariate checkboxes to Dataset 2", {
   server <- make_ternary_plots_server()
   d <- make_ternary_data()

@@ -25,7 +25,12 @@ across \code{element_A}/\code{B}/\code{C} (as built earlier in
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}}, before this extraction's own call).}
 
 \item{element_A, element_B, element_C}{Ternary-axis element specs, each a
-\verb{list(col = <one or more column names>)}.}
+\verb{list(col = <one or more column names>)}. A \emph{partial} overlap between
+two elements' column sets is fine and common in real compositional
+data (e.g. A = Fe+O, B = Al+O, C = Ti - O legitimately contributes to
+more than one vertex) - but no two of the three may select the exact
+same \emph{complete} set (e.g. A = O, B = O), which collapses the ternary
+diagram onto a single edge/point and is rejected with a \code{stop()}.}
 
 \item{optional_param1, optional_param2}{Optional \verb{list(col = <column name(s)>, ...)} specs, included in \code{needed_columns}/\code{optional_columns}
 when supplied.}
