@@ -132,7 +132,17 @@ test_that("after upload, target/reference/columns default correctly: target = fi
 test_that("data_readiness_status reports the right state for 0, 1, and 2+ datasets with shared numeric columns", {
   server <- make_data_comparison_server()
   testServer(server, {
-    expect_match(output[["data_comparison-data_readiness_status"]], "Please upload one or more Excel files")
+    # The 0-dataset state is what every user sees on this tab's very first
+    # load, before uploading anything - its renderPrint() block used to end
+    # a bare `return()` (a VISIBLE NULL) rather than `return(invisible())`,
+    # which renderPrint() then explicitly printed as a literal trailing
+    # "NULL" line right under the intended message (confirmed directly
+    # against the real shiny::renderPrint() mechanism, and against a real
+    # running instance of the app in-browser, before fixing). expect_match()
+    # alone doesn't catch this - the intended text is still present either
+    # way - so the exact string is checked here instead of just a substring.
+    expect_equal(output[["data_comparison-data_readiness_status"]],
+                 "\U0001F4CB Please upload one or more Excel files to begin.")
 
     upload1 <- make_upload(make_comparison_data(cols = c("Al", "Si")), "one.xlsx")
     session$setInputs(`data_comparison-comparison_files` = upload1)

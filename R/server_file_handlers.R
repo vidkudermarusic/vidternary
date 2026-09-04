@@ -74,20 +74,27 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       rv$group_selections_1 <- NULL
       rv$is_categorical_group_1 <- FALSE
 
+      # Update multivariate analysis column choices. Reuses `data` (already
+      # loaded above, inside this same tryCatch) instead of re-reading the
+      # file from disk a second time - the previous version's separate,
+      # unguarded read.xlsx() call here ran unconditionally after this
+      # tryCatch, regardless of whether the first read had already failed:
+      # a malformed/corrupted upload would show the friendly "Error loading
+      # Dataset 1: ..." message from the catch block below, then immediately
+      # hit this same read again, fail again, and this time throw
+      # uncaught (confirmed via direct reproduction - a malformed .xlsx
+      # produced the friendly message followed by a raw, uncaught error
+      # from this exact line). Doing it here instead fixes both the crash
+      # and the redundant file I/O in one change.
+      numeric_cols <- names(data)[sapply(data, is.numeric)]
+      updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
+
       show_message("Dataset 1 loaded successfully!", "success")
       log_operation("INFO", "Dataset 1 loaded", paste("File:", input$xlsx_file1$name, "Rows:", nrow(data), "Columns:", ncol(data)))
     }, error = function(e) {
       show_message(paste("Error loading Dataset 1:", e$message), "error")
       log_operation("ERROR", "Failed to load Dataset 1", e$message)
     })
-    
-    # Update column choices for multivariate analysis when files are uploaded
-    new_M <- openxlsx::read.xlsx(input$xlsx_file1$datapath, sheet = 1)
-    new_col_names <- colnames(new_M)
-    
-    # Update multivariate analysis column choices
-    numeric_cols <- new_col_names[sapply(new_M, is.numeric)]
-    updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
   })
   
   # Handle file uploads and populate column choices for Dataset 2
@@ -109,18 +116,20 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       rv$group_selections_2 <- NULL
       rv$is_categorical_group_2 <- FALSE
 
+      # Update multivariate analysis column choices - reuses `data` instead
+      # of re-reading the file a second time; see Dataset 1's identical fix
+      # above for the full reasoning (a malformed upload used to show the
+      # friendly error below, then crash the observer anyway via this same
+      # read, done a second time, unguarded).
+      numeric_cols <- names(data)[sapply(data, is.numeric)]
+      updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
+
       show_message("Dataset 2 loaded successfully!", "success")
       log_operation("INFO", "Dataset 2 loaded", paste("File:", input$xlsx_file2$name, "Rows:", nrow(data), "Columns:", ncol(data)))
     }, error = function(e) {
       show_message(paste("Error loading Dataset 2:", e$message), "error")
       log_operation("ERROR", "Failed to load Dataset 2", e$message)
     })
-    
-    # Update multivariate analysis column choices for dataset 2
-    new_M <- openxlsx::read.xlsx(input$xlsx_file2$datapath, sheet = 1)
-    new_col_names <- colnames(new_M)
-    numeric_cols <- new_col_names[sapply(new_M, is.numeric)]
-    updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
   })
   
   # ---- Copy Settings Functionality ----

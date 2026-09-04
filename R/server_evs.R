@@ -218,17 +218,40 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     df
   })
 
+  # Both download handlers below call fit_result() - an eventReactive gated
+  # on input$evs_fit - with no server-side gating on the buttons themselves
+  # (see ui_evs_tab.R: neither downloadButton sits inside a
+  # conditionalPanel, so both are clickable before "Fit Extreme Value
+  # Model" is ever pressed). Before that click, fit_result() throws a
+  # shiny::validate()/req() condition whose $message is always "" by
+  # design - the same blank-error gap found and fixed in
+  # server_plot_builder.R's output$builder_download (see the vidternary
+  # Structural Audit's §03 for that writeup); confirmed reachable here the
+  # same way, via direct testServer() reproduction against the unmodified
+  # handler. safe_fit_result() gives both handlers below a clear,
+  # actionable message for that case, while still surfacing a genuine
+  # error's own text.
+  safe_fit_result <- function() {
+    tryCatch(fit_result(), error = function(e) {
+      if (nzchar(e$message)) {
+        stop("Could not generate this download: ", e$message)
+      }
+      stop("Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\" before downloading.")
+    })
+  }
+
   output$evs_download_plot <- downloadHandler(
     filename = function() paste0("evs_gumbel_plot_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_gumbel_plot(fit_result(), prediction()), width = 10, height = 7, dpi = 300)
+      fit <- safe_fit_result()
+      ggplot2::ggsave(file, plot = create_gumbel_plot(fit, prediction()), width = 10, height = 7, dpi = 300)
     }
   )
 
   output$evs_download_table <- downloadHandler(
     filename = function() paste0("evs_block_maxima_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
-      writexl::write_xlsx(fit_result()$block_maxima, file)
+      writexl::write_xlsx(safe_fit_result()$block_maxima, file)
     }
   )
 

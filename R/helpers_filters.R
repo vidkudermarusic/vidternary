@@ -382,8 +382,13 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     data <- rv[[paste0("df", dataset_num)]]
     if (!is.null(data) && optional_param2$col %in% names(data)) {
       column_data <- data[[optional_param2$col]]
-      is_categorical_group <- is.character(column_data) || is.factor(column_data) ||
-                             (!is.numeric(column_data) && length(unique(column_data)) <= 50)
+      # !is.numeric() alone already covers character AND factor (neither
+      # is ever is.numeric() in R) - matches the identical fix in
+      # server_ternary_plots_groups.R's two detection observers (see that
+      # file's own comment): applies the same 50-unique-values cap
+      # uniformly to every non-numeric type instead of granting character/
+      # factor columns unconditional, uncapped categorical status.
+      is_categorical_group <- !is.numeric(column_data) && length(unique(column_data)) <= 50
     }
   }
 

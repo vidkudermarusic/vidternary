@@ -155,27 +155,48 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     df
   })
 
+  # Every download handler below calls result() - an eventReactive gated on
+  # input$coda_run - with no server-side gating on the buttons themselves
+  # (see ui_coda_tab.R: none of the 4 downloadButtons sit inside a
+  # conditionalPanel, so all are clickable before "Transform & Run PCA" is
+  # ever pressed). Before that click, result() throws a
+  # shiny::validate()/req() condition whose $message is always "" by
+  # design - the same blank-error gap found and fixed in
+  # server_plot_builder.R's output$builder_download (see the vidternary
+  # Structural Audit's §03 for that writeup); confirmed reachable here the
+  # same way, via direct testServer() reproduction against the unmodified
+  # handler. safe_result() gives every handler below a clear, actionable
+  # message for that case, while still surfacing a genuine error's own text.
+  safe_result <- function() {
+    tryCatch(result(), error = function(e) {
+      if (nzchar(e$message)) {
+        stop("Could not generate this download: ", e$message)
+      }
+      stop("Select at least 3 compositional parts and click \"Transform & Run PCA\" before downloading.")
+    })
+  }
+
   output$coda_download_clr <- downloadHandler(
     filename = function() paste0("coda_clr_transformed_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
-    content = function(file) writexl::write_xlsx(result()$clr, file)
+    content = function(file) writexl::write_xlsx(safe_result()$clr, file)
   )
 
   output$coda_download_ilr <- downloadHandler(
     filename = function() paste0("coda_ilr_transformed_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
-    content = function(file) writexl::write_xlsx(result()$ilr, file)
+    content = function(file) writexl::write_xlsx(safe_result()$ilr, file)
   )
 
   output$coda_download_biplot <- downloadHandler(
     filename = function() paste0("coda_biplot_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_coda_biplot(result()$pca), width = 9, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_coda_biplot(safe_result()$pca), width = 9, height = 7, dpi = 300)
     }
   )
 
   output$coda_download_biplot_ilr <- downloadHandler(
     filename = function() paste0("coda_biplot_ilr_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_coda_biplot(result()$pca_ilr), width = 9, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_coda_biplot(safe_result()$pca_ilr), width = 9, height = 7, dpi = 300)
     }
   )
 

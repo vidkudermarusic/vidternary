@@ -142,6 +142,46 @@ test_that("evs_gof_warning stays silent (not an error) when the fit fails valida
   })
 })
 
+# ---- Download handler error handling (output$evs_download_plot/_table) ----
+#
+# Both download handlers call fit_result() - the same eventReactive
+# evs_status already has to guard against above - with no error handling
+# of their own. Since neither downloadButton is conditionalPanel-gated
+# (ui_evs_tab.R), clicking either before "Fit Extreme Value Model" is ever
+# pressed used to propagate fit_result()'s blank-message validation
+# condition uncaught. Same defect class, same fix, as
+# server_plot_builder.R's output$builder_download - see that file's
+# regression tests for the fuller writeup of the underlying mechanism.
+
+test_that("clicking either download before Fit is ever clicked gives a clear message, not an uncaught blank error", {
+  testServer(make_evs_server(), {
+    for (out in c("evs-evs_download_plot", "evs-evs_download_table")) {
+      res <- tryCatch({ output[[out]]; list(ok = TRUE) },
+                       error = function(e) list(ok = FALSE, msg = conditionMessage(e)))
+      expect_false(res$ok)
+      expect_equal(res$msg, "Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\" before downloading.")
+    }
+  })
+})
+
+test_that("a normal, successful fit still downloads a real plot and a real table", {
+  testServer(make_evs_server(), {
+    session$setInputs(`evs-evs_files` = make_evs_upload())
+    session$setInputs(`evs-evs_area_col` = "area")
+    session$setInputs(`evs-evs_group_col` = "field")
+    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
+    session$setInputs(`evs-evs_fit` = 1)
+
+    plot_path <- output[["evs-evs_download_plot"]]
+    expect_true(file.exists(plot_path))
+    expect_gt(file.info(plot_path)$size, 0)
+
+    table_path <- output[["evs-evs_download_table"]]
+    expect_true(file.exists(table_path))
+    expect_gt(file.info(table_path)$size, 0)
+  })
+})
+
 test_that("evs_gof_warning renders the warning banner only when the GOF test rejects Gumbel", {
   testServer(make_evs_server(), {
     # A well-behaved single-population fit shouldn't reject Gumbel.

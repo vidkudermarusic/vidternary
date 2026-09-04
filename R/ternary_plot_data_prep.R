@@ -570,10 +570,20 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
         pointType <- point_types[as.numeric(param1_bins)]
       }
     }
-  } else {
-    pointSize <- MIN_POINT_SIZE
-    pointType <- 16
   }
+  # No else branch needed here: pointSize/pointType are already correctly
+  # set to the full-length rep(MIN_POINT_SIZE/16, nrow(ternary_points1))
+  # defaults a few lines up, for exactly this "neither manual size nor
+  # optional_param1" case. A previous version of this branch reset them to
+  # bare scalars (pointSize <- MIN_POINT_SIZE; pointType <- 16, length 1,
+  # not length nrow(ternary_points1)) - which did nothing useful (the
+  # values were identical, just wrongly shaped) and unconditionally tripped
+  # the "Final safety check" further down into reinitializing both vectors
+  # back to the very same values it had just overwritten - on every single
+  # render/save that doesn't use Optional Param 1 (confirmed the single
+  # most common case in practice), printing "Point size/type vector has
+  # issues. Reinitializing." to the console/log every time even though
+  # nothing was ever actually wrong.
 
   # Optional param 2: color (enhanced to handle categorical groups)
   if (!is.null(optional_param2)) {
@@ -620,7 +630,28 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       cat("DEBUG: param2_values unique values:", paste(unique(param2_values), collapse = ", "), "\n")
     }
 
-    if (is_categorical_group && !is.null(selected_groups) && length(selected_groups) > 0) {
+    # is_categorical_group alone, not also requiring a non-empty
+    # selected_groups: the moment a user picks a categorical column for
+    # Optional Param 2, rv$is_categorical_group_1/_2 flips to TRUE
+    # immediately (server_ternary_plots_groups.R's detection observer) -
+    # but rv$group_selections_1/_2 (and so selected_groups here) stays
+    # NULL/empty until the user actually checks a box in the group
+    # checklist that appears below it. Generating a plot/preview in that
+    # gap (upload -> pick A/B/C -> pick a categorical color column -> hit
+    # Save without first checking any group) used to fall through to the
+    # ELSE branch below - the NUMERIC color-legend path - which calls
+    # quantile() on param2_values; for a character/factor column that's an
+    # immediate, uncaught "non-numeric argument to binary operator" crash,
+    # confirmed via direct reproduction through the real reactive server
+    # (not just this function in isolation). Requiring only
+    # is_categorical_group here routes that state into the categorical
+    # branch instead, where an empty selected_groups already resolves
+    # correctly with no further changes needed: gsub() on a NULL
+    # selected_groups returns character(0), matching nothing in
+    # param2_values, which lands on the "no groups matched" fallback
+    # immediately below and shows every group - exactly the graceful
+    # "nothing chosen yet" behavior this state should have had all along.
+    if (is_categorical_group) {
       # Handle categorical groups
       # Extract group names from selected_groups (remove sample counts in parentheses)
       group_names <- gsub("\\s*\\([^)]*\\)$", "", selected_groups)
@@ -638,9 +669,14 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
         cat("DEBUG: Matching groups found:", sum(group_mask) > 0, "\n")
       }
 
-      # Safety check: if no groups match, show all groups instead
+      # Safety check: if no groups match (including the now-routed-here
+      # case of no groups selected yet at all), show all groups instead.
       if (sum(group_mask) == 0) {
-        cat("Warning: No data matches selected groups. Showing all groups instead.\n")
+        if (is.null(group_names) || length(group_names) == 0) {
+          cat("No groups selected yet - showing all groups.\n")
+        } else {
+          cat("Warning: No data matches selected groups. Showing all groups instead.\n")
+        }
         group_mask <- rep(TRUE, length(param2_values))
         selected_groups <- unique(param2_values)
         group_names <- selected_groups
@@ -681,6 +717,47 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 
     } else {
       # Handle numeric data (existing logic)
+      #
+      # Guard: this branch is only reachable for a column the caller has
+      # already decided ISN'T categorical (is_categorical_group FALSE, or
+      # TRUE with no matching groups after the earlier fallback) - but
+      # nothing downstream of that decision re-checks it's actually
+      # numeric before quantile()ing it a few lines down. In the live app
+      # this can't happen via the UI as of today's cap fix (a text column
+      # with too many distinct values to be treated as categorical is
+      # exactly the scenario that fix targets - see
+      # server_ternary_plots_groups.R's own comment), but
+      # prepare_ternary_plot_data()/general_ternary_plot() are exported,
+      # directly callable functions, not gated behind that UI-side
+      # detection - a direct call passing a genuinely non-numeric
+      # optional_param2 column with is_categorical_group left FALSE (or a
+      # categorical column whose real cardinality exceeds what the caller
+      # checked) would otherwise still reach quantile() on text data and
+      # crash with a raw "non-numeric argument to binary operator" -
+      # exactly the class of bug fixed for the "no groups selected yet"
+      # case earlier in this file. Failing clearly here, at the actual
+      # point of the mismatch, costs nothing for the common numeric case
+      # and replaces that raw crash with an actionable message for the
+      # rest.
+      if (!is.numeric(param2_values)) {
+        # Deliberately not claiming a specific cause (e.g. "too many
+        # distinct values") - is_categorical_group can land FALSE here for
+        # two different, real reasons: the column's own cardinality
+        # exceeded the 50-unique-values cap (server_ternary_plots_groups.R),
+        # or - in the Multiple Ternary Creator's batch path specifically -
+        # categorical detection is never wired up at all regardless of the
+        # column's cardinality (extract_ternary_params()'s own safety-check
+        # re-detection short-circuits there before it can run at all,
+        # confirmed by reading server_ternary_plots_batch.R's caller - a
+        # documented, pre-existing limitation of that tab, not something
+        # this fix changes). A message asserting the wrong one of those two
+        # causes would send a batch-tab user chasing a column-cardinality
+        # fix that was never the actual problem.
+        stop("Optional Param 2 (", paste(optional_param2$col, collapse = "+"),
+             ") has non-numeric values but isn't being treated as a categorical color grouping here ",
+             "(either it has more than 50 distinct values, or this tab doesn't support categorical grouping for Optional Param 2). ",
+             "Choose a column with 50 or fewer distinct values in a tab that supports categorical grouping, or use a numeric column instead.")
+      }
       # Check if the selected column is Aspect.Ratio for special handling
       if (length(optional_param2$col) == 1 && optional_param2$col == "Aspect.Ratio") {
         # Use hardcoded breaks for Aspect.Ratio
@@ -718,9 +795,15 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       pointCol <- param2_colors[as.numeric(param2_bins)]
     }
 
-  } else {
-    pointCol <- "black"
   }
+  # No else branch needed here either - same reasoning as the matching
+  # pointSize/pointType case above: pointCol is already correctly
+  # rep("black", nrow(ternary_points1)) from its initial declaration. This
+  # branch used to reset it to the bare scalar "black" (length 1), which
+  # the "Final safety check" below then silently reinitialized back to the
+  # exact same value, correctly shaped - on every render/save with no
+  # Optional Param 2 set, printing its own "Point color vector has issues.
+  # Reinitializing." for no real reason.
 
   # Final safety check: ensure all vectors are properly initialized
   n_points <- nrow(ternary_points1)
@@ -1176,7 +1259,12 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #'   across `element_A`/`B`/`C` (as built earlier in
 #'   [prepare_ternary_plot_data()], before this extraction's own call).
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
-#'   `list(col = <one or more column names>)`.
+#'   `list(col = <one or more column names>)`. A *partial* overlap between
+#'   two elements' column sets is fine and common in real compositional
+#'   data (e.g. A = Fe+O, B = Al+O, C = Ti - O legitimately contributes to
+#'   more than one vertex) - but no two of the three may select the exact
+#'   same *complete* set (e.g. A = O, B = O), which collapses the ternary
+#'   diagram onto a single edge/point and is rejected with a `stop()`.
 #' @param optional_param1,optional_param2 Optional `list(col = <column
 #'   name(s)>, ...)` specs, included in `needed_columns`/`optional_columns`
 #'   when supplied.
@@ -1196,6 +1284,22 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #' @export
 compute_ternary_coordinates <- function(M, all_selected_elements, element_A, element_B, element_C,
                                          optional_param1, optional_param2, use_mahalanobis, reference_data) {
+  # Two of A/B/C selecting the exact same complete column set (order-
+  # independent, hence setequal() rather than identical()) collapses the
+  # ternary diagram onto a single edge (two axes identical) or a single
+  # point (all three identical) - never a meaningful plot, unlike a
+  # PARTIAL overlap (e.g. A: Fe+O, B: Al+O, C: Ti - a real, intentional
+  # pattern in oxide chemistry where O legitimately contributes to more
+  # than one vertex), which stays fully supported below. Nothing in the UI
+  # (three independent selectInputs, ui_ternary_plots_tab.R) prevented this
+  # before - reachable simply by picking the same element twice - and it
+  # used to reach the raw, uncaught indexing crashes fixed just below
+  # instead of a clear message.
+  if (setequal(element_A$col, element_B$col) || setequal(element_A$col, element_C$col) ||
+      setequal(element_B$col, element_C$col)) {
+    stop("Elements A, B, and C must each use a different set of columns - two of them currently select the exact same column(s). Sharing SOME columns between elements is fine (e.g. A: Fe+O, B: Al+O, C: Ti), but using the identical complete set for two axes is not, since every point would then collapse onto a single line or point instead of forming a real ternary diagram.")
+  }
+
   needed_columns <- unique(c(all_selected_elements,
                              if (!is.null(optional_param1)) optional_param1$col,
                              if (!is.null(optional_param2)) optional_param2$col))
@@ -1211,7 +1315,15 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 
   log_operation("INFO", "All required columns found")
 
-  matrika <- M[, needed_columns]
+  # drop = FALSE: needed_columns can no longer collapse to length 1 via
+  # A/B/C alone now that the setequal() check above blocks any two of them
+  # being fully identical (if no two of three non-empty sets are equal,
+  # their union can't be a single element) - kept anyway, matching this
+  # codebase's convention of never relying on that kind of proof alone for
+  # a data-frame column selection. Without it, R silently drops matrika to
+  # a plain vector instead of a data frame, and the very next line crashes
+  # with "incorrect number of dimensions".
+  matrika <- M[, needed_columns, drop = FALSE]
   cat("DEBUG: Matrika dimensions after column selection:", dim(matrika), "\n")
   if (getOption("ternary.debug", FALSE) && use_mahalanobis && !is.null(reference_data)) {
     cat("DEBUG: Matrika created from filtered M. Sample data (first 5 rows):\n")
@@ -1219,8 +1331,21 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
   }
   log_operation("INFO", "Selected columns", paste("Matrix dimensions:", dim(matrika)[1], "rows x", dim(matrika)[2], "columns"))
 
-  matrika[, all_selected_elements] <- lapply(matrika[, all_selected_elements, drop = FALSE], as.numeric)
-  row_sums <- rowSums(matrika[, all_selected_elements, drop = FALSE], na.rm = TRUE)
+  # unique(): all_selected_elements is c(element_A$col, element_B$col,
+  # element_C$col) as built by the caller, NOT deduplicated - unlike
+  # needed_columns above. A partial overlap (explicitly supported - see
+  # this function's own @param doc) then leaves a repeated column name in
+  # it (e.g. c("Fe","O","Al","O")), which plain *extraction*
+  # (matrika[, all_selected_elements, drop=FALSE]) tolerates fine, but
+  # *assignment* into matrika by name does not - it throws "duplicate
+  # subscripts for columns" instead of converting anything. Deduplicating
+  # once here, and reusing element_columns everywhere below instead of the
+  # raw all_selected_elements, fixes the assignment on the next line and
+  # its counterpart further down without changing which columns end up
+  # selected (a repeated name selects the same column either way).
+  element_columns <- unique(all_selected_elements)
+  matrika[, element_columns] <- lapply(matrika[, element_columns, drop = FALSE], as.numeric)
+  row_sums <- rowSums(matrika[, element_columns, drop = FALSE], na.rm = TRUE)
   matrika <- matrika[row_sums > 0, , drop = FALSE]
   cat("DEBUG: Matrika dimensions after removing zero-sum rows:", dim(matrika), "\n")
   matrika <- na.omit(matrika)
@@ -1228,7 +1353,6 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
   log_operation("INFO", "Removed NA values", paste("Matrix dimensions:", dim(matrika)[1], "rows x", dim(matrika)[2], "columns"))
 
   # Only convert element columns to numeric, preserve optional parameter columns as character/factor
-  element_columns <- all_selected_elements
   optional_columns <- c()
   # all() wraps the %in% check because optional_param*$col can be a
   # multi-column selection (a vector), and %in% then returns a vector -
@@ -1245,8 +1369,11 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
     optional_columns <- c(optional_columns, optional_param2$col)
   }
 
-  # Convert only element columns to numeric
-  matrika[, element_columns] <- lapply(matrika[, element_columns, drop = FALSE], as.numeric)
+  # Element columns were already converted to numeric above (right after
+  # matrika was built) - this used to redundantly repeat the identical
+  # conversion here a second time; harmless (as.numeric() on already-numeric
+  # data is a no-op) but pointless, so it's gone rather than left as
+  # confusing duplicate work for the next reader.
 
   # Keep optional parameter columns as character/factor for categorical data
   if (getOption("ternary.debug", FALSE)) {
