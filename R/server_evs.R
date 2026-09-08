@@ -63,10 +63,31 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
                        selected = first_match_or_null(numeric_cols, "^area"))
     updateSelectInput(session, "evs_group_col", choices = names(d),
                        selected = first_match_or_null(names(d), "^field$"))
+    updateSelectizeInput(session, "evs_filter_cols", choices = numeric_cols)
+  })
+
+  # Pre-Analysis Data Filter (helpers_pre_analysis_filter.R, shared with
+  # Spatial Clustering and Point Pattern Analysis) - lets rows be excluded
+  # (e.g. "Area > 1", to drop inclusions too small to be worth analyzing)
+  # before block maxima are ever computed, rather than only being able to
+  # filter downstream of an already-fitted result.
+  output$evs_filter_inputs <- renderUI({
+    render_pre_filter_inputs(session$ns, "evs", input$evs_filter_cols)
+  })
+
+  filtered_data <- reactive({
+    d <- combined_data()
+    filters <- collect_pre_filters(input, "evs", input$evs_filter_cols)
+    tryCatch(apply_pre_filters(d, filters), error = function(e) {
+      shiny::validate(paste("Pre-analysis filter error:", e$message))
+    })
   })
 
   fit_result <- eventReactive(input$evs_fit, {
-    d <- combined_data()
+    d <- filtered_data()
+    n_before_filter <- nrow(combined_data())
+    n_after_filter <- nrow(d)
+    shiny::validate(shiny::need(nrow(d) > 0, "No rows remain after applying the pre-analysis filter(s) - loosen or remove them and try again."))
     req(input$evs_area_col)
     shiny::validate(shiny::need(input$evs_area_col %in% names(d), "Select a valid area column."))
 
@@ -99,6 +120,8 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
                      error = function(e) { shiny::validate(paste("Error fitting EVS model:", e$message)) })
     fit$block_maxima <- block_maxima
     fit$gof <- tryCatch(gumbel_goodness_of_fit(fit), error = function(e) NULL)
+    fit$n_rows_before_filter <- n_before_filter
+    fit$n_rows_after_filter <- n_after_filter
     fit
   })
 
@@ -199,8 +222,10 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     fit <- fit_result()
     pred <- prediction()
     df <- data.frame(
-      Metric = c("Control areas (n)", "Intercept (a)", "Slope (b)", "R²"),
-      Value = c(sprintf("%d", fit$n), sprintf("%.4f", fit$intercept), sprintf("%.4f", fit$slope), sprintf("%.4f", fit$r_squared))
+      Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
+                 "Control areas (n)", "Intercept (a)", "Slope (b)", "R²"),
+      Value = c(sprintf("%d", fit$n_rows_before_filter), sprintf("%d", fit$n_rows_after_filter),
+                sprintf("%d", fit$n), sprintf("%.4f", fit$intercept), sprintf("%.4f", fit$slope), sprintf("%.4f", fit$r_squared))
     )
     if (!is.null(fit$gof)) {
       df <- rbind(df, data.frame(

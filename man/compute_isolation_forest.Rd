@@ -11,7 +11,6 @@ compute_isolation_forest(
   contamination = 0.1,
   keep_outliers = FALSE,
   ntrees = 200,
-  sample_size = 256,
   score_type = "score",
   seed = 42
 )
@@ -23,23 +22,33 @@ compute_isolation_forest(
 
 \item{selected_columns}{Character vector of column names to use for analysis.}
 
-\item{contamination}{Expected proportion of outliers (0-1). Default 0.10.}
+\item{contamination}{Expected proportion of outliers (0-1). Default 0.10.
+User-adjustable in the UI (Ternary Plots' Isolation Forest panel,
+Data Comparison's Isolation Forest/Comprehensive panels) - both surface
+whatever value was actually used in their results text, since a
+reviewer reading the app's own output should be able to see it without
+reading source.}
 
 \item{keep_outliers}{If \code{TRUE}, \code{kept_mask}/\code{filtered_data1} keep the
 flagged outliers instead of the inliers. Default \code{FALSE}.}
 
-\item{ntrees}{Number of trees in the isolation forest. Default 200.}
-
-\item{sample_size}{Sample size drawn per tree (capped at \code{nrow(data2)}). Default 256.}
+\item{ntrees}{Number of trees in the isolation forest. Default 200.
+User-adjustable in the UI, same as \code{contamination} above.}
 
 \item{score_type}{Score type passed to \code{predict.isolation_forest()}, \code{"score"} or \code{"outlier"}. Default \code{"score"}.}
 
-\item{seed}{Random seed for reproducibility. Default 42.}
+\item{seed}{Random seed for reproducibility, passed through directly to
+\code{isotree::isolation.forest()}'s own \code{seed} argument (which governs its
+randomness independently of R's \code{set.seed()} - confirmed empirically,
+not assumed). Default 42.}
 }
 \value{
 A list: \code{model} (the fitted isolation forest), \code{columns_used},
-\code{threshold}, \code{contamination}, \code{scores} (length \code{nrow(data1)}),
-\code{outlier_indices}, \code{kept_mask}, \code{filtered_data1}, \code{ref_scores_sum}.
+\code{threshold}, \code{contamination}, \code{ntrees}, \code{sample_size} (always equal to
+the number of complete reference rows actually used to fit the model -
+not independently configurable, see this function's own inline
+comment), \code{scores} (length \code{nrow(data1)}), \code{outlier_indices},
+\code{kept_mask}, \code{filtered_data1}, \code{ref_scores_sum}.
 }
 \description{
 Trains an isolation forest (\code{isotree::isolation.forest()}) on \code{data2}

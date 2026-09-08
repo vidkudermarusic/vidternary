@@ -53,13 +53,17 @@ create_data_comparison_tab <- function(id) {
           )
         ),
 
-        # Multivariate Analysis Section
+        # Outlier Detection Section (Mahalanobis distance - a multivariate
+        # statistical method - and Isolation Forest - a machine-learning
+        # algorithm; grouped here because both flag outliers from the same
+        # target/reference/columns selection, not because both are the
+        # same kind of method)
         fluidRow(
           column(12,
             hr(),
-            h4("Multivariate Analysis"),
+            h4("Outlier Detection: Mahalanobis Distance & Isolation Forest"),
             div(style = "border: 1px solid #007bff; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h5("🔧 Multivariate Analysis Options", style = "margin-top: 0; color: #007bff;"),
+              h5("🔧 Outlier Detection Options", style = "margin-top: 0; color: #007bff;"),
               helpText("Target: the dataset being analyzed. Reference: the dataset its distribution is compared against - pick \"Self\" to detect outliers within the target dataset alone, or another dataset to test the target against that dataset's distribution."),
               fluidRow(
                 column(4, selectInput(ns("comparison_mv_target"), "Target dataset:", choices = NULL)),
@@ -95,6 +99,25 @@ create_data_comparison_tab <- function(id) {
                 )
               ),
 
+              # Isolation Forest parameters - independent of the Ternary
+              # Plots tab's own isolation_ntrees/isolation_contamination
+              # inputs, matching the Mahalanobis parameters box above.
+              # Feeds both the standalone "Run Isolation Forest" button and
+              # the "Comprehensive Analysis Results" panel below. Sample
+              # size is deliberately not a user input here - it always
+              # equals the number of complete reference rows actually used
+              # (see compute_isolation_forest()'s own comment) - only
+              # ntrees and contamination are genuine modeling choices.
+              div(style = "border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin: 10px 0; background-color: #fff;",
+                h6("Isolation Forest Parameters", style = "margin-top: 0;"),
+                fluidRow(
+                  column(4, numericInput(ns("comparison_iso_ntrees"), "Number of trees:", value = 200, min = 1, step = 1)),
+                  column(4, numericInput(ns("comparison_iso_contamination"), "Contamination:", value = 0.10, min = 0.001, max = 0.999, step = 0.01)),
+                  column(4, p(style = "font-size: 11px; margin-top: 24px; color: #666;",
+                    "Sample size always matches the reference dataset's complete rows for the selected columns."))
+                )
+              ),
+
               fluidRow(
                 column(6,
                   h6("Mahalanobis Distance"),
@@ -110,7 +133,7 @@ create_data_comparison_tab <- function(id) {
                 )
               ),
 
-              # Comprehensive Multivariate Analysis Display
+              # Comprehensive Outlier Detection Display
               fluidRow(
                 column(12,
                   h5("📊 Comprehensive Analysis Results"),

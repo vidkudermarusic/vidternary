@@ -13,15 +13,23 @@
 # Directory picker (server_directory_management.R) was replaced by
 # per-save browser downloads (see the vidternary Structural Audit's §03) -
 # neither is used anywhere else in R/. zip was previously removed here as
-# dead code, then reinstated for a genuine new use: the batch/multi-file
-# save handlers (server_ternary_plots.R's "Save Both Plots",
-# server_ternary_plots_batch.R's "Create & Save all ternary plots") zip
-# their outputs into one download instead of writing to a chosen folder.
+# dead code, then reinstated for a genuine new use: the batch save handler
+# (server_ternary_plots_batch.R's "Create & Save all ternary plots") zips
+# its outputs into one download instead of writing to a chosen folder.
+# (The Ternary Plots tab's own "Save Both Plots" button used to be a
+# second reason zip was needed - removed since separate "Save Plot 1"/
+# "Save Plot 2" downloads already cover the same need.) spatstat.geom/
+# spatstat.explore were added for the "Point Pattern Analysis" tab
+# (spatial_point_pattern_analysis.R - Ripley's K/L, the G-function, a CSR
+# envelope test, kernel intensity) - only those two sub-packages of the
+# spatstat family are imported, not the full `spatstat` umbrella, which
+# also pulls in spatstat.model/spatstat.linnet/etc that nothing here uses.
 required_packages <- c(
   "openxlsx", "Ternary", "PlotTools", "shiny", "shinyjqui", "shinyBS",
   "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
   "isotree", "RColorBrewer", "plotly", "writexl", "jsonlite", "zip",
-  "viridisLite", "magick", "png", "rlang", "RANN"
+  "viridisLite", "magick", "png", "rlang", "RANN",
+  "spatstat.geom", "spatstat.explore"
 )
 
 # Essential packages that must be loaded for core functionality

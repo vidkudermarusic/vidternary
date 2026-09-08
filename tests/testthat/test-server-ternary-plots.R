@@ -10,11 +10,14 @@
 # checkbox values, negative point-size clipping, the filter-parser
 # consolidation) but nothing exercising the ordinary, non-crashing behavior
 # of file upload, the mutual-exclusivity checkboxes, the dynamic per-element
-# filter UI, a real Save Plot 1/2/Both round-trip, or Copy Settings - and
-# several bugs fixed earlier this audit (Save Both Plots' independent
-# tryCatch, Copy Settings copying filters/palette, the sibling-file group-
-# state reset) were verified by hand at the time but never locked into a
-# permanent regression test.
+# filter UI, a real Save Plot 1/2 round-trip, or Copy Settings - and
+# several bugs fixed earlier this audit (Copy Settings copying filters/
+# palette, the sibling-file group-state reset) were verified by hand at
+# the time but never locked into a permanent regression test.
+#
+# ("Save Both Plots" - covered by two tests here previously - was removed
+# entirely at the user's request, since separate Plot 1/Plot 2 downloads
+# already cover the same need; its tests were removed along with it.)
 #
 # Real files are written to isolated temp working/output directories -
 # never the real repo - matching this project's own established convention.
@@ -212,7 +215,7 @@ test_that("selecting two columns for Element A renders two per-element filter in
   })
 })
 
-# ---- Save Plot 1/2/Both (server_ternary_plots.R) ----
+# ---- Save Plot 1/2 (server_ternary_plots.R) ----
 # Each is a downloadHandler now (browser Save dialog instead of a
 # pre-chosen server-side folder - see the vidternary Structural Audit's
 # §03). testServer()'s own output$id accessor both runs the handler's
@@ -248,49 +251,6 @@ test_that("Save Plot 1 writes a real file and reports its location; a genuine er
   }))
 })
 
-test_that("Save Both Plots: when Plot 1 succeeds and Plot 2 genuinely errors, the zip still contains Plot 1 plus an errors.txt naming Plot 2's failure", {
-  server <- make_ternary_plots_server()
-  d1 <- make_ternary_data(seed = 1)
-  d2 <- make_ternary_data(seed = 2)
-  suppressWarnings(testServer(server$app, {
-    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d1, "one.xlsx"),
-                       `ternary_plots-element_A1` = "Al", `ternary_plots-element_B1` = "Si", `ternary_plots-element_C1` = "Mn")
-    session$setInputs(`ternary_plots-xlsx_file2` = make_upload(d2, "two.xlsx"),
-                       `ternary_plots-element_A2` = "Al", `ternary_plots-element_B2` = "Si", `ternary_plots-element_C2` = "NoSuchColumn")
-
-    path <- output[["ternary_plots-plot_both"]]
-    expect_true(file.exists(path))
-    entries <- zip::zip_list(path)$filename
-    expect_length(entries[grepl("\\.png$", entries)], 1)
-    expect_true("errors.txt" %in% entries)
-
-    status <- output[["ternary_plots-status"]]
-    expect_match(status, "One plot saved, one failed")
-    expect_match(status, "Plot 2:")
-  }))
-})
-
-test_that("Save Both Plots: a genuine success on both zips exactly two files with no errors.txt", {
-  server <- make_ternary_plots_server()
-  d1 <- make_ternary_data(seed = 1)
-  d2 <- make_ternary_data(seed = 2)
-  suppressWarnings(testServer(server$app, {
-    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d1, "one.xlsx"),
-                       `ternary_plots-element_A1` = "Al", `ternary_plots-element_B1` = "Si", `ternary_plots-element_C1` = "Mn")
-    session$setInputs(`ternary_plots-xlsx_file2` = make_upload(d2, "two.xlsx"),
-                       `ternary_plots-element_A2` = "Al", `ternary_plots-element_B2` = "Si", `ternary_plots-element_C2` = "Mn")
-
-    path <- output[["ternary_plots-plot_both"]]
-    expect_true(file.exists(path))
-    entries <- zip::zip_list(path)$filename
-    expect_length(entries[grepl("\\.png$", entries)], 2)
-    expect_false("errors.txt" %in% entries)
-
-    status <- output[["ternary_plots-status"]]
-    expect_match(status, "Both plots saved successfully")
-  }))
-})
-
 # ---- Analysis report ----
 
 test_that("the analysis report only renders once at least one filter method is active, matching its own req() gate", {
@@ -321,5 +281,53 @@ test_that("the analysis report only renders once at least one filter method is a
     expect_match(report, "ANALYSIS METHODS REPORT")
     expect_match(report, "Element A: Al")
     expect_match(report, "IQR FILTER")
+  })
+})
+
+test_that("Isolation Forest's number of trees and contamination are user-adjustable, flow through to a real save, and are shown in the Analysis Report", {
+  # Previously fixed internal defaults (ntrees=200, contamination=0.10),
+  # not user-configurable and not shown anywhere in the UI - both are now
+  # real inputs (ui_ternary_plots_tab.R's "Isolation Forest Parameters"
+  # panel) threaded through extract_ternary_params() ->
+  # general_ternary_plot() -> prepare_ternary_plot_data() ->
+  # apply_multivariate_filtering() -> compute_isolation_forest(), and
+  # surfaced in the Analysis Report the same way Mahalanobis's own
+  # lambda/omega already were.
+  server <- make_ternary_plots_server()
+  d <- make_ternary_data(n = 30, extra_cols = list(X = stats::rnorm(30), Y = stats::rnorm(30)))
+  testServer(server$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d),
+                       `ternary_plots-element_A1` = "Al", `ternary_plots-element_B1` = "Si", `ternary_plots-element_C1` = "Mn")
+    session$setInputs(`ternary_plots-use_isolation_forest` = TRUE)
+    session$setInputs(`ternary_plots-multivariate_columns` = c("X", "Y"))
+    session$setInputs(`ternary_plots-isolation_ntrees` = 33)
+    session$setInputs(`ternary_plots-isolation_contamination` = 0.15)
+    # testServer-only gap (see the comment a few lines up in the previous
+    # test): outlier_mode_isolation is a radioButtons() with a real
+    # selected = FALSE default in the live app.
+    session$setInputs(`ternary_plots-outlier_mode_isolation` = FALSE)
+
+    saved_path <- output[["ternary_plots-plot1"]]
+    expect_true(file.exists(saved_path))
+
+    session$setInputs(`ternary_plots-use_mahalanobis` = FALSE, `ternary_plots-use_iqr_filter` = FALSE,
+                       `ternary_plots-use_zscore_filter` = FALSE, `ternary_plots-use_mad_filter` = FALSE)
+    report <- output[["ternary_plots-analysis_report"]]
+    expect_match(report, "Number of trees: 33")
+    expect_match(report, "Contamination: 0.15")
+  })
+})
+
+test_that("Isolation Forest with no custom parameters touched still uses the documented 200-tree/0.10-contamination default (regression)", {
+  server <- make_ternary_plots_server()
+  d <- make_ternary_data(n = 30, extra_cols = list(X = stats::rnorm(30), Y = stats::rnorm(30)))
+  testServer(server$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d),
+                       `ternary_plots-element_A1` = "Al", `ternary_plots-element_B1` = "Si", `ternary_plots-element_C1` = "Mn")
+    session$setInputs(`ternary_plots-use_isolation_forest` = TRUE)
+    session$setInputs(`ternary_plots-multivariate_columns` = c("X", "Y"))
+    session$setInputs(`ternary_plots-outlier_mode_isolation` = FALSE)
+    saved_path <- output[["ternary_plots-plot1"]]
+    expect_true(file.exists(saved_path))
   })
 })

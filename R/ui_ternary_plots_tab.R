@@ -58,8 +58,7 @@ create_ternary_plots_tab <- function(id) {
       column(12, style = "text-align: center; margin: 20px 0;",
         h4("Save Plots"),
         downloadButton(ns("plot1"), "Save Plot 1", class = "btn-primary btn-lg", style = "margin: 0 10px;"),
-        downloadButton(ns("plot2"), "Save Plot 2", class = "btn-primary btn-lg", style = "margin: 0 10px;"),
-        downloadButton(ns("plot_both"), "Save Both Plots", class = "btn-success btn-lg", style = "margin: 0 10px;")
+        downloadButton(ns("plot2"), "Save Plot 2", class = "btn-primary btn-lg", style = "margin: 0 10px;")
       )
     ),
 
@@ -151,15 +150,19 @@ create_ternary_plots_tab <- function(id) {
         fluidRow(
           column(4,
             div(style = "border: 2px solid #007bff; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h4(style = "color: #007bff; margin-top: 0;", "🔧 Multivariate Analysis"),
+              h4(style = "color: #007bff; margin-top: 0;", "🔧 Outlier Detection: Mahalanobis Distance & Isolation Forest"),
 
-              # Universal column selector for all multivariate methods
+              # Universal column selector for both outlier-detection methods
+              # below - Mahalanobis distance (a multivariate statistical
+              # method) and Isolation Forest (a machine-learning algorithm).
+              # Grouped together because both share this column selection,
+              # not because both are the same kind of method.
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #e3f2fd; border-radius: 5px; border-left: 4px solid #2196f3;",
                 h5(style = "color: #1976d2; margin-top: 0; margin-bottom: 10px;", "📋 Universal Column Selector (REQUIRED)"),
                 p(style = "font-size: 12px; color: #d32f2f; margin-bottom: 10px; font-weight: bold;",
                   "⚠️ Column selection is MANDATORY for ALL analysis methods. Select at least 2 numeric columns."),
                 p(style = "font-size: 11px; color: #1976d2; margin-bottom: 10px;",
-                  "🔗 This column selection is used for BOTH multivariate analysis AND statistical filtering"),
+                  "🔗 This column selection is used for BOTH outlier detection (Mahalanobis/Isolation Forest) AND statistical filtering"),
                 selectizeInput(ns("multivariate_columns"), "Columns for analysis:",
                   choices = NULL, multiple = TRUE,
                   options = list(placeholder = "Select at least 2 numeric columns (REQUIRED)"))
@@ -230,8 +233,12 @@ create_ternary_plots_tab <- function(id) {
                 radioButtons(ns("mahalanobis_reference_isolation"), "Reference dataset:",
                   choices = c("Self-reference" = "self", "Dataset 1" = "dataset1", "Dataset 2" = "dataset2"),
                   selected = "self", inline = TRUE),
+                fluidRow(
+                  column(6, numericInput(ns("isolation_ntrees"), "Number of trees:", value = 200, min = 1, step = 1)),
+                  column(6, numericInput(ns("isolation_contamination"), "Contamination:", value = 0.10, min = 0.001, max = 0.999, step = 0.01))
+                ),
                 p(style = "font-size: 12px; color: #666; font-style: italic;",
-                  "Columns selected above will be used for this analysis.")
+                  "Columns selected above will be used for this analysis. Sample size always matches the reference dataset's complete rows for those columns.")
               )
             )
           ),
@@ -243,9 +250,9 @@ create_ternary_plots_tab <- function(id) {
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;",
                 h5(style = "color: #856404; margin-top: 0; margin-bottom: 10px;", "📋 Universal Column Selector"),
                 p(style = "font-size: 12px; color: #d32f2f; margin-bottom: 10px; font-weight: bold;",
-                  "⚠️ IMPORTANT: Statistical filtering uses the SAME column selection as multivariate analysis!"),
+                  "⚠️ IMPORTANT: Statistical filtering uses the SAME column selection as outlier detection!"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 5px;",
-                  "• Select columns in the 'Multivariate Analysis' section above"),
+                  "• Select columns in the 'Outlier Detection' section above"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 5px;",
                   "• At least 2 numeric columns are required"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 0;",

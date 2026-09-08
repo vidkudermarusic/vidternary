@@ -1,4 +1,4 @@
-# ---- Server Data Comparison Module: Multivariate Analysis ----
+# ---- Server Data Comparison Module: Outlier Detection ----
 # Split out of server_data_comparison.R: the Mahalanobis Distance /
 # Isolation Forest button handlers, plus the unified comprehensive
 # multivariate results display (mahalanobis_info) - all driven by the
@@ -145,6 +145,13 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
       return()
     }
 
+    # Captured once, now, from the button-click-time inputs (same pattern
+    # as lambda/omega below in the comprehensive panel) - NA-safety guard
+    # matches every other numericInput read in this file, since a cleared
+    # field reports as NA_real_, not NULL.
+    ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
+    contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
+
     tryCatch({
       output$isolation_forest_output <- renderPrint({
         cat("=== ISOLATION FOREST ANALYSIS ===\n")
@@ -156,7 +163,8 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           td$target[, selected_cols, drop = FALSE],
           td$reference[, selected_cols, drop = FALSE],
           selected_columns = selected_cols,
-          keep_outliers = FALSE
+          keep_outliers = FALSE,
+          ntrees = ntrees, contamination = contamination
         )
 
         if (!is.null(result)) {
@@ -167,6 +175,14 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           total_points <- length(result$outlier_indices)
           outlier_count <- sum(result$outlier_indices, na.rm = TRUE)
           cat("✅ Analysis completed successfully!\n\n")
+          # Model parameters reported explicitly - ntrees/contamination are
+          # now user-adjustable (previously fixed defaults with no way to
+          # see what was actually used); sample_size is read back from the
+          # result itself rather than assumed, since it always equals the
+          # reference's own complete-row count for the selected columns,
+          # not a value chosen here.
+          cat("Trees:", result$ntrees, "| Contamination:", result$contamination,
+              "| Sample size (reference rows used):", result$sample_size, "\n")
           cat("Threshold method: Quantile of reference scores at (1 - contamination) =", result$contamination, "\n")
           cat("Threshold value:", round(result$threshold, 3), "\n")
           cat("Total points analyzed:", total_points, "\n")
@@ -185,7 +201,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     })
   })
 
-  # ---- Comprehensive Multivariate Analysis Display ----
+  # ---- Comprehensive Outlier Detection Display ----
   # Gated behind its own "Run Comprehensive Analysis" button, matching the
   # two single-method panels above - it used to be a plain renderPrint()
   # with no button, so it silently recomputed both a fresh Mahalanobis fit
@@ -226,14 +242,17 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         custom_mdthresh = custom_mdthresh, selected_columns = selected_cols, mdthresh_mode = mdthresh_mode
       )
 
+      iso_ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
+      iso_contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
       iso_result <- compute_isolation_forest(
         td$target[, selected_cols, drop = FALSE],
         td$reference[, selected_cols, drop = FALSE],
-        selected_columns = selected_cols, keep_outliers = FALSE
+        selected_columns = selected_cols, keep_outliers = FALSE,
+        ntrees = iso_ntrees, contamination = iso_contamination
       )
 
       report_text <- capture.output({
-        cat("=== MULTIVARIATE ANALYSIS RESULTS ===\n")
+        cat("=== OUTLIER DETECTION RESULTS (Mahalanobis distance & Isolation Forest) ===\n")
         cat("Target:", td$target_name, "| Reference:", td$reference_name, "\n")
         cat("Columns used:", paste(selected_cols, collapse = ", "), "\n\n")
 
@@ -258,6 +277,8 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           iso_total_points <- length(iso_result$outlier_indices)
           iso_outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
           cat("🌲 Isolation Forest:\n")
+          cat("  Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
+              "| Sample size (reference rows used):", iso_result$sample_size, "\n")
           cat("  Total points analyzed:", iso_total_points, "\n")
           cat("  Threshold value:", round(iso_result$threshold, 3), "\n")
           cat("  Outliers detected:", iso_outlier_count, "(", round(iso_outlier_count / iso_total_points * 100, 1), "%)\n")

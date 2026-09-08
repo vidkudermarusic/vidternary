@@ -43,6 +43,10 @@
 #'   `"point_size"` or a point-shape mode. Default `"point_size"`.
 #' @param output_format Saved file format: `"png"`, `"jpeg"`, `"pdf"`, or `"tiff"`. Default `"png"`.
 #' @param use_isolation_forest Apply an Isolation Forest outlier filter. Default `FALSE`.
+#' @param isolation_ntrees Number of trees in the isolation forest, when
+#'   `use_isolation_forest = TRUE`. Default 200.
+#' @param isolation_contamination Expected proportion of outliers (0-1),
+#'   when `use_isolation_forest = TRUE`. Default 0.10.
 #' @param use_iqr_filter Apply an IQR outlier filter. Default `FALSE`.
 #' @param use_zscore_filter Apply a Z-score outlier filter. Default `FALSE`.
 #' @param use_mad_filter Apply a MAD outlier filter. Default `FALSE`.
@@ -93,6 +97,8 @@ general_ternary_plot <- function(
     optional_param1_representation = "point_size",
     output_format = "png",
     use_isolation_forest = FALSE,
+    isolation_ntrees = 200,
+    isolation_contamination = 0.10,
     use_iqr_filter = FALSE,
     use_zscore_filter = FALSE,
     use_mad_filter = FALSE,
@@ -206,6 +212,8 @@ general_ternary_plot <- function(
     optional_param1_representation = optional_param1_representation,
     output_format = output_format,
     use_isolation_forest = use_isolation_forest,
+    isolation_ntrees = isolation_ntrees,
+    isolation_contamination = isolation_contamination,
     use_iqr_filter = use_iqr_filter,
     use_zscore_filter = use_zscore_filter,
     use_mad_filter = use_mad_filter,

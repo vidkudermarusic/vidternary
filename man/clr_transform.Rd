@@ -11,9 +11,11 @@ clr_transform(data, parts, zero_replacement = NULL)
 
 \item{parts}{Character vector of column names to transform (at least 2).}
 
-\item{zero_replacement}{Value substituted for zero/NA entries before
-taking logs. Defaults to half the smallest positive value found across
-\code{parts}.}
+\item{zero_replacement}{Value(s) substituted for zero/NA entries before
+taking logs. Defaults to a per-column pseudo-count: half the smallest
+positive value found in that part's own column (matching the
+\code{zCompositions} convention). Pass a single number instead to apply one
+shared replacement value across every part.}
 }
 \value{
 A data frame of CLR-transformed values, one column per \code{parts} entry.

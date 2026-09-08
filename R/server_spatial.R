@@ -62,10 +62,28 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     updateSelectInput(session, "spatial_y_col", choices = numeric_cols,
                        selected = first_match_or_null(numeric_cols, "^stage.*y"))
     updateSelectInput(session, "spatial_color_col", choices = c("None" = "none", names(d)))
+    updateSelectizeInput(session, "spatial_filter_cols", choices = numeric_cols)
+  })
+
+  # Pre-Analysis Data Filter (helpers_pre_analysis_filter.R, shared with EVS
+  # and Point Pattern Analysis) - lets rows be excluded (e.g. "Area > 1")
+  # before the Clark-Evans test ever runs, rather than only being able to
+  # filter downstream of an already-computed result.
+  output$spatial_filter_inputs <- renderUI({
+    render_pre_filter_inputs(session$ns, "spatial", input$spatial_filter_cols)
+  })
+
+  filtered_data <- reactive({
+    d <- combined_data()
+    filters <- collect_pre_filters(input, "spatial", input$spatial_filter_cols)
+    tryCatch(apply_pre_filters(d, filters), error = function(e) {
+      shiny::validate(paste("Pre-analysis filter error:", e$message))
+    })
   })
 
   result <- eventReactive(input$spatial_analyze, {
-    d <- combined_data()
+    d <- filtered_data()
+    shiny::validate(shiny::need(nrow(d) > 0, "No rows remain after applying the pre-analysis filter(s) - loosen or remove them and try again."))
     shiny::validate(shiny::need(!is.null(input$spatial_x_col) && input$spatial_x_col %in% names(d), "Select a valid X coordinate column."))
     shiny::validate(shiny::need(!is.null(input$spatial_y_col) && input$spatial_y_col %in% names(d), "Select a valid Y coordinate column."))
 
@@ -85,7 +103,8 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
 
     ce <- tryCatch(clark_evans_test(x[valid], y[valid], n_sim = n_sim, nn_method = nn_method),
                     error = function(e) { shiny::validate(paste("Error running spatial analysis:", e$message)) })
-    list(ce = ce, x = x[valid], y = y[valid], color_by = color_by, color_label = input$spatial_color_col)
+    list(ce = ce, x = x[valid], y = y[valid], color_by = color_by, color_label = input$spatial_color_col,
+         n_rows_before_filter = nrow(combined_data()), n_rows_after_filter = nrow(d))
   })
 
   spatial_placeholder_msg <- "Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\"."
@@ -158,13 +177,16 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   }, width = spatial_plot_dim$width, height = spatial_plot_dim$height, res = spatial_plot_dim$res)
 
   output$spatial_summary_table <- renderTable({
-    ce <- result()$ce
+    res <- result()
+    ce <- res$ce
     data.frame(
-      Metric = c("Points (n)", "Bounding-box area", "Density (points/area)",
+      Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
+                 "Points (n)", "Bounding-box area", "Density (points/area)",
                  "Observed mean NND", "Expected mean NND (Donnelly-corrected)",
                  "R statistic", "Z (asymptotic)", "p-value (asymptotic)",
                  "p-value (Monte Carlo)", "Monte Carlo simulations", "Nearest-neighbour method"),
-      Value = c(sprintf("%d", ce$n), sprintf("%.4g", ce$area), sprintf("%.6g", ce$density),
+      Value = c(sprintf("%d", res$n_rows_before_filter), sprintf("%d", res$n_rows_after_filter),
+                sprintf("%d", ce$n), sprintf("%.4g", ce$area), sprintf("%.6g", ce$density),
                 sprintf("%.4f", ce$Dobs), sprintf("%.4f", ce$Dkevin),
                 sprintf("%.4f", ce$R), sprintf("%.3f", ce$Z), sprintf("%.4f", ce$p_value_asymptotic),
                 sprintf("%.4f", ce$p_value_monte_carlo), sprintf("%d", ce$n_sim), ce$nn_method)
