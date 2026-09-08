@@ -147,7 +147,10 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
     title_parts <- c(title_parts, opt2_label)
   }
 
-  # Add multivariate analysis information with enhanced outlier indicators
+  # Add outlier-detection information with enhanced outlier indicators.
+  # Mahalanobis distance is a multivariate statistical method; Isolation
+  # Forest is a machine-learning algorithm - grouped under "Outlier
+  # Detection" (not "Multivariate") since only one of the two actually is.
   mv_methods <- c()
   if (use_mahalanobis) {
     indicator <- if (keep_outliers_mahalanobis) "(outliers only)" else "(filtered)"
@@ -159,7 +162,7 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
   }
 
   if (length(mv_methods) > 0) {
-    title_parts <- c(title_parts, paste("Multivariate:", paste(mv_methods, collapse = "+")))
+    title_parts <- c(title_parts, paste("Outlier Detection:", paste(mv_methods, collapse = "+")))
   }
 
   # Add statistical filtering information with enhanced outlier indicators
@@ -241,6 +244,9 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
 #' @param custom_mdthresh Manual Mahalanobis distance threshold, used when
 #'   `mdthresh_mode == "manual"`.
 #' @param mdthresh_mode `"auto"` or `"manual"` Mahalanobis threshold mode.
+#' @param isolation_ntrees,isolation_contamination Number of trees and
+#'   contamination fraction for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. User-adjustable in the UI.
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`) - `M`, `mahal_result`, and `iso_result` are
 #'   the fields [prepare_ternary_plot_data()] actually reads back; the rest
@@ -251,7 +257,8 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
 apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_forest, selected_columns,
                                           mahalanobis_reference, reference_data, preview,
                                           keep_outliers_isolation, keep_outliers_mahalanobis,
-                                          lambda, omega, custom_mdthresh, mdthresh_mode) {
+                                          lambda, omega, custom_mdthresh, mdthresh_mode,
+                                          isolation_ntrees = 200, isolation_contamination = 0.10) {
   mahal_result <- NULL
   iso_result <- NULL
 
@@ -319,7 +326,8 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
     } else {
       tryCatch({
         if (use_isolation_forest) {
-          iso_result <- compute_isolation_forest(M, actual_reference_data, keep_outliers = keep_outliers_isolation, selected_columns = selected_columns)
+          iso_result <- compute_isolation_forest(M, actual_reference_data, keep_outliers = keep_outliers_isolation, selected_columns = selected_columns,
+                                                  ntrees = isolation_ntrees, contamination = isolation_contamination)
           keep_indices <- if (keep_outliers_isolation) {
             iso_result$outlier_indices
           } else {
@@ -1493,6 +1501,10 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 #'   how `optional_param1` maps onto the plotted points.
 #' @param output_format File format for a real save (e.g. `"png"`).
 #' @param use_isolation_forest Apply isolation-forest outlier filtering.
+#' @param isolation_ntrees,isolation_contamination Number of trees and
+#'   contamination fraction for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. User-adjustable in the UI; default 200
+#'   trees, 0.10 contamination.
 #' @param use_iqr_filter,use_zscore_filter,use_mad_filter Apply IQR /
 #'   Z-score / MAD statistical outlier filtering. Only one
 #'   statistical/multivariate filter is meant to be active per plot -
@@ -1579,6 +1591,8 @@ prepare_ternary_plot_data <- function(
     optional_param1_representation,
     output_format,
     use_isolation_forest,
+    isolation_ntrees = 200,
+    isolation_contamination = 0.10,
     use_iqr_filter,
     use_zscore_filter,
     use_mad_filter,
@@ -1715,6 +1729,8 @@ prepare_ternary_plot_data <- function(
     M = M,
     use_mahalanobis = use_mahalanobis,
     use_isolation_forest = use_isolation_forest,
+    isolation_ntrees = isolation_ntrees,
+    isolation_contamination = isolation_contamination,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
     reference_data = reference_data,
@@ -1871,11 +1887,12 @@ prepare_ternary_plot_data <- function(
       optional_summary <- c(optional_summary, paste("  Color palette:", color_palette))
     }
 
-    # Column 3: Statistical filtering and multivariate analysis
+    # Column 3: Statistical filtering and outlier detection
     analysis_summary <- c()
     analysis_summary <- c(analysis_summary, "Analysis Methods:")
 
-    # Multivariate analysis
+    # Outlier detection: Mahalanobis distance (multivariate statistical
+    # method) and/or Isolation Forest (machine-learning algorithm)
     if (use_mahalanobis || use_isolation_forest) {
       mv_info <- c()
       if (use_mahalanobis) {
@@ -1895,8 +1912,22 @@ prepare_ternary_plot_data <- function(
       if (use_isolation_forest) {
         outlier_status <- if (keep_outliers_isolation) "(keep only outliers)" else "(remove outliers)"
         mv_info <- c(mv_info, paste("Isolation Forest", outlier_status))
+
+        # Model parameters shown explicitly on the plot itself - ntrees/
+        # contamination are now user-adjustable (previously fixed internal
+        # defaults with no way to see what was actually used), matching
+        # how Mahalanobis's own lambda/omega/threshold are already shown
+        # just above. sample_size is read back from iso_result rather than
+        # assumed, since it always equals the reference's own complete-row
+        # count for the selected columns (see compute_isolation_forest()'s
+        # own comment), not a value chosen here.
+        if (!is.null(iso_result)) {
+          mv_info <- c(mv_info, paste("  Trees:", iso_result$ntrees))
+          mv_info <- c(mv_info, paste("  Contamination:", iso_result$contamination))
+          mv_info <- c(mv_info, paste("  Sample size (reference rows):", iso_result$sample_size))
+        }
       }
-      analysis_summary <- c(analysis_summary, paste("Multivariate:", paste(mv_info, collapse = ", ")))
+      analysis_summary <- c(analysis_summary, paste("Outlier Detection:", paste(mv_info, collapse = ", ")))
     }
 
     # Statistical filtering

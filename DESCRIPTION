@@ -35,7 +35,9 @@ Imports:
     magick,
     png,
     rlang,
-    RANN
+    RANN,
+    spatstat.geom,
+    spatstat.explore
 Suggests:
     testthat,
     knitr,

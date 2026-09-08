@@ -62,6 +62,10 @@ create_evs_tab <- function(id) {
         ),
 
         fluidRow(
+          column(12, create_pre_filter_ui(ns, "evs"))
+        ),
+
+        fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
             actionButton(ns("evs_fit"), "Fit Extreme Value Model", class = "btn-primary btn-lg", style = "font-size: 18px;")
           )

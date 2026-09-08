@@ -61,6 +61,10 @@ create_spatial_tab <- function(id) {
         ),
 
         fluidRow(
+          column(12, create_pre_filter_ui(ns, "spatial"))
+        ),
+
+        fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
             actionButton(ns("spatial_analyze"), "Analyze Spatial Pattern", class = "btn-primary btn-lg", style = "font-size: 18px;")
           )

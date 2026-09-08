@@ -10,7 +10,7 @@ create_main_ui()
 A \code{shiny::fluidPage()}.
 }
 \description{
-Assembles the page's global styling/JS, header, and all 9 tabs (via
+Assembles the page's global styling/JS, header, and all 10 tabs (via
 each tab's own \verb{create_*_tab()}). No shared save-location picker - see
 this file's own header comment for why.
 }

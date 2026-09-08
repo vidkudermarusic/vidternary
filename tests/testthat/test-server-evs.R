@@ -127,6 +127,86 @@ test_that("evs_status still reports a normal successful fit correctly (no regres
   })
 })
 
+# ---- Pre-Analysis Data Filter (helpers_pre_analysis_filter.R) ----
+# Tests the filter's real, end-to-end effect on the EVS pipeline
+# specifically - the shared helper's own pure logic (collect/apply) is
+# already covered in test-helpers-pre-analysis-filter.R; what matters here
+# is that server_evs.R actually wires it in correctly: filtered_data()
+# feeds fit_result() (not the raw combined_data()), and the row counts
+# shown to the user are the real ones.
+
+test_that("the pre-analysis filter genuinely changes which rows reach the fit - not just accepted and ignored", {
+  testServer(make_evs_server(), {
+    # 4 "small" groups (area ~10) and 4 "large" groups (area ~100) - a
+    # filter of "area > 50" should cleanly keep only the 4 large groups,
+    # a real, checkable change in fit$n (8 -> 4), not a coincidence.
+    d <- make_evs_upload(n_groups = 8, rows_per_group = 6,
+                          group_means = c(10, 10, 10, 10, 100, 100, 100, 100))
+    session$setInputs(`evs-evs_files` = d)
+    session$setInputs(`evs-evs_area_col` = "area")
+    session$setInputs(`evs-evs_group_col` = "field")
+    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
+    session$setInputs(`evs-evs_filter_cols` = "area")
+    session$setInputs(`evs-evs_filter_area` = "> 50")
+    session$setInputs(`evs-evs_fit` = 1)
+
+    status <- output[["evs-evs_status"]]
+    expect_match(status, "^Fit successful: n = 4 control areas")
+
+    tbl <- output[["evs-evs_summary_table"]]
+    expect_match(tbl, "Rows before pre-analysis filter")
+    expect_match(tbl, "48")  # 8 groups x 6 rows/group, unfiltered
+    expect_match(tbl, "Rows after pre-analysis filter")
+    expect_match(tbl, "24")  # only the 4 "large" groups' rows survive
+  })
+})
+
+test_that("a pre-analysis filter that removes every row surfaces a clear message instead of crashing downstream", {
+  testServer(make_evs_server(), {
+    session$setInputs(`evs-evs_files` = make_evs_upload(group_means = rep(100, 8)))
+    session$setInputs(`evs-evs_area_col` = "area")
+    session$setInputs(`evs-evs_group_col` = "field")
+    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
+    session$setInputs(`evs-evs_filter_cols` = "area")
+    session$setInputs(`evs-evs_filter_area` = "> 999999")
+    session$setInputs(`evs-evs_fit` = 1)
+
+    err <- expect_error(output[["evs-evs_status"]])
+    expect_match(conditionMessage(err), "No rows remain after applying the pre-analysis filter", fixed = TRUE)
+  })
+})
+
+test_that("an invalid pre-analysis filter condition surfaces a clear, specific message naming the column", {
+  testServer(make_evs_server(), {
+    session$setInputs(`evs-evs_files` = make_evs_upload())
+    session$setInputs(`evs-evs_area_col` = "area")
+    session$setInputs(`evs-evs_group_col` = "field")
+    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
+    session$setInputs(`evs-evs_filter_cols` = "area")
+    session$setInputs(`evs-evs_filter_area` = "not a real filter")
+    session$setInputs(`evs-evs_fit` = 1)
+
+    err <- expect_error(output[["evs-evs_status"]])
+    expect_match(conditionMessage(err), "Invalid filter for column 'area'", fixed = TRUE)
+  })
+})
+
+test_that("leaving the filter columns unselected behaves exactly as before this feature existed (no regression)", {
+  testServer(make_evs_server(), {
+    session$setInputs(`evs-evs_files` = make_evs_upload())
+    session$setInputs(`evs-evs_area_col` = "area")
+    session$setInputs(`evs-evs_group_col` = "field")
+    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
+    session$setInputs(`evs-evs_fit` = 1)
+
+    status <- output[["evs-evs_status"]]
+    expect_match(status, "^Fit successful: n = 8 control areas")
+    tbl <- output[["evs-evs_summary_table"]]
+    expect_match(tbl, "Rows before pre-analysis filter")
+    expect_match(tbl, "Rows after pre-analysis filter")
+  })
+})
+
 test_that("evs_gof_warning stays silent (not an error) when the fit fails validation", {
   testServer(make_evs_server(), {
     session$setInputs(`evs-evs_files` = make_evs_upload())

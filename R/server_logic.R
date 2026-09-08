@@ -91,6 +91,12 @@ create_server_logic <- function(input, output, session) {
     create_server_spatial(input, output, session, rv, show_message, log_operation)
   })
 
+  # Import point pattern analysis functions (K/L/G functions, CSR envelope,
+  # kernel intensity - moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("spatial_ppp", function(input, output, session) {
+    create_server_spatial_ppp(input, output, session, rv, show_message, log_operation)
+  })
+
   # Import compositional data analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
   moduleServer("coda", function(input, output, session) {
     create_server_coda(input, output, session, rv, show_message, log_operation)

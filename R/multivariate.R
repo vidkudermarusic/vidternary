@@ -444,22 +444,32 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #' @param data2 Reference dataset the model is trained on, as a data frame.
 #' @param selected_columns Character vector of column names to use for analysis.
 #' @param contamination Expected proportion of outliers (0-1). Default 0.10.
+#'   User-adjustable in the UI (Ternary Plots' Isolation Forest panel,
+#'   Data Comparison's Isolation Forest/Comprehensive panels) - both surface
+#'   whatever value was actually used in their results text, since a
+#'   reviewer reading the app's own output should be able to see it without
+#'   reading source.
 #' @param keep_outliers If `TRUE`, `kept_mask`/`filtered_data1` keep the
 #'   flagged outliers instead of the inliers. Default `FALSE`.
 #' @param ntrees Number of trees in the isolation forest. Default 200.
-#' @param sample_size Sample size drawn per tree (capped at `nrow(data2)`). Default 256.
+#'   User-adjustable in the UI, same as `contamination` above.
 #' @param score_type Score type passed to `predict.isolation_forest()`, `"score"` or `"outlier"`. Default `"score"`.
-#' @param seed Random seed for reproducibility. Default 42.
+#' @param seed Random seed for reproducibility, passed through directly to
+#'   `isotree::isolation.forest()`'s own `seed` argument (which governs its
+#'   randomness independently of R's `set.seed()` - confirmed empirically,
+#'   not assumed). Default 42.
 #' @return A list: `model` (the fitted isolation forest), `columns_used`,
-#'   `threshold`, `contamination`, `scores` (length `nrow(data1)`),
-#'   `outlier_indices`, `kept_mask`, `filtered_data1`, `ref_scores_sum`.
+#'   `threshold`, `contamination`, `ntrees`, `sample_size` (always equal to
+#'   the number of complete reference rows actually used to fit the model -
+#'   not independently configurable, see this function's own inline
+#'   comment), `scores` (length `nrow(data1)`), `outlier_indices`,
+#'   `kept_mask`, `filtered_data1`, `ref_scores_sum`.
 #' @export
 compute_isolation_forest <- function(
   data1, data2, selected_columns,
   contamination = 0.10,
   keep_outliers = FALSE,
   ntrees = 200,
-  sample_size = 256,
   score_type = "score",
   seed = 42
 ) {
@@ -478,6 +488,15 @@ compute_isolation_forest <- function(
   if (!is.numeric(contamination) || length(contamination) != 1L || is.na(contamination) ||
       contamination <= 0 || contamination >= 1) {
     stop("contamination must be a single numeric value strictly between 0 and 1.")
+  }
+
+  # Same NA_real_-from-a-cleared-numericInput hazard as contamination above -
+  # now that ntrees is user-adjustable via the UI (previously a fixed
+  # internal default), it needs the identical guard. isotree::isolation.
+  # forest(ntrees = NA) doesn't fail cleanly - it errors deep inside the
+  # C++ backend with a message naming no R-level argument at all.
+  if (!is.numeric(ntrees) || length(ntrees) != 1L || is.na(ntrees) || ntrees < 1 || ntrees != round(ntrees)) {
+    stop("ntrees must be a single positive whole number.")
   }
 
   # Check for isotree package
@@ -528,9 +547,9 @@ compute_isolation_forest <- function(
   # Unlike the Mahalanobis path (validate_multivariate_data(), which
   # enforces a minimum observation count before ever reaching this point),
   # nothing here checked that any reference rows actually survived the
-  # complete-cases filter - if X2c has 0 rows, sample_size below silently
-  # becomes min(sample_size, 0) = 0 and isotree::isolation.forest() is
-  # still called, rather than failing with a clear message.
+  # complete-cases filter - if X2c has 0 rows, sample_size below would
+  # silently become 0 and isotree::isolation.forest() would still be
+  # called, rather than failing with a clear message.
   if (nrow(X2c) < 2L) stop("Referenca nima dovolj popolnih vrstic za izolacijski gozd (potrebni sta vsaj 2).")
   # Mirrors the reference-dataset guard just above: nothing checked that
   # the TARGET dataset (data1) had any complete rows to actually score -
@@ -544,12 +563,30 @@ compute_isolation_forest <- function(
   if (nrow(X1c) < 1L) stop("Ciljni podatki nimajo nobene popolne vrstice za izolacijski gozd (izbrani stolpci vsebujejo manjkajoče vrednosti v vseh vrsticah).")
 
   # 2) Treniranje na referenci
-  set.seed(seed)
-  ss <- min(sample_size, nrow(X2c))
+  #
+  # sample_size is deliberately NOT a separate, independently-configurable
+  # parameter (it was previously a fixed internal default of 256, capped
+  # against nrow(data2)): it always equals nrow(X2c), the actual number of
+  # complete reference rows being used to fit the model, so every tree
+  # trains on the full reference sample rather than an arbitrary subsample
+  # - and so the value reported back to the user (below, and by every
+  # caller's own results text) is never out of step with what was actually
+  # used.
+  # isotree::isolation.forest()'s randomness is governed entirely by its
+  # OWN internal `seed` argument (own default 1) - confirmed empirically,
+  # not assumed: R's set.seed() has zero effect on its output regardless
+  # of what it's set to. An earlier version of this function called
+  # set.seed(seed) here and never passed `seed` through to
+  # isolation.forest() at all, so this function's own `seed` parameter
+  # (documented as controlling reproducibility) was silently dead code -
+  # every real call always ran on isotree's internal default (seed=1)
+  # instead of whatever was actually passed in.
+  ss <- nrow(X2c)
   iso_model <- isotree::isolation.forest(
     X2c,
     ntrees = ntrees,
-    sample_size = ss
+    sample_size = ss,
+    seed = seed
   )
 
   # 3) Prag iz REFERENČNIH score-ov
@@ -571,6 +608,8 @@ compute_isolation_forest <- function(
     columns_used     = colnames(X1c),
     threshold        = threshold,
     contamination    = contamination,
+    ntrees           = ntrees,
+    sample_size      = ss,                        # == nrow(X2c) - see comment above
     scores           = scores1,                  # dolžina = nrow(data1)
     outlier_indices  = outlier_indices,          # logični vektor za data1
     kept_mask        = kept,                     # kaj obdržiš glede na keep_outliers

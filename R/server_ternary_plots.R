@@ -398,7 +398,12 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
     report_lines <- c(report_lines, "")
 
-    # Multivariate Analysis Section
+    # Outlier Detection Section (Mahalanobis distance - a multivariate
+    # statistical method - and Isolation Forest - a machine-learning
+    # algorithm; the multivariate_methods variable name below is kept for
+    # both since it also names the "Multivariate Methods:" summary line's
+    # underlying data, now relabeled "Outlier Detection Methods:" since it
+    # lists both kinds of method, not just multivariate statistics)
     multivariate_methods <- c()
     if (input$use_mahalanobis) {
       multivariate_methods <- c(multivariate_methods, "Mahalanobis Distance")
@@ -421,6 +426,16 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       multivariate_methods <- c(multivariate_methods, "Isolation Forest")
       report_lines <- c(report_lines, "🌲 ISOLATION FOREST:")
       report_lines <- c(report_lines, "  • Method: Machine learning anomaly detection")
+      # Trees/contamination shown explicitly - both are now user-adjustable
+      # (previously fixed internal defaults with no way to see what was
+      # actually used), matching how Mahalanobis's own lambda/omega are
+      # already shown above. Sample size isn't listed here since it's not
+      # a setting - it always equals the reference dataset's own complete-
+      # row count, computed at run time (see compute_isolation_forest()'s
+      # own comment), not something chosen ahead of the run this report
+      # describes.
+      report_lines <- c(report_lines, paste("  • Number of trees:", input$isolation_ntrees))
+      report_lines <- c(report_lines, paste("  • Contamination:", input$isolation_contamination))
       report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_isolation) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, paste("  • Reference Dataset:", input$mahalanobis_reference_isolation))
       report_lines <- c(report_lines, "")
@@ -457,7 +472,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
     # Summary Section
     report_lines <- c(report_lines, "=== SUMMARY ===")
-    report_lines <- c(report_lines, paste("Multivariate Methods:", if (length(multivariate_methods) > 0) paste(multivariate_methods, collapse = ", ") else "None"))
+    report_lines <- c(report_lines, paste("Outlier Detection Methods:", if (length(multivariate_methods) > 0) paste(multivariate_methods, collapse = ", ") else "None"))
     report_lines <- c(report_lines, paste("Statistical Methods:", if (length(statistical_methods) > 0) paste(statistical_methods, collapse = ", ") else "None"))
     report_lines <- c(report_lines, paste("Total Methods:", length(c(multivariate_methods, statistical_methods))))
 
@@ -579,9 +594,10 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
           report_lines <- c(report_lines, paste("    • C (", paste(element_C_cols, collapse = "+"), "):", round(C_value, 3), "→", round(C_coord, 4)))
           report_lines <- c(report_lines, paste("    • Total:", round(total, 3), "| Ternary coordinates: A=", round(A_coord, 4), ", B=", round(B_coord, 4), ", C=", round(C_coord, 4)))
 
-          # Add multivariate analysis values if available
+          # Add outlier-detection values if available (Mahalanobis distance
+          # and/or Isolation Forest)
           if (length(multivariate_values) > 0) {
-            report_lines <- c(report_lines, paste("    • Multivariate:", paste(multivariate_values, collapse = ", ")))
+            report_lines <- c(report_lines, paste("    • Outlier Detection:", paste(multivariate_values, collapse = ", ")))
           }
         }
       }
@@ -634,7 +650,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     report_lines <- c(report_lines, "2. Individual Filters: Applied to Element A, B, C if specified (ternary_plot.R)")
     report_lines <- c(report_lines, "3. Optional Parameter Filters: Applied to point size and color parameters if specified (ternary_plot.R)")
     report_lines <- c(report_lines, "4. Statistical Filters: IQR, Z-Score, MAD applied to selected columns (statistical_filters.R)")
-    report_lines <- c(report_lines, "5. Multivariate Analysis: Mahalanobis, Isolation Forest applied (multivariate.R)")
+    report_lines <- c(report_lines, "5. Outlier Detection: Mahalanobis distance (multivariate statistical method) and/or Isolation Forest (machine-learning algorithm) applied (multivariate.R)")
     report_lines <- c(report_lines, "6. Ternary Coordinates: Calculated as A/(A+B+C), B/(A+B+C), C/(A+B+C) (ternary_plot.R)")
     report_lines <- c(report_lines, "7. Plot Generation: Points plotted with optional parameters for size and color (ternary_plot.R)")
     report_lines <- c(report_lines, "8. File Output: Plot saved in selected format (PNG, JPEG, PDF, TIFF) (file_management.R)")
@@ -727,87 +743,6 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       output$status <- renderText(paste("✅ Plot 2 saved successfully!\n📍 Location:", result))
       log_operation("SUCCESS", "Plot 2 saved successfully", paste("Saved to:", result))
       file.copy(result, file, overwrite = TRUE)
-    }
-  )
-
-  # Save Both Plots - both files zipped into one download. Each plot's
-  # save attempt keeps its own independent tryCatch (unchanged from
-  # before this conversion): a real error from one can't prevent the
-  # other from being attempted, so a genuine one-succeeds-one-fails
-  # outcome still delivers the one that worked - as a one-file zip, with
-  # an errors.txt alongside it naming what didn't, rather than discarding
-  # the successful plot just because its sibling failed.
-  output$plot_both <- downloadHandler(
-    filename = function() paste0("TernaryPlots_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".zip"),
-    content = function(file) {
-      if (is.null(input$xlsx_file1) || is.null(input$xlsx_file2) ||
-          is.null(input$element_A1) || is.null(input$element_B1) || is.null(input$element_C1) ||
-          is.null(input$element_A2) || is.null(input$element_B2) || is.null(input$element_C2)) {
-        stop("Please upload both files and select elements A, B, and C for each.")
-      }
-
-      out_dir <- tempfile("plot_both_save_")
-      dir.create(out_dir, recursive = TRUE)
-
-      plots_saved <- 0
-      errors <- c()
-      saved_files <- c()
-
-      tryCatch({
-        params1 <- build_ternary_plot_params(1, FALSE)
-        if (!is.null(params1)) {
-          params1$output_dir <- out_dir
-          result1 <- do.call(general_ternary_plot, params1)
-          if (!is.null(result1)) {
-            plots_saved <- plots_saved + 1
-            saved_files <- c(saved_files, result1)
-          } else {
-            errors <- c(errors, "Plot 1: Failed to save (see Analysis Log)")
-          }
-        } else {
-          errors <- c(errors, "Plot 1: Invalid parameters")
-        }
-      }, error = function(e) {
-        errors <<- c(errors, paste("Plot 1:", e$message))
-      })
-
-      tryCatch({
-        params2 <- build_ternary_plot_params(2, FALSE)
-        if (!is.null(params2)) {
-          params2$output_dir <- out_dir
-          result2 <- do.call(general_ternary_plot, params2)
-          if (!is.null(result2)) {
-            plots_saved <- plots_saved + 1
-            saved_files <- c(saved_files, result2)
-          } else {
-            errors <- c(errors, "Plot 2: Failed to save (see Analysis Log)")
-          }
-        } else {
-          errors <- c(errors, "Plot 2: Invalid parameters")
-        }
-      }, error = function(e) {
-        errors <<- c(errors, paste("Plot 2:", e$message))
-      })
-
-      # One status message reflecting the actual combined outcome - same
-      # convention as before this conversion: exactly one message per
-      # outcome, always including any errors that actually occurred.
-      if (plots_saved == 2) {
-        status_msg <- paste("✅ Both plots saved successfully!\n📍 Locations:\n• Plot 1:", saved_files[1], "\n• Plot 2:", saved_files[2])
-        log_operation("SUCCESS", "Both plots saved successfully", paste("Saved to:", paste(saved_files, collapse = "; ")))
-      } else if (plots_saved == 1) {
-        status_msg <- paste0("⚠️ One plot saved, one failed\n📍 Saved: ", saved_files[1], "\n❌ ", errors[1])
-        log_operation("WARNING", "One plot saved, one failed", paste("Saved:", saved_files[1], "| Error:", errors[1]))
-      } else {
-        status_msg <- paste("❌ Failed to save both plots\n", paste(errors, collapse = "\n"))
-        log_operation("ERROR", "Failed to save both plots", paste(errors, collapse = "; "))
-      }
-      output$status <- renderText(status_msg)
-
-      if (plots_saved == 0) stop(paste("Failed to save both plots:", paste(errors, collapse = "; ")))
-      if (length(errors) > 0) writeLines(errors, file.path(out_dir, "errors.txt"))
-
-      zip::zip(file, files = list.files(out_dir), root = out_dir)
     }
   )
 

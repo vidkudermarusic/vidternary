@@ -22,12 +22,26 @@
 # part 2 against 3..D, etc.
 #
 # Zero-handling: zeros/NAs are replaced with a small pseudo-count before
-# taking logs (default: half the smallest positive value found across the
-# selected columns). This is a simplified version of the standard
-# multiplicative zero-replacement approach in the CoDA literature (e.g.
-# Martín-Fernández et al.) - documented here rather than implemented in
-# full, since the full method needs a detection-limit per element that
-# this app's data doesn't carry.
+# taking logs - by default, half the smallest positive value found in that
+# SAME column (part), not one value shared across every selected column.
+# This matches the convention used by zCompositions (the standard R
+# package for CoDA zero-replacement - multRepl()/multLN() and similar all
+# derive each part's own replacement from that part's own observed values
+# or detection limit, never from the smallest value across unrelated
+# parts). A single earlier version of this app used one dataset-wide
+# minimum instead - simpler, but miscalibrated for data like this app's
+# own Wt% columns, which span very different natural scales (a major
+# element like Fe at ~60% next to a trace element at well under 1%): the
+# dataset-wide minimum is set by whichever trace element happens to have
+# the smallest measured value, and using that same tiny number to fill a
+# zero in a major element (which never gets anywhere near that low) is a
+# far worse approximation than filling that element's own zeros with half
+# its own smallest observed value. This is still a simplified version of
+# the full multiplicative zero-replacement approach in the CoDA literature
+# (e.g. Martín-Fernández et al.) - documented here rather than implemented
+# in full, since the full method needs a true detection limit per element
+# that this app's data doesn't carry; per-column is the standard middle
+# ground when only observed data (not real detection limits) is available.
 
 # Replace zeros/NA/non-finite values with a small pseudo-count so logs are
 # always defined. Non-finite (Inf/-Inf) values are handled the same way as
@@ -43,13 +57,36 @@
 # data used to reach stats::prcomp() downstream and fail with a raw,
 # unfriendly "infinite or missing values in 'x'" instead of ever being
 # caught here, at the actual source.
+#
+# zero_replacement, if supplied explicitly by a caller, is still honored
+# as a single shared value (e.g. a genuinely known, shared detection
+# limit) - only the auto-derived (NULL, the only way either app tab ever
+# calls this) case is now per-column.
 .coda_replace_zeros <- function(mat, zero_replacement = NULL) {
   if (is.null(zero_replacement)) {
-    positive_vals <- mat[mat > 0 & is.finite(mat)]
-    if (length(positive_vals) == 0) stop("No positive values found in the selected compositional columns.")
-    zero_replacement <- min(positive_vals) / 2
+    col_has_positive <- apply(mat, 2, function(col) any(col > 0 & is.finite(col)))
+    if (!any(col_has_positive)) stop("No positive values found in the selected compositional columns.")
+    if (!all(col_has_positive)) {
+      stop("These selected column(s) have no positive values at all (every entry is zero, missing, or non-finite), so a per-column pseudo-count can't be derived for them: ",
+           paste(colnames(mat)[!col_has_positive], collapse = ", "),
+           ". Deselect them, or supply a shared detection-limit-based replacement value directly.")
+    }
+    zero_replacement <- apply(mat, 2, function(col) min(col[col > 0 & is.finite(col)]) / 2)
   }
-  mat[!is.finite(mat) | mat <= 0] <- zero_replacement
+
+  bad <- !is.finite(mat) | mat <= 0
+  if (length(zero_replacement) == 1L) {
+    # A single shared value, explicitly supplied by the caller - applied
+    # uniformly, the original (pre-per-column) behavior.
+    mat[bad] <- zero_replacement
+  } else {
+    # Per-column: each column's own bad entries get that column's own
+    # replacement value (auto-derived above, or an explicit per-column
+    # vector a caller supplied directly).
+    for (j in seq_len(ncol(mat))) {
+      mat[bad[, j], j] <- zero_replacement[j]
+    }
+  }
   mat
 }
 
@@ -65,9 +102,11 @@
 #'
 #' @param data A data frame containing the compositional columns.
 #' @param parts Character vector of column names to transform (at least 2).
-#' @param zero_replacement Value substituted for zero/NA entries before
-#'   taking logs. Defaults to half the smallest positive value found across
-#'   `parts`.
+#' @param zero_replacement Value(s) substituted for zero/NA entries before
+#'   taking logs. Defaults to a per-column pseudo-count: half the smallest
+#'   positive value found in that part's own column (matching the
+#'   `zCompositions` convention). Pass a single number instead to apply one
+#'   shared replacement value across every part.
 #' @return A data frame of CLR-transformed values, one column per `parts` entry.
 #' @export
 clr_transform <- function(data, parts, zero_replacement = NULL) {
@@ -99,9 +138,11 @@ clr_transform <- function(data, parts, zero_replacement = NULL) {
 #' @param data A data frame containing the compositional columns.
 #' @param parts Character vector of column names to transform (at least 2).
 #'   The order determines what each `ilr_j` balance represents.
-#' @param zero_replacement Value substituted for zero/NA entries before
-#'   taking logs. Defaults to half the smallest positive value found across
-#'   `parts`.
+#' @param zero_replacement Value(s) substituted for zero/NA entries before
+#'   taking logs. Defaults to a per-column pseudo-count: half the smallest
+#'   positive value found in that part's own column (matching the
+#'   `zCompositions` convention). Pass a single number instead to apply one
+#'   shared replacement value across every part.
 #' @return A list with `ilr` (data frame, columns `ilr_1..ilr_(D-1)`),
 #'   `basis` (the `D x (D-1)` orthonormal basis matrix `V` such that
 #'   `clr = V %*% t(ilr)`), and `parts`.

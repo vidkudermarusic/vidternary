@@ -311,6 +311,14 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   lambda <- if (!is.null(input$lambda)) input$lambda else 1
   omega <- if (!is.null(input$omega)) input$omega else 0
 
+  # Isolation Forest parameters - user-adjustable in the UI (previously
+  # fixed internal defaults with no way to see or change what was used).
+  # NA-safety matches every other numericInput read here (input$lambda/
+  # omega above included): a cleared field reports NA_real_, not NULL, so
+  # !is.null() alone isn't enough - is.na() must be checked too.
+  isolation_ntrees <- if (!is.null(input$isolation_ntrees) && !is.na(input$isolation_ntrees)) input$isolation_ntrees else 200
+  isolation_contamination <- if (!is.null(input$isolation_contamination) && !is.na(input$isolation_contamination)) input$isolation_contamination else 0.10
+
   # Reference data handling
   reference_data <- NULL
   mahalanobis_reference <- "self"
@@ -426,6 +434,8 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     use_mad_filter = use_mad_filter,
     lambda = lambda,
     omega = omega,
+    isolation_ntrees = isolation_ntrees,
+    isolation_contamination = isolation_contamination,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_iqr = keep_outliers_iqr,

@@ -21,6 +21,8 @@ general_ternary_plot(
   optional_param1_representation = "point_size",
   output_format = "png",
   use_isolation_forest = FALSE,
+  isolation_ntrees = 200,
+  isolation_contamination = 0.1,
   use_iqr_filter = FALSE,
   use_zscore_filter = FALSE,
   use_mad_filter = FALSE,
@@ -84,6 +86,12 @@ be supplied by the caller in that case.}
 \item{output_format}{Saved file format: \code{"png"}, \code{"jpeg"}, \code{"pdf"}, or \code{"tiff"}. Default \code{"png"}.}
 
 \item{use_isolation_forest}{Apply an Isolation Forest outlier filter. Default \code{FALSE}.}
+
+\item{isolation_ntrees}{Number of trees in the isolation forest, when
+\code{use_isolation_forest = TRUE}. Default 200.}
+
+\item{isolation_contamination}{Expected proportion of outliers (0-1),
+when \code{use_isolation_forest = TRUE}. Default 0.10.}
 
 \item{use_iqr_filter}{Apply an IQR outlier filter. Default \code{FALSE}.}
 

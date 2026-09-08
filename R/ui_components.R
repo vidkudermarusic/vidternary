@@ -16,6 +16,7 @@
 #   ui_plot_builder_tab.R        - create_plot_builder_tab()
 #   ui_evs_tab.R                 - create_evs_tab()
 #   ui_spatial_tab.R              - create_spatial_tab()
+#   ui_spatial_ppp_tab.R          - create_spatial_ppp_tab()
 #   ui_coda_tab.R                 - create_coda_tab()
 #   ui_analysis_log_tab.R        - create_analysis_log_tab()
 
@@ -37,7 +38,7 @@ cite_link <- function(label, doi_url = NULL) {
 # Main UI function
 #' Build the full app UI: page shell, header, and tabset
 #'
-#' Assembles the page's global styling/JS, header, and all 9 tabs (via
+#' Assembles the page's global styling/JS, header, and all 10 tabs (via
 #' each tab's own `create_*_tab()`). No shared save-location picker - see
 #' this file's own header comment for why.
 #'
@@ -118,6 +119,7 @@ create_main_ui <- function() {
       create_plot_builder_tab("plot_builder"),
       create_evs_tab("evs"),
       create_spatial_tab("spatial"),
+      create_spatial_ppp_tab("spatial_ppp"),
       create_coda_tab("coda"),
       create_analysis_log_tab("analysis_log")
     ),  # Close main tabsetPanel

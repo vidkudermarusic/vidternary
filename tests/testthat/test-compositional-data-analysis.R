@@ -43,6 +43,54 @@ test_that("clr_transform errors when no positive values are present", {
   expect_error(clr_transform(d, c("a", "b")))
 })
 
+test_that("zero replacement is per-column, not one value shared across every part", {
+  # Column "a" is a major element (values ~60), column "b" a trace element
+  # (values ~0.01) - a single dataset-wide minimum would use b's tiny scale
+  # to fill a's zero, which is exactly the miscalibration this fix removes.
+  # Confirmed here by reconstructing what each column's own replacement
+  # should independently be (half its own smallest positive value) and
+  # checking clr_transform() actually used those two different numbers,
+  # not one value borrowed from the other column.
+  d <- data.frame(a = c(0, 58, 62, 60), b = c(0.02, 0, 0.03, 0.01), c = c(2, 2, 2, 2))
+  a_repl <- min(d$a[d$a > 0]) / 2  # 29
+  b_repl <- min(d$b[d$b > 0]) / 2  # 0.005
+  expect_true(a_repl != b_repl)   # sanity: the two scales really do differ
+
+  clr <- clr_transform(d, c("a", "b", "c"))
+  # Reconstruct what raw "a"/"b" values (post zero-replacement) would need
+  # to be, from the CLR output, and confirm they land on each column's OWN
+  # replacement value, not the other column's (or a shared global one).
+  # Row 1 has a's own zero (a=0, b=0.02); row 2 has b's own zero (a=58,
+  # b=0) - each checked against the row's actual other values, not
+  # against the other column's replacement.
+  row1_reconstructed <- unlist(clr[1, ]) + log(prod(c(a_repl, d$b[1], d$c[1]))^(1/3))
+  expect_equal(unname(row1_reconstructed["a"]), log(a_repl), tolerance = 1e-9)
+  row2_reconstructed <- unlist(clr[2, ]) + log(prod(c(d$a[2], b_repl, d$c[2]))^(1/3))
+  expect_equal(unname(row2_reconstructed["b"]), log(b_repl), tolerance = 1e-9)
+})
+
+test_that("an explicit single zero_replacement value still applies uniformly (back-compat)", {
+  d <- data.frame(a = c(0, 58, 62, 60), b = c(0.02, 0, 0.03, 0.01), c = c(2, 2, 2, 2))
+  clr <- clr_transform(d, c("a", "b", "c"), zero_replacement = 5)
+  row1_reconstructed <- unlist(clr[1, ]) + log(prod(c(5, d$b[1], d$c[1]))^(1/3))
+  expect_equal(unname(row1_reconstructed["a"]), log(5), tolerance = 1e-9)
+  row2_reconstructed <- unlist(clr[2, ]) + log(prod(c(d$a[2], 5, d$c[2]))^(1/3))
+  expect_equal(unname(row2_reconstructed["b"]), log(5), tolerance = 1e-9)
+})
+
+test_that("a column that is entirely zero/NA gets a clear per-column error, not a silent Inf", {
+  d <- data.frame(a = c(0, 0, 0), b = c(1, 2, 3), c = c(2, 2, 2))
+  err <- tryCatch(clr_transform(d, c("a", "b", "c")), error = function(e) e$message)
+  expect_true(is.character(err))
+  expect_true(grepl("a", err, fixed = TRUE))
+})
+
+test_that("ilr_transform also uses per-column zero replacement (shares .coda_replace_zeros with clr_transform)", {
+  d <- data.frame(a = c(0, 58, 62, 60), b = c(0.02, 0, 0.03, 0.01), c = c(2, 2, 2, 2))
+  ilr_res <- ilr_transform(d, c("a", "b", "c"))
+  expect_true(all(is.finite(as.matrix(ilr_res$ilr))))
+})
+
 test_that("ilr_transform requires at least 2 parts", {
   d <- data.frame(a = c(1, 2, 3))
   expect_error(ilr_transform(d, "a"))

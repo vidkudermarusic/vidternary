@@ -68,3 +68,72 @@ test_that("a normal, successful analysis still downloads real plots and a real v
     }
   })
 })
+
+# ---- Pre-Analysis Data Filter (helpers_pre_analysis_filter.R) ----
+# Same convention as test-server-evs.R's own filter tests: the shared
+# helper's pure logic is already covered in
+# test-helpers-pre-analysis-filter.R; what matters here is that
+# server_spatial.R actually wires it in - filtered_data() feeds result()
+# (not the raw combined_data()), and the reported row counts are real.
+
+# Writes an xlsx with a "Size" column: half the rows < 1, half > 1 -
+# lets a "Size > 1" filter cleanly halve the point count, a real,
+# checkable change rather than a coincidence.
+make_spatial_upload_with_size <- function(n = 40, seed = 1) {
+  set.seed(seed)
+  half <- n %/% 2
+  d <- data.frame(
+    StageX = stats::runif(n, 0, 1000), StageY = stats::runif(n, 0, 1000),
+    Size = c(stats::runif(half, 0.01, 0.5), stats::runif(n - half, 2, 10))
+  )
+  path <- tempfile(fileext = ".xlsx")
+  openxlsx::write.xlsx(d, path)
+  data.frame(name = basename(path), size = file.info(path)$size, type = "",
+             datapath = path, stringsAsFactors = FALSE)
+}
+
+test_that("the pre-analysis filter genuinely changes which points reach the Clark-Evans test", {
+  testServer(make_spatial_server(), {
+    session$setInputs(`spatial-spatial_files` = make_spatial_upload_with_size(n = 40))
+    session$setInputs(`spatial-spatial_x_col` = "StageX")
+    session$setInputs(`spatial-spatial_y_col` = "StageY")
+    session$setInputs(`spatial-spatial_filter_cols` = "Size")
+    session$setInputs(`spatial-spatial_filter_Size` = "> 1")
+    session$setInputs(`spatial-spatial_analyze` = 1)
+
+    status <- output[["spatial-spatial_status"]]
+    expect_match(status, "^n = 20 points")  # only the "large" half survives
+
+    tbl <- output[["spatial-spatial_summary_table"]]
+    expect_match(tbl, "Rows before pre-analysis filter")
+    expect_match(tbl, "40")
+    expect_match(tbl, "Rows after pre-analysis filter")
+    expect_match(tbl, "20")
+  })
+})
+
+test_that("a pre-analysis filter that removes every point surfaces a clear message instead of crashing downstream", {
+  testServer(make_spatial_server(), {
+    session$setInputs(`spatial-spatial_files` = make_spatial_upload_with_size(n = 40))
+    session$setInputs(`spatial-spatial_x_col` = "StageX")
+    session$setInputs(`spatial-spatial_y_col` = "StageY")
+    session$setInputs(`spatial-spatial_filter_cols` = "Size")
+    session$setInputs(`spatial-spatial_filter_Size` = "> 999999")
+    session$setInputs(`spatial-spatial_analyze` = 1)
+
+    err <- expect_error(output[["spatial-spatial_status"]])
+    expect_match(conditionMessage(err), "No rows remain after applying the pre-analysis filter", fixed = TRUE)
+  })
+})
+
+test_that("leaving the filter columns unselected behaves exactly as before this feature existed (no regression)", {
+  testServer(make_spatial_server(), {
+    session$setInputs(`spatial-spatial_files` = make_spatial_upload())
+    session$setInputs(`spatial-spatial_x_col` = "StageX")
+    session$setInputs(`spatial-spatial_y_col` = "StageY")
+    session$setInputs(`spatial-spatial_analyze` = 1)
+
+    status <- output[["spatial-spatial_status"]]
+    expect_match(status, "^n = 30 points")  # make_spatial_upload()'s default n
+  })
+})

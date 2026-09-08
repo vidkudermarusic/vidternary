@@ -21,6 +21,8 @@ prepare_ternary_plot_data(
   optional_param1_representation,
   output_format,
   use_isolation_forest,
+  isolation_ntrees = 200,
+  isolation_contamination = 0.1,
   use_iqr_filter,
   use_zscore_filter,
   use_mad_filter,
@@ -81,6 +83,11 @@ how \code{optional_param1} maps onto the plotted points.}
 \item{output_format}{File format for a real save (e.g. \code{"png"}).}
 
 \item{use_isolation_forest}{Apply isolation-forest outlier filtering.}
+
+\item{isolation_ntrees, isolation_contamination}{Number of trees and
+contamination fraction for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
+\code{use_isolation_forest = TRUE}. User-adjustable in the UI; default 200
+trees, 0.10 contamination.}
 
 \item{use_iqr_filter, use_zscore_filter, use_mad_filter}{Apply IQR /
 Z-score / MAD statistical outlier filtering. Only one

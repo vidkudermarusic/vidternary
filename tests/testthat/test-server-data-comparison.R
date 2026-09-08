@@ -258,6 +258,50 @@ test_that("Isolation Forest single-method panel shows its own real fields (not M
   })
 })
 
+test_that("Isolation Forest's number-of-trees and contamination are user-adjustable and shown in both panels", {
+  # Previously fixed internal defaults (ntrees=200, contamination=0.10)
+  # with no UI control and no display of what was actually used. Both are
+  # now real inputs, and both the single-method panel and the
+  # Comprehensive panel report exactly what was used - a reviewer reading
+  # the app's own output shouldn't need to read source to know these.
+  server <- make_data_comparison_server()
+  upload <- make_upload(make_comparison_data(n = 30, cols = c("Al", "Si", "Mn")))
+  testServer(server, {
+    session$setInputs(`data_comparison-comparison_files` = upload)
+    session$setInputs(`data_comparison-comparison_mv_target` = "sample")
+    session$setInputs(`data_comparison-comparison_mv_reference` = "__self__")
+    session$setInputs(`data_comparison-comparison_mv_columns` = c("Al", "Si", "Mn"))
+    session$setInputs(`data_comparison-comparison_iso_ntrees` = 77)
+    session$setInputs(`data_comparison-comparison_iso_contamination` = 0.25)
+
+    session$setInputs(`data_comparison-isolation_forest_analysis` = 1)
+    single_out <- output[["data_comparison-isolation_forest_output"]]
+    expect_match(single_out, "Trees: 77")
+    expect_match(single_out, "Contamination: 0.25")
+    expect_match(single_out, "Sample size \\(reference rows used\\): 30")
+
+    session$setInputs(`data_comparison-comparison_mv_run_comprehensive` = 1)
+    comprehensive_out <- output[["data_comparison-mahalanobis_info"]]
+    expect_match(comprehensive_out, "Trees: 77")
+    expect_match(comprehensive_out, "Contamination: 0.25")
+  })
+})
+
+test_that("clearing the trees/contamination fields falls back to the documented defaults, not a crash (NA-safety regression)", {
+  server <- make_data_comparison_server()
+  upload <- make_upload(make_comparison_data(n = 20, cols = c("Al", "Si", "Mn")))
+  testServer(server, {
+    session$setInputs(`data_comparison-comparison_files` = upload)
+    session$setInputs(`data_comparison-comparison_mv_target` = "sample")
+    session$setInputs(`data_comparison-comparison_mv_reference` = "__self__")
+    session$setInputs(`data_comparison-comparison_mv_columns` = c("Al", "Si", "Mn"))
+    session$setInputs(`data_comparison-comparison_iso_ntrees` = NA_real_)
+    session$setInputs(`data_comparison-isolation_forest_analysis` = 1)
+    out <- output[["data_comparison-isolation_forest_output"]]
+    expect_match(out, "Trees: 200")
+  })
+})
+
 test_that("Comprehensive Analysis Results panel shows both Mahalanobis and Isolation Forest sections, with the right self/cross-reference interpretation", {
   server <- make_data_comparison_server()
   target <- make_upload(make_comparison_data(seed = 1, cols = c("Al", "Si", "Mn")), "target.xlsx")
