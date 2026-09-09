@@ -89,7 +89,7 @@ create_hex_ternary_tab <- function(id) {
           ),
           column(6,
             h4("Output Settings"),
-            helpText("Clicking \"Shrani diagram\" opens your browser's own Save dialog - choose where the file goes there."),
+            helpText("Clicking \"Create & Save diagram\" builds the composite and opens your browser's own Save dialog - choose where the file goes there."),
             textInput(ns("hex_output_folder"), "Filename for Diagram",
               value = "hex_ternary_diagrams", placeholder = "Enter filename")
           )
@@ -117,11 +117,12 @@ create_hex_ternary_tab <- function(id) {
         ),
 
         fluidRow(
+          column(12, create_pre_filter_ui(ns, "hex"))
+        ),
+
+        fluidRow(
           column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton(ns("hex_generate"), "Ustvari heksagonalni diagram",
-              class = "btn-primary btn-lg", style = "font-size: 18px;"),
-            br(), br(),
-            downloadButton(ns("hex_save"), "Shrani diagram",
+            downloadButton(ns("hex_save"), "Create & Save diagram",
               class = "btn-success btn-lg", style = "font-size: 18px;")
           )
         ),

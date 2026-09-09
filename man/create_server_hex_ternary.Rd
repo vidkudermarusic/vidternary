@@ -31,6 +31,6 @@ A list with \code{module_name}.
 }
 \description{
 Registers the observers/renderers for the "Hexagonal Ternary Diagram"
-tab: file upload, the 7 element-slot dropdowns, and the Generate/Save
-handlers (via \code{create_hex_ternary_diagram()}).
+tab: file upload, the 7 element-slot dropdowns, and the single
+"Create & Save diagram" handler (via \code{create_hex_ternary_diagram()}).
 }
