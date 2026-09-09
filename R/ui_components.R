@@ -126,7 +126,7 @@ create_main_ui <- function() {
 
     tags$hr(),
     tags$footer(
-      HTML("© 2025 Vid Kuder Marušič — <a href='mailto:vid.kudermarusic@gmail.com'>vid.kudermarusic@gmail.com</a>"),
+      HTML("Vid Kuder Marušič — <a href='mailto:vid.kudermarusic@gmail.com'>vid.kudermarusic@gmail.com</a>"),
       align = "center",
       style = "color: #888; background-color: #f9f9f9; padding: 10px 0; font-size: 0.95em;"
     )
