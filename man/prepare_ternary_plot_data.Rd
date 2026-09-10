@@ -23,6 +23,7 @@ prepare_ternary_plot_data(
   use_isolation_forest,
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
+  isolation_sample_size = NULL,
   use_iqr_filter,
   use_zscore_filter,
   use_mad_filter,
@@ -88,6 +89,10 @@ how \code{optional_param1} maps onto the plotted points.}
 contamination fraction for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
 \code{use_isolation_forest = TRUE}. User-adjustable in the UI; default 200
 trees, 0.10 contamination.}
+
+\item{isolation_sample_size}{Rows each isolation tree trains on. \code{NULL}
+(default) uses every complete reference row; a whole number \verb{>= 2}
+sub-samples that many per tree (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
 
 \item{use_iqr_filter, use_zscore_filter, use_mad_filter}{Apply IQR /
 Z-score / MAD statistical outlier filtering. Only one

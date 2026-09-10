@@ -74,6 +74,32 @@ test_that("predict_evs_max returns an ordered prediction interval that grows wit
   expect_true(pred$predicted > pred2$predicted)
 })
 
+test_that("predict_evs_max returns the ASTM-style confidence interval on the estimate, nested inside the prediction interval", {
+  set.seed(1)
+  n <- 20
+  j <- seq_len(n)
+  y <- -log(-log(j / (n + 1)))
+  sqrt_area_max <- 5 + 2 * y + stats::rnorm(n, sd = 0.3)
+  fit <- fit_evs_gumbel(sqrt_area_max)
+
+  pred <- predict_evs_max(fit, return_period = 100)
+
+  # The CI on the estimate must be ordered and centred on `predicted`.
+  expect_true(pred$ci_lower <= pred$predicted)
+  expect_true(pred$predicted <= pred$ci_upper)
+  expect_equal((pred$ci_lower + pred$ci_upper) / 2, pred$predicted, tolerance = 1e-8)
+
+  # The prediction interval (adds residual scatter) must be strictly wider
+  # than the confidence interval (fit uncertainty only) - with real
+  # residual variance present, not a tie.
+  expect_gt(pred$upper - pred$lower, pred$ci_upper - pred$ci_lower)
+
+  # se_fit is the half-width of the CI divided by the t critical value.
+  t_crit <- stats::qt(0.975, df = fit$n - 2)
+  expect_equal(pred$se_fit, (pred$ci_upper - pred$ci_lower) / (2 * t_crit), tolerance = 1e-8)
+  expect_gt(pred$se_fit, 0)
+})
+
 test_that("gumbel_goodness_of_fit returns a valid bootstrap p-value", {
   set.seed(2)
   n <- 15

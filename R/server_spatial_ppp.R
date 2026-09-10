@@ -101,6 +101,12 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     nsim <- if (!is.null(input$ppp_nsim) && is.finite(input$ppp_nsim) && input$ppp_nsim >= 1) {
       round(input$ppp_nsim)
     } else 99
+    ppp_window <- if (!is.null(input$ppp_window) && input$ppp_window == "rectangle") "rectangle" else "convex_hull"
+    # Global (simultaneous) envelope by default - a valid whole-curve test;
+    # unticking gives the descriptive pointwise band. NULL (input not yet
+    # rendered) -> the default TRUE.
+    global_env <- !isFALSE(input$ppp_global_envelope)
+    edge_correct <- !isFALSE(input$ppp_edge_correct)
 
     # Progress bar, not a speedup: profiled directly (see the vidternary
     # Structural Audit for the numbers) that the CSR envelope test alone -
@@ -124,7 +130,7 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     # per-simulation percentage it can't really measure.
     shiny::withProgress(message = "Analyzing point pattern...", value = 0, {
       shiny::incProgress(0.05, detail = "Building point pattern")
-      pp <- tryCatch(build_point_pattern(x[valid], y[valid]),
+      pp <- tryCatch(build_point_pattern(x[valid], y[valid], window = ppp_window),
                       error = function(e) { shiny::validate(paste("Error building point pattern:", e$message)) })
 
       shiny::incProgress(0.15, detail = "Computing K/L/G functions")
@@ -136,20 +142,22 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
                      error = function(e) { shiny::validate(paste("Error computing G-function:", e$message)) })
 
       shiny::incProgress(0.15, detail = "Computing kernel intensity map")
-      dens <- tryCatch(compute_kernel_intensity(pp),
+      dens <- tryCatch(compute_kernel_intensity(pp, edge_correct = edge_correct),
                          error = function(e) { shiny::validate(paste("Error computing kernel intensity:", e$message)) })
 
       shiny::incProgress(0.05, detail = sprintf(
         "Running %d CSR envelope simulations - this is the slow step, especially for larger datasets. Lower “Number of CSR envelope simulations” above for a faster (still valid, just coarser) result.",
         nsim))
-      env <- tryCatch(compute_csr_envelope(pp, nsim = nsim),
+      env <- tryCatch(compute_csr_envelope(pp, nsim = nsim, global = global_env),
                         error = function(e) { shiny::validate(paste("Error running CSR envelope test:", e$message)) })
 
       shiny::incProgress(0.60, detail = "Done")
 
       list(pp = pp, k = k, l = l, g = g, env = env, dens = dens,
            x = x[valid], y = y[valid], mark_by = mark_by, mark_label = input$ppp_mark_col,
-           nsim = nsim,
+           nsim = nsim, window = ppp_window,
+           envelope_type = if (global_env) "global" else "pointwise",
+           edge_corrected = edge_correct,
            n_rows_before_filter = nrow(combined_data()), n_rows_after_filter = nrow(d),
            n = spatstat.geom::npoints(pp), area = spatstat.geom::area.owin(spatstat.geom::Window(pp)),
            # "intensity" here is the single GLOBAL average (n / area) - a
@@ -225,14 +233,19 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
 
   output$ppp_summary_table <- renderTable({
     res <- result()
+    window_label <- if (isTRUE(res$window == "rectangle")) "Window area (bounding box)" else "Window area (convex hull)"
     data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
-                 "Points (n)", "Window area (convex hull)", "Mean intensity (n / area)",
+                 "Points (n)", "Observation window", window_label, "Mean intensity (n / area)",
                  "Peak kernel intensity (hotspot map's highest local value)",
-                 "CSR envelope simulations"),
+                 "Kernel intensity edge correction", "CSR envelope type", "CSR envelope simulations"),
       Value = c(sprintf("%d", res$n_rows_before_filter), sprintf("%d", res$n_rows_after_filter),
-                sprintf("%d", res$n), sprintf("%.4g", res$area), sprintf("%.6g", res$intensity),
+                sprintf("%d", res$n),
+                if (isTRUE(res$window == "rectangle")) "Rectangle (bounding box)" else "Convex hull",
+                sprintf("%.4g", res$area), sprintf("%.6g", res$intensity),
                 sprintf("%.6g", res$peak_intensity),
+                if (isTRUE(res$edge_corrected)) "Diggle (on)" else "Off",
+                if (identical(res$envelope_type, "pointwise")) "Pointwise (descriptive)" else "Global (simultaneous)",
                 sprintf("%d", res$nsim))
     )
   })

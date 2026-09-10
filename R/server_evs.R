@@ -62,7 +62,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     updateSelectInput(session, "evs_area_col", choices = numeric_cols,
                        selected = first_match_or_null(numeric_cols, "^area"))
     updateSelectInput(session, "evs_group_col", choices = names(d),
-                       selected = first_match_or_null(names(d), "^field$"))
+                       selected = first_match_or_null(names(d), "field|frame|fov|f\\.o\\.v"))
     updateSelectizeInput(session, "evs_filter_cols", choices = numeric_cols)
   })
 
@@ -91,26 +91,18 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     req(input$evs_area_col)
     shiny::validate(shiny::need(input$evs_area_col %in% names(d), "Select a valid area column."))
 
-    if (isTRUE(input$evs_use_manual_groups)) {
-      n_groups <- input$evs_n_groups
-      # Upper-bounded at nrow(d)/2 so every group averages at least 2 rows -
-      # a "block maximum" is meaningless as the max of a single measurement,
-      # and undermines the method's statistical premise (see ui_evs_tab.R's
-      # own note that this fallback is for trend estimation only). Without
-      # this, a value close to nrow(d) silently created singleton
-      # pseudo-groups with no warning.
-      max_groups <- max(3, floor(nrow(d) / 2))
-      shiny::validate(shiny::need(
-        is.finite(n_groups) && n_groups >= 3 && n_groups <= max_groups,
-        sprintf("Number of groups must be between 3 and %d (at least 2 rows per group, on average, for %d total rows).", max_groups, nrow(d))
-      ))
-      d$.evs_group <- cut(seq_len(nrow(d)), breaks = n_groups, labels = FALSE)
-      group_col <- ".evs_group"
-    } else {
-      shiny::validate(shiny::need(!is.null(input$evs_group_col) && input$evs_group_col %in% names(d),
-                                   "Select a field/group ID column, or enable manual grouping."))
-      group_col <- input$evs_group_col
-    }
+    # A genuine per-field / per-frame ID column is mandatory. The former
+    # "split into N equal groups" fallback (cut(seq_len(nrow(d)), ...)) was
+    # removed: chunking a flat row list by position is not a set of ASTM
+    # control areas - it depends on the sheet's sort order, and it forces
+    # equal inclusion COUNTS when control areas are defined by equal
+    # inspected AREA (a field with more inclusions legitimately has a larger
+    # block maximum). With no valid grouping there is no valid EVS fit, so
+    # this now hard-stops with an actionable message instead of silently
+    # producing a sort-order-dependent number.
+    shiny::validate(shiny::need(!is.null(input$evs_group_col) && input$evs_group_col %in% names(d),
+                                 "Select the field / frame ID column that identifies which SEM field each inclusion came from. EVS needs genuine per-field grouping and cannot run without it."))
+    group_col <- input$evs_group_col
 
     block_maxima <- tryCatch(compute_block_maxima(d, input$evs_area_col, group_col),
                               error = function(e) { shiny::validate(paste("Error computing block maxima:", e$message)) })
@@ -140,9 +132,9 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     # message - but only if this render function doesn't itself catch and
     # discard the error first. The old code caught every error the same
     # way (as NULL), so every validate() failure - wrong area column,
-    # out-of-range evs_n_groups, etc. - showed this same generic "Upload
-    # data..." text instead of the specific message telling the user what
-    # to fix.
+    # missing field/frame ID column, etc. - showed this same generic
+    # "Upload data..." text instead of the specific message telling the
+    # user what to fix.
     #
     # The "not yet fitted" case is handled up front by checking whether
     # the button has been clicked, rather than by catching fit_result()'s
@@ -235,9 +227,14 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     }
     if (!is.null(pred)) {
       df <- rbind(df, data.frame(
-        Metric = c("Return period T", "Predicted √Area (µm)", "95% prediction interval"),
+        Metric = c("Return period T", "Predicted √Area (µm)",
+                   "95% prediction interval (single future max)",
+                   "95% confidence interval (on the estimate, ASTM-style)",
+                   "Std. error of the estimate"),
         Value = c(sprintf("%.0f", pred$return_period), sprintf("%.2f", pred$predicted),
-                  sprintf("[%.2f, %.2f]", pred$lower, pred$upper))
+                  sprintf("[%.2f, %.2f]", pred$lower, pred$upper),
+                  sprintf("[%.2f, %.2f]", pred$ci_lower, pred$ci_upper),
+                  sprintf("%.3f", pred$se_fit))
       ))
     }
     df

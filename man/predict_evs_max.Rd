@@ -13,10 +13,35 @@ predict_evs_max(fit, return_period)
 a finite number greater than 1.}
 }
 \value{
-A list: \code{return_period}, \code{y}, \code{predicted}, \code{lower}, \code{upper} (95\% PI bounds).
+A list: \code{return_period}, \code{y}, \code{predicted}, \code{lower}/\code{upper} (95\%
+prediction-interval bounds), \code{ci_lower}/\code{ci_upper} (95\%
+confidence-interval bounds on \code{predicted}), \code{se_fit} (standard error
+of \code{predicted}).
 }
 \description{
 Extrapolates the fitted Gumbel line to reduced variate
-\code{y_T = -ln(-ln(1 - 1/T))} for return period \code{T}, with a 95\% prediction
-interval from the underlying linear model.
+\code{y_T = -ln(-ln(1 - 1/T))} for return period \code{T}, and returns two
+intervals from the underlying linear model:
+}
+\details{
+\itemize{
+\item \strong{Prediction interval} (\code{lower}/\code{upper}): the range a \emph{single} future
+block maximum over \code{T} control areas is expected to fall in - the
+"largest inclusion you might actually see" bound. Wider, because it
+adds the residual scatter of block maxima about the fitted line.
+\item \strong{Confidence interval} (\code{ci_lower}/\code{ci_upper}) and its standard error
+\code{se_fit}: the uncertainty in the \emph{estimated} return level \code{predicted}
+itself (\code{se_fit} is the delta-method SE of \code{a_hat + b_hat * y_T}, i.e.
+\verb{sqrt(c' vcov(model) c)} with \verb{c = (1, y_T)}). This is the quantity
+ASTM E2283 reports as the confidence bound on the predicted maximum.
+}
+
+Both are \strong{defensible approximations}, not exact: they treat the
+reduced variate \code{y_T} as known and the straight-line Gumbel
+probability-plot model as correct. They do not propagate the sampling
+uncertainty in the block maxima themselves, nor Gumbel-model
+misspecification - the latter is assessed separately by
+\code{gumbel_goodness_of_fit()}. This is the standard interval treatment for
+the least-squares probability-plot method (an exact interval would
+require MLE fitting and the Gumbel parameters' full information matrix).
 }

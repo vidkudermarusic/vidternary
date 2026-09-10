@@ -318,6 +318,17 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   # !is.null() alone isn't enough - is.na() must be checked too.
   isolation_ntrees <- if (!is.null(input$isolation_ntrees) && !is.na(input$isolation_ntrees)) input$isolation_ntrees else 200
   isolation_contamination <- if (!is.null(input$isolation_contamination) && !is.na(input$isolation_contamination)) input$isolation_contamination else 0.10
+  # sample_size: the "Use all reference rows" checkbox (default checked, and
+  # the pre-checkbox behaviour) maps to NULL; unchecking it activates the
+  # numeric sub-sample size. A cleared numeric field (NA_real_) also falls
+  # back to NULL rather than erroring downstream.
+  isolation_sample_size <- if (isTRUE(input$isolation_use_all_rows) || is.null(input$isolation_use_all_rows)) {
+    NULL
+  } else if (!is.null(input$isolation_sample_size) && !is.na(input$isolation_sample_size)) {
+    input$isolation_sample_size
+  } else {
+    NULL
+  }
 
   # Reference data handling
   reference_data <- NULL
@@ -436,6 +447,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     omega = omega,
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
+    isolation_sample_size = isolation_sample_size,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_iqr = keep_outliers_iqr,

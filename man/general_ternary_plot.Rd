@@ -23,6 +23,7 @@ general_ternary_plot(
   use_isolation_forest = FALSE,
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
+  isolation_sample_size = NULL,
   use_iqr_filter = FALSE,
   use_zscore_filter = FALSE,
   use_mad_filter = FALSE,
@@ -92,6 +93,11 @@ be supplied by the caller in that case.}
 
 \item{isolation_contamination}{Expected proportion of outliers (0-1),
 when \code{use_isolation_forest = TRUE}. Default 0.10.}
+
+\item{isolation_sample_size}{Rows each isolation tree trains on, when
+\code{use_isolation_forest = TRUE}. \code{NULL} (default) uses every complete
+reference row; a whole number \verb{>= 2} sub-samples that many per tree
+(see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
 
 \item{use_iqr_filter}{Apply an IQR outlier filter. Default \code{FALSE}.}
 

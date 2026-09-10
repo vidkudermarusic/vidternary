@@ -22,12 +22,12 @@ create_evs_tab <- function(id) {
         div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
           h5("🎯 How it works", style = "margin-top: 0; color: #0c5460;"),
           tags$ul(
-            tags$li("The inspected area is split into equal 'control areas' - ideally one SEM field-of-view each."),
+            tags$li("The inspected area is split into equal 'control areas' - ideally one SEM field-of-view each, identified by a field/frame ID column in your data."),
             tags$li("The largest inclusion (by √Area) in each control area is its block maximum."),
             tags$li("Block maxima are fit to a Gumbel probability plot; the fitted line predicts the largest inclusion over T control areas."),
-            tags$li(strong("What T actually means depends on your grouping choice below:"),
-              " if you select a real field/frame-of-view ID column, each control area is a known physical SEM area, so T = 100 means a real area 100× one field. ",
-              "If you instead use the 'split into N equal groups' fallback, each group is just an arbitrary slice of rows with no fixed physical size - T = 100 there only means '100× as many statistical groups', not a known physical area."),
+            tags$li(strong("A real field/frame ID column is required."),
+              " Each distinct value of that column is one control area of known physical size, so T = 100 means a real area 100× one field. ",
+              "The method has no valid meaning without genuine per-field grouping - splitting a flat row list into N arbitrary chunks is not a set of control areas (it depends on sort order and forces equal inclusion counts rather than equal areas), so that fallback has been removed."),
             tags$li("Method: ", cite_link("Murakami, 1994", "https://doi.org/10.6028/jres.099.032"),
               ", standardized in ", cite_link("ASTM E2283-08(2019)"), ". ",
               "Goodness-of-fit is tested with the Anderson-Darling statistic (",
@@ -45,18 +45,10 @@ create_evs_tab <- function(id) {
           column(6,
             h4("Control Area Grouping"),
             selectInput(ns("evs_area_col"), "Area column (µm²):", choices = NULL),
-            checkboxInput(ns("evs_use_manual_groups"), "No field/frame ID column available - split data into N equal groups instead", value = FALSE),
-            conditionalPanel(
-              condition = paste0("input['", ns("evs_use_manual_groups"), "'] == false"),
-              selectInput(ns("evs_group_col"), "Field / group ID column:", choices = NULL)
-            ),
-            conditionalPanel(
-              condition = paste0("input['", ns("evs_use_manual_groups"), "'] == true"),
-              numericInput(ns("evs_n_groups"), "Number of equal groups (control areas):", value = 20, min = 3, step = 1),
-              div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px;",
-                strong("⚠ Note: "), "these groups have no known physical area. The return period T below will only mean ",
-                em("\"T× as many statistical groups\""), ", not a real area multiple - use this mode for trend estimation only, not for a physically-calibrated prediction."
-              )
+            selectInput(ns("evs_group_col"), "Field / frame ID column (required):", choices = NULL),
+            div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px;",
+              strong("Required: "), "pick the column that identifies which SEM field / frame each inclusion came from. ",
+              "Each distinct value becomes one control area. If your export has no such column, EVS cannot be run on it - the method needs genuine per-field grouping, not an arbitrary split of the row list."
             )
           )
         ),
@@ -82,8 +74,7 @@ create_evs_tab <- function(id) {
           column(4,
             h4("Prediction"),
             numericInput(ns("evs_return_period"), "Return period T (multiples of the control area):", value = 100, min = 1.01, step = 1),
-            helpText("E.g. T = 100 predicts the largest inclusion expected over 100× the control area used above. ",
-                     "This is a real physical area only when a field/frame ID column was used for grouping; with the manual N-groups fallback, T is a statistical multiple only (see note above)."),
+            helpText("E.g. T = 100 predicts the largest inclusion expected over 100× one control area (one SEM field / frame)."),
             downloadButton(ns("evs_download_plot"), "Download plot (PNG)"),
             br(), br(),
             downloadButton(ns("evs_download_table"), "Download block maxima (xlsx)")

@@ -47,6 +47,10 @@
 #'   `use_isolation_forest = TRUE`. Default 200.
 #' @param isolation_contamination Expected proportion of outliers (0-1),
 #'   when `use_isolation_forest = TRUE`. Default 0.10.
+#' @param isolation_sample_size Rows each isolation tree trains on, when
+#'   `use_isolation_forest = TRUE`. `NULL` (default) uses every complete
+#'   reference row; a whole number `>= 2` sub-samples that many per tree
+#'   (see [compute_isolation_forest()]).
 #' @param use_iqr_filter Apply an IQR outlier filter. Default `FALSE`.
 #' @param use_zscore_filter Apply a Z-score outlier filter. Default `FALSE`.
 #' @param use_mad_filter Apply a MAD outlier filter. Default `FALSE`.
@@ -99,6 +103,7 @@ general_ternary_plot <- function(
     use_isolation_forest = FALSE,
     isolation_ntrees = 200,
     isolation_contamination = 0.10,
+    isolation_sample_size = NULL,
     use_iqr_filter = FALSE,
     use_zscore_filter = FALSE,
     use_mad_filter = FALSE,
@@ -214,6 +219,7 @@ general_ternary_plot <- function(
     use_isolation_forest = use_isolation_forest,
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
+    isolation_sample_size = isolation_sample_size,
     use_iqr_filter = use_iqr_filter,
     use_zscore_filter = use_zscore_filter,
     use_mad_filter = use_mad_filter,

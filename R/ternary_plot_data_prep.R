@@ -247,6 +247,9 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
 #' @param isolation_ntrees,isolation_contamination Number of trees and
 #'   contamination fraction for [compute_isolation_forest()], when
 #'   `use_isolation_forest = TRUE`. User-adjustable in the UI.
+#' @param isolation_sample_size Rows each isolation tree trains on - `NULL`
+#'   for every complete reference row (default), or a whole number `>= 2`
+#'   to sub-sample (see [compute_isolation_forest()]).
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`) - `M`, `mahal_result`, and `iso_result` are
 #'   the fields [prepare_ternary_plot_data()] actually reads back; the rest
@@ -258,7 +261,8 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
                                           mahalanobis_reference, reference_data, preview,
                                           keep_outliers_isolation, keep_outliers_mahalanobis,
                                           lambda, omega, custom_mdthresh, mdthresh_mode,
-                                          isolation_ntrees = 200, isolation_contamination = 0.10) {
+                                          isolation_ntrees = 200, isolation_contamination = 0.10,
+                                          isolation_sample_size = NULL) {
   mahal_result <- NULL
   iso_result <- NULL
 
@@ -327,7 +331,8 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
       tryCatch({
         if (use_isolation_forest) {
           iso_result <- compute_isolation_forest(M, actual_reference_data, keep_outliers = keep_outliers_isolation, selected_columns = selected_columns,
-                                                  ntrees = isolation_ntrees, contamination = isolation_contamination)
+                                                  ntrees = isolation_ntrees, contamination = isolation_contamination,
+                                                  sample_size = isolation_sample_size)
           keep_indices <- if (keep_outliers_isolation) {
             iso_result$outlier_indices
           } else {
@@ -1505,6 +1510,9 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 #'   contamination fraction for [compute_isolation_forest()], when
 #'   `use_isolation_forest = TRUE`. User-adjustable in the UI; default 200
 #'   trees, 0.10 contamination.
+#' @param isolation_sample_size Rows each isolation tree trains on. `NULL`
+#'   (default) uses every complete reference row; a whole number `>= 2`
+#'   sub-samples that many per tree (see [compute_isolation_forest()]).
 #' @param use_iqr_filter,use_zscore_filter,use_mad_filter Apply IQR /
 #'   Z-score / MAD statistical outlier filtering. Only one
 #'   statistical/multivariate filter is meant to be active per plot -
@@ -1593,6 +1601,7 @@ prepare_ternary_plot_data <- function(
     use_isolation_forest,
     isolation_ntrees = 200,
     isolation_contamination = 0.10,
+    isolation_sample_size = NULL,
     use_iqr_filter,
     use_zscore_filter,
     use_mad_filter,
@@ -1731,6 +1740,7 @@ prepare_ternary_plot_data <- function(
     use_isolation_forest = use_isolation_forest,
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
+    isolation_sample_size = isolation_sample_size,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
     reference_data = reference_data,
@@ -1914,20 +1924,39 @@ prepare_ternary_plot_data <- function(
         mv_info <- c(mv_info, paste("Isolation Forest", outlier_status))
 
         # Model parameters shown explicitly on the plot itself - ntrees/
-        # contamination are now user-adjustable (previously fixed internal
-        # defaults with no way to see what was actually used), matching
-        # how Mahalanobis's own lambda/omega/threshold are already shown
-        # just above. sample_size is read back from iso_result rather than
-        # assumed, since it always equals the reference's own complete-row
-        # count for the selected columns (see compute_isolation_forest()'s
-        # own comment), not a value chosen here.
+        # contamination/sample_size are all user-adjustable (previously
+        # fixed internal defaults with no way to see what was actually
+        # used), matching how Mahalanobis's own lambda/omega/threshold are
+        # already shown just above. sample_size is read back from
+        # iso_result rather than assumed, since the requested value is
+        # clamped to the reference's own complete-row count (see
+        # compute_isolation_forest()'s own comment).
         if (!is.null(iso_result)) {
           mv_info <- c(mv_info, paste("  Trees:", iso_result$ntrees))
           mv_info <- c(mv_info, paste("  Contamination:", iso_result$contamination))
-          mv_info <- c(mv_info, paste("  Sample size (reference rows):", iso_result$sample_size))
+          ss_label <- if (is.null(isolation_sample_size)) {
+            paste0(iso_result$sample_size, " (all reference rows)")
+          } else {
+            paste0(iso_result$sample_size, " (sub-sampled per tree)")
+          }
+          mv_info <- c(mv_info, paste("  Sample size:", ss_label))
         }
       }
-      analysis_summary <- c(analysis_summary, paste("Outlier Detection:", paste(mv_info, collapse = ", ")))
+      # mv_info's entries are appended as their OWN separate lines (not
+      # joined with ", " into one string) - Mahalanobis/Isolation Forest
+      # each contribute several detail lines here (MDmean/MDthresh/stdMD/
+      # Method, or Trees/Contamination/Sample size), and a single
+      # comma-joined line easily runs to 100+ characters. mtext() draws an
+      # embedded "\n" as a real line break, but only WITHIN one string - a
+      # single element of analysis_summary with no "\n" of its own never
+      # wraps at all, so that one long line was drawn as-is and (at
+      # adj=1, right-aligned) extended far enough left to visually overlap
+      # the center/left plot-notes columns - confirmed directly to be the
+      # cause of the "text overlaps when using Isolation Forest or
+      # Mahalanobis" report, not a rendering quirk of mtext() itself
+      # (elements_summary/optional_summary never had this bug - they
+      # already appended each line as its own element).
+      analysis_summary <- c(analysis_summary, "Outlier Detection:", mv_info)
     }
 
     # Statistical filtering
@@ -1945,7 +1974,13 @@ prepare_ternary_plot_data <- function(
         outlier_status <- if (keep_outliers_mad) "(keep only outliers)" else "(remove outliers)"
         stat_info <- c(stat_info, paste("MAD", outlier_status))
       }
-      analysis_summary <- c(analysis_summary, paste("Statistical:", paste(stat_info, collapse = ", ")))
+      # Same fix as "Outlier Detection:" just above - each active filter's
+      # own line stays a separate element instead of being comma-joined
+      # into one long line. stat_info's own entries are short enough that
+      # this rarely showed as visible overlap in practice, but the same
+      # underlying bug was there and is fixed the same way for
+      # consistency (and in case a future filter's label grows).
+      analysis_summary <- c(analysis_summary, "Statistical:", stat_info)
     }
 
     # Create three-column layout for plot notes with intelligent positioning
@@ -1960,11 +1995,12 @@ prepare_ternary_plot_data <- function(
     col3_lines <- length(strsplit(col3_text, "\n")[[1]])
 
     # Determine optimal line positioning based on content length
-    if (max(col1_lines, col2_lines, col3_lines) <= 6) {
+    max_notes_lines <- max(col1_lines, col2_lines, col3_lines)
+    if (max_notes_lines <= 6) {
       # Short content: use standard positioning
       line_pos <- 2
       text_cex <- 0.6
-    } else if (max(col1_lines, col2_lines, col3_lines) <= 12) {
+    } else if (max_notes_lines <= 12) {
       # Medium content: adjust positioning
       line_pos <- 3
       text_cex <- 0.55
@@ -1973,6 +2009,14 @@ prepare_ternary_plot_data <- function(
       line_pos <- 4
       text_cex <- 0.5
     }
+
+    # Bottom outer margin (in mtext() "line" units) needed to fit the
+    # TALLEST of the 3 columns without its lines running past the margin
+    # boundary - previously a fixed oma[1]=4 regardless of how many lines
+    # were actually drawn (see draw_plot_notes_column()'s own comment for
+    # why a per-line step of text_cex*1.1 was chosen). +1 is a small
+    # safety buffer so the last line isn't flush against the device edge.
+    notes_bottom_margin <- line_pos + (max_notes_lines - 1) * text_cex * 1.1 + 1
   } else {
     # If plot notes are not included, create empty variables to avoid errors
     col1_text <- ""
@@ -1980,7 +2024,63 @@ prepare_ternary_plot_data <- function(
     col3_text <- ""
     line_pos <- 2
     text_cex <- 0.6
+    notes_bottom_margin <- 4  # unused when plot notes are off, kept only so pd$notes_bottom_margin is always defined
   }
 
   return(as.list(environment()))
+}
+
+# Draws one plot-notes column (col1/col2/col3_text from
+# prepare_ternary_plot_data(), each a "\n"-joined block of lines) as a
+# stack of individual mtext() calls, one per line, each with its OWN
+# explicit `line=` position - not a single mtext() call on the whole
+# "\n"-joined string. Confirmed empirically (not assumed) that mtext()
+# anchors a multi-line "\n" string by its LAST line at the given `line=`
+# value, with earlier lines extending TOWARD the plot, not away from it -
+# so three columns of different lengths (e.g. a short "Elements" column
+# next to a long "Outlier Detection: Mahalanobis..." column once
+# Mahalanobis/Isolation Forest are active) had their LAST lines converge
+# on the same outer position and overlap, regardless of how many lines
+# each column actually needed above that shared bottom anchor. This was
+# the real cause of the "text overlaps when using Isolation Forest or
+# Mahalanobis" report - the col3_text join-fix in
+# prepare_ternary_plot_data() (see that function's own comments) fixed the
+# other half of the same report (one giant unwrapped line instead of
+# several short ones), but not this part on its own. Anchoring every
+# column's FIRST line at the same `start_line` instead, and stepping each
+# subsequent line further outward, keeps columns of any length from ever
+# colliding based on how many lines their neighbors happen to have.
+#
+# The `cex * 1.1` per-line step (not `cex` alone) was tuned empirically
+# against a real 7-line Mahalanobis column: mtext()'s `line=` units are a
+# fixed physical size independent of the `cex` passed to that call, so a
+# step of exactly `cex` visually crowded adjacent lines together at small
+# cex - `cex * 1.1` leaves a small, consistent gap at every size tested
+# (0.5-0.6, this file's own three cex tiers).
+#' Draw one plot-notes column as a stack of individually-positioned mtext() lines
+#'
+#' @param text A `"\n"`-joined block of lines (e.g. `col1_text`/`col2_text`/
+#'   `col3_text` from `prepare_ternary_plot_data()`). Empty lines are
+#'   skipped.
+#' @param side Passed to `mtext()` - which plot margin to draw in.
+#' @param start_line Where the FIRST line is drawn (`mtext()`'s `line=` for
+#'   that line); each subsequent line is drawn further out by `cex * 1.1`.
+#' @param cex Text size, passed to `mtext()`.
+#' @param col Text color, passed to `mtext()`.
+#' @param adj Horizontal justification, passed to `mtext()` (`0` = left,
+#'   `0.5` = center, `1` = right).
+#' @param outer Passed to `mtext()`. Default `TRUE` (this app always draws
+#'   plot notes in the outer margin).
+#' @return `invisible(NULL)`. Called for its plotting side effect on the
+#'   current graphics device.
+#' @export
+draw_plot_notes_column <- function(text, side, start_line, cex, col, adj, outer = TRUE) {
+  lines <- strsplit(text, "\n")[[1]]
+  for (i in seq_along(lines)) {
+    if (nzchar(lines[i])) {
+      mtext(lines[i], side = side, line = start_line + (i - 1) * cex * 1.1,
+            cex = cex, col = col, outer = outer, adj = adj)
+    }
+  }
+  invisible(NULL)
 }

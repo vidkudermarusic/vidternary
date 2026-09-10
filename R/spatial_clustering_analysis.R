@@ -24,12 +24,18 @@
 #
 #   intensity (density)      lambda = n / area
 #   naive expected NND       Dpois = 1 / (2 * sqrt(lambda))
-#   perimeter                perim = 2 * (width + height) of the bounding box
+#   perimeter                perim = boundary length of the observation window
 #   Donnelly-corrected mean  Dkevin = Dpois + (0.0514 + 0.0412/sqrt(n)) * perim / n
 #   R statistic              R = Dobs / Dkevin   (Dobs = observed mean NND)
 #   SE (naive, reused)       SE(Dobs) = sqrt((4-pi)*area / (4*pi)) / n
 #   SE(R)                    SE(Dobs) / Dkevin
 #   Z = (R - 1) / SE(R), two-sided p-value = 2*(1 - pnorm(abs(Z)))
+#
+# `area` and `perim` above are the bounding box's by default; the `window`
+# argument switches them (and the Monte Carlo simulation region) to the
+# convex hull of the points, for when the sampled region isn't actually a
+# rectangle. The Donnelly coefficients are rectangle-derived, so on a hull
+# the asymptotic test is approximate and the Monte Carlo p-value leads.
 
 # Pure Euclidean nearest-neighbour distance per point (excluding self).
 #'
@@ -100,13 +106,27 @@ compute_nearest_neighbor_distances <- function(x, y, method = c("kdtree", "matri
 #'   `compute_nearest_neighbor_distances()`: `"kdtree"` (default, fast,
 #'   exact) or `"matrix"` (slow for large `n`, exact). Both give identical
 #'   results - this only affects runtime.
-#' @return A list: `n`, `area`, `density`, `nnd` (per-point distances),
-#'   `Dobs`, `Dpois`, `Dkevin`, `R`, `SE_R`, `Z`, `p_value_asymptotic`,
-#'   `n_sim`, `nn_method`, `p_value_monte_carlo`, `p_value` (alias for the
-#'   Monte Carlo one), `verdict` (text summary).
+#' @param window Observation window the null model is defined on:
+#'   `"rectangle"` (default) uses the axis-aligned bounding box of the
+#'   points - correct when the inspected region really is a rectangular
+#'   scan; `"convex_hull"` uses the convex hull of the points instead -
+#'   the right choice when the sampled region is irregular and the points
+#'   don't fill their bounding box (a bounding-box null then underestimates
+#'   the intensity and biases `R` toward a false "clustered" verdict). Both
+#'   the area/perimeter used for the Donnelly correction and the Monte
+#'   Carlo simulation window follow this choice. `"convex_hull"` needs the
+#'   `spatstat.geom` package; the Donnelly coefficients (0.0514, 0.0412)
+#'   were derived for rectangles, so on a hull they are approximate and the
+#'   Monte Carlo p-value is the figure to trust.
+#' @return A list: `n`, `area`, `density`, `window`, `nnd` (per-point
+#'   distances), `Dobs`, `Dpois`, `Dkevin`, `R`, `SE_R`, `Z`,
+#'   `p_value_asymptotic`, `n_sim`, `nn_method`, `p_value_monte_carlo`,
+#'   `p_value` (alias for the Monte Carlo one), `verdict` (text summary).
 #' @export
-clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtree", "matrix")) {
+clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtree", "matrix"),
+                             window = c("rectangle", "convex_hull")) {
   nn_method <- match.arg(nn_method)
+  window <- match.arg(window)
   valid <- is.finite(x) & is.finite(y)
   x <- x[valid]; y <- y[valid]
   n <- length(x)
@@ -114,10 +134,26 @@ clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtre
 
   width <- max(x) - min(x)
   height <- max(y) - min(y)
-  area <- width * height
-  if (!is.finite(area) || area <= 0) stop("Points must span a non-zero area (X and Y cannot both be constant).")
-  perim <- 2 * (width + height)
+  bbox_area <- width * height
+  if (!is.finite(bbox_area) || bbox_area <= 0) stop("Points must span a non-zero area (X and Y cannot both be constant).")
   xr <- range(x); yr <- range(y)
+
+  hull_win <- NULL
+  if (window == "convex_hull") {
+    if (!requireNamespace("spatstat.geom", quietly = TRUE)) {
+      stop("Package 'spatstat.geom' is required for window = \"convex_hull\".")
+    }
+    hull_win <- tryCatch(spatstat.geom::convexhull.xy(x, y), error = function(e) NULL)
+    hull_area <- if (is.null(hull_win)) NA_real_ else spatstat.geom::area.owin(hull_win)
+    if (is.null(hull_win) || !is.finite(hull_area) || hull_area <= 0) {
+      stop("Points must span a non-zero area (X and Y cannot be constant or collinear) for window = \"convex_hull\".")
+    }
+    area <- hull_area
+    perim <- spatstat.geom::perimeter(hull_win)
+  } else {
+    area <- bbox_area
+    perim <- 2 * (width + height)
+  }
 
   nnd <- compute_nearest_neighbor_distances(x, y, method = nn_method)
   Dobs <- mean(nnd)
@@ -140,8 +176,26 @@ clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtre
   on.exit(if (!is.null(old_seed)) assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
   set.seed(seed)
   Dobs_sim <- vapply(seq_len(n_sim), function(s) {
-    sx <- stats::runif(n, xr[1], xr[2])
-    sy <- stats::runif(n, yr[1], yr[2])
+    if (window == "convex_hull") {
+      # Uniform CSR inside the SAME hull the observed area/perimeter came
+      # from: rejection-sample from the bounding box and keep the points
+      # that land inside the hull polygon (spatstat.geom::inside.owin is
+      # the exported test - runifpoint lives in spatstat.random, which this
+      # package doesn't depend on). The null then matches the real study
+      # region rather than an over-large bounding box.
+      sx <- numeric(0); sy <- numeric(0)
+      while (length(sx) < n) {
+        batch <- max((n - length(sx)) * 2L, 64L)
+        cx <- stats::runif(batch, xr[1], xr[2])
+        cy <- stats::runif(batch, yr[1], yr[2])
+        keep <- spatstat.geom::inside.owin(cx, cy, hull_win)
+        sx <- c(sx, cx[keep]); sy <- c(sy, cy[keep])
+      }
+      sx <- sx[seq_len(n)]; sy <- sy[seq_len(n)]
+    } else {
+      sx <- stats::runif(n, xr[1], xr[2])
+      sy <- stats::runif(n, yr[1], yr[2])
+    }
     mean(compute_nearest_neighbor_distances(sx, sy, method = nn_method))
   }, numeric(1))
   rank_le <- sum(Dobs_sim <= Dobs) + 1
@@ -157,7 +211,7 @@ clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtre
   }
 
   list(
-    n = n, area = area, density = density,
+    n = n, area = area, density = density, window = window,
     nnd = nnd, Dobs = Dobs, Dpois = Dpois, Dkevin = Dkevin,
     R = R, SE_R = SE_R, Z = Z, p_value_asymptotic = p_value,
     n_sim = n_sim, nn_method = nn_method, p_value_monte_carlo = p_mc,

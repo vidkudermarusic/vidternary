@@ -458,11 +458,20 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #'   `isotree::isolation.forest()`'s own `seed` argument (which governs its
 #'   randomness independently of R's `set.seed()` - confirmed empirically,
 #'   not assumed). Default 42.
+#' @param sample_size Number of reference rows each tree is trained on.
+#'   `NULL` (default) uses every complete reference row - simple and fully
+#'   reproducible, but a departure from the algorithm as published: Liu,
+#'   Ting & Zhou (2008) sub-sample (their default `psi = 256`) specifically
+#'   so trees stay shallow and the anomaly-score normalisation `c(psi)`
+#'   matches the sub-sample. Pass a whole number `>= 2` to sub-sample that
+#'   many rows per tree instead; a value above the number of complete
+#'   reference rows is clamped down to it. The value actually used is
+#'   reported back in `sample_size`.
 #' @return A list: `model` (the fitted isolation forest), `columns_used`,
-#'   `threshold`, `contamination`, `ntrees`, `sample_size` (always equal to
-#'   the number of complete reference rows actually used to fit the model -
-#'   not independently configurable, see this function's own inline
-#'   comment), `scores` (length `nrow(data1)`), `outlier_indices`,
+#'   `threshold`, `contamination`, `ntrees`, `sample_size` (the row count
+#'   each tree was actually trained on - either every complete reference
+#'   row, or the sub-sample size requested, clamped to the rows available),
+#'   `scores` (length `nrow(data1)`), `outlier_indices`,
 #'   `kept_mask`, `filtered_data1`, `ref_scores_sum`.
 #' @export
 compute_isolation_forest <- function(
@@ -471,7 +480,8 @@ compute_isolation_forest <- function(
   keep_outliers = FALSE,
   ntrees = 200,
   score_type = "score",
-  seed = 42
+  seed = 42,
+  sample_size = NULL
 ) {
   stopifnot(is.data.frame(data1), is.data.frame(data2))
 
@@ -497,6 +507,17 @@ compute_isolation_forest <- function(
   # C++ backend with a message naming no R-level argument at all.
   if (!is.numeric(ntrees) || length(ntrees) != 1L || is.na(ntrees) || ntrees < 1 || ntrees != round(ntrees)) {
     stop("ntrees must be a single positive whole number.")
+  }
+
+  # sample_size: NULL keeps the original "use every complete reference row"
+  # behaviour; a number requests classic sub-sampling. Same
+  # NA-from-a-cleared-numericInput guard as ntrees above. Clamped to the
+  # available row count below (once X2c is known), not here.
+  if (!is.null(sample_size)) {
+    if (!is.numeric(sample_size) || length(sample_size) != 1L || is.na(sample_size) ||
+        sample_size < 2 || sample_size != round(sample_size)) {
+      stop("sample_size must be NULL (use all reference rows) or a single whole number >= 2.")
+    }
   }
 
   # Check for isotree package
@@ -564,14 +585,12 @@ compute_isolation_forest <- function(
 
   # 2) Treniranje na referenci
   #
-  # sample_size is deliberately NOT a separate, independently-configurable
-  # parameter (it was previously a fixed internal default of 256, capped
-  # against nrow(data2)): it always equals nrow(X2c), the actual number of
-  # complete reference rows being used to fit the model, so every tree
-  # trains on the full reference sample rather than an arbitrary subsample
-  # - and so the value reported back to the user (below, and by every
-  # caller's own results text) is never out of step with what was actually
-  # used.
+  # sample_size (rows each tree trains on): NULL -> every complete
+  # reference row (nrow(X2c)); a number -> that many rows per tree, the
+  # classic Isolation Forest sub-sampling (Liu, Ting & Zhou 2008, psi=256),
+  # clamped to the rows actually available. `ss` is what was really used and
+  # is reported back so no caller's results text is ever out of step with
+  # it.
   # isotree::isolation.forest()'s randomness is governed entirely by its
   # OWN internal `seed` argument (own default 1) - confirmed empirically,
   # not assumed: R's set.seed() has zero effect on its output regardless
@@ -581,7 +600,7 @@ compute_isolation_forest <- function(
   # (documented as controlling reproducibility) was silently dead code -
   # every real call always ran on isotree's internal default (seed=1)
   # instead of whatever was actually passed in.
-  ss <- nrow(X2c)
+  ss <- if (is.null(sample_size)) nrow(X2c) else min(as.integer(sample_size), nrow(X2c))
   iso_model <- isotree::isolation.forest(
     X2c,
     ntrees = ntrees,

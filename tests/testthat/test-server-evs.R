@@ -75,7 +75,6 @@ test_that("evs_status surfaces the specific validate() message for an invalid ar
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "not_a_real_column")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     # fit_result()'s validate() error is no longer swallowed by evs_status's
@@ -87,29 +86,19 @@ test_that("evs_status surfaces the specific validate() message for an invalid ar
   })
 })
 
-test_that("evs_status surfaces the specific validate() message for an out-of-range evs_n_groups", {
+test_that("evs_status surfaces the specific validate() message for a missing field/frame ID column", {
+  # The former "split into N equal groups" fallback has been removed - a
+  # genuine per-field grouping column is now mandatory, and its absence
+  # hard-stops with an actionable message instead of silently producing a
+  # sort-order-dependent fit.
   testServer(make_evs_server(), {
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
-    session$setInputs(`evs-evs_use_manual_groups` = TRUE)
-    session$setInputs(`evs-evs_n_groups` = 1000)
-    session$setInputs(`evs-evs_fit` = 1)
-
-    err <- expect_error(output[["evs-evs_status"]])
-    expect_match(conditionMessage(err), "Number of groups must be between 3 and", fixed = TRUE)
-  })
-})
-
-test_that("evs_status surfaces the specific validate() message for a missing group column", {
-  testServer(make_evs_server(), {
-    session$setInputs(`evs-evs_files` = make_evs_upload())
-    session$setInputs(`evs-evs_area_col` = "area")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_group_col` = "not_a_real_column")
     session$setInputs(`evs-evs_fit` = 1)
 
     err <- expect_error(output[["evs-evs_status"]])
-    expect_match(conditionMessage(err), "Select a field/group ID column", fixed = TRUE)
+    expect_match(conditionMessage(err), "EVS needs genuine per-field grouping", fixed = TRUE)
   })
 })
 
@@ -118,7 +107,6 @@ test_that("evs_status still reports a normal successful fit correctly (no regres
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     status <- output[["evs-evs_status"]]
@@ -145,7 +133,6 @@ test_that("the pre-analysis filter genuinely changes which rows reach the fit - 
     session$setInputs(`evs-evs_files` = d)
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_filter_cols` = "area")
     session$setInputs(`evs-evs_filter_area` = "> 50")
     session$setInputs(`evs-evs_fit` = 1)
@@ -166,7 +153,6 @@ test_that("a pre-analysis filter that removes every row surfaces a clear message
     session$setInputs(`evs-evs_files` = make_evs_upload(group_means = rep(100, 8)))
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_filter_cols` = "area")
     session$setInputs(`evs-evs_filter_area` = "> 999999")
     session$setInputs(`evs-evs_fit` = 1)
@@ -181,7 +167,6 @@ test_that("an invalid pre-analysis filter condition surfaces a clear, specific m
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_filter_cols` = "area")
     session$setInputs(`evs-evs_filter_area` = "not a real filter")
     session$setInputs(`evs-evs_fit` = 1)
@@ -196,7 +181,6 @@ test_that("leaving the filter columns unselected behaves exactly as before this 
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     status <- output[["evs-evs_status"]]
@@ -212,7 +196,6 @@ test_that("evs_gof_warning stays silent (not an error) when the fit fails valida
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "not_a_real_column")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     # Unlike evs_status, evs_gof_warning is a supplementary banner that
@@ -249,7 +232,6 @@ test_that("a normal, successful fit still downloads a real plot and a real table
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     plot_path <- output[["evs-evs_download_plot"]]
@@ -268,7 +250,6 @@ test_that("evs_gof_warning renders the warning banner only when the GOF test rej
     session$setInputs(`evs-evs_files` = make_evs_upload())
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
     expect_null(output[["evs-evs_gof_warning"]])
   })
@@ -280,7 +261,6 @@ test_that("evs_gof_warning renders the warning banner only when the GOF test rej
       n_groups = 10, group_means = c(rep(20, 5), rep(5000, 5)), seed = 3))
     session$setInputs(`evs-evs_area_col` = "area")
     session$setInputs(`evs-evs_group_col` = "field")
-    session$setInputs(`evs-evs_use_manual_groups` = FALSE)
     session$setInputs(`evs-evs_fit` = 1)
 
     warning_ui <- output[["evs-evs_gof_warning"]]

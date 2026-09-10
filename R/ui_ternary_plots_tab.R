@@ -237,14 +237,40 @@ create_ternary_plots_tab <- function(id) {
                   column(6, numericInput(ns("isolation_ntrees"), "Number of trees:", value = 200, min = 1, step = 1)),
                   column(6, numericInput(ns("isolation_contamination"), "Contamination:", value = 0.10, min = 0.001, max = 0.999, step = 0.01))
                 ),
+                checkboxInput(ns("isolation_use_all_rows"),
+                  "Train each tree on all reference rows (n = row count)", value = TRUE),
+                conditionalPanel(
+                  condition = paste0("input['", ns("isolation_use_all_rows"), "'] == false"),
+                  numericInput(ns("isolation_sample_size"), "Sub-sample size per tree:", value = 256, min = 2, step = 1),
+                  div(style = "font-size: 11px; color: #555; margin: -5px 0 8px 0;",
+                    "Classic Isolation Forest (", cite_link("Liu, Ting & Zhou, 2008", "https://doi.org/10.1109/ICDM.2008.17"),
+                    ") sub-samples ~256 rows per tree: shallower trees, and the anomaly-score scale stays matched to the sub-sample. ",
+                    "Values above the available row count are clamped down.")
+                ),
                 p(style = "font-size: 12px; color: #666; font-style: italic;",
-                  "Columns selected above will be used for this analysis. Sample size always matches the reference dataset's complete rows for those columns.")
+                  "Columns selected above will be used for this analysis. ",
+                  "\"All reference rows\" is simple and fully reproducible, but a departure from the published algorithm - untick it to sub-sample.")
               )
             )
           ),
           column(4,
             div(style = "border: 2px solid #28a745; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
               h4(style = "color: #28a745; margin-top: 0;", "📊 Statistical Filtering"),
+
+              # One-sided by design: all three methods below (IQR, Z-score,
+              # MAD) flag ONLY the upper tail - unusually HIGH values (>
+              # Q3+k·IQR, z > k, > median+k·MAD). Low-side outliers are never
+              # flagged. Stated once here, prominently, in addition to the
+              # per-method "(high values only)" notes, since it changes how
+              # results should be read (e.g. an unusually small inclusion is
+              # left in the data untouched).
+              div(style = "margin-bottom: 15px; padding: 10px; background-color: #d4edda; border-radius: 5px; border-left: 4px solid #28a745;",
+                p(style = "font-size: 12px; margin: 0; color: #155724;",
+                  strong("Upper tail only. "),
+                  "IQR, Z-score and MAD filtering all detect ", strong("unusually high values only"),
+                  " - the upper threshold. Unusually low values are never flagged and stay in the data. ",
+                  "For two-sided detection across a covariance structure, use Mahalanobis distance instead.")
+              ),
 
               # Universal column selector reminder for statistical filters
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;",

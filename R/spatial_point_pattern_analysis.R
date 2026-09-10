@@ -58,16 +58,29 @@
 # point LOCATIONS only, matching how spatial_clustering_analysis.R also
 # keeps `color_by` completely out of clark_evans_test() and confined to its
 # own plotting function.
-#' Build a point pattern (`spatstat.geom::ppp`) bounded by the convex hull of the data
+#' Build a point pattern (`spatstat.geom::ppp`) for the data
+#'
+#' The observation window every K/L/G/envelope/intensity computation is
+#' defined on. `"convex_hull"` (default) is the standard choice when no
+#' separately-known study-region boundary exists - an inclusion's X/Y stage
+#' position has no natural window beyond the sampled points themselves.
+#' `"rectangle"` uses the axis-aligned bounding box instead, for when the
+#' analysed region really is a rectangular SEM scan; note this always
+#' overstates the true study area at least slightly (the extreme points
+#' define the box edges but the corners are empty), which mildly inflates
+#' apparent clustering - the convex hull has the same bias in the other
+#' direction only if the region is genuinely non-convex.
 #'
 #' @param x Numeric vector of X coordinates.
 #' @param y Numeric vector of Y coordinates (same length as `x`).
-#' @return A `spatstat.geom::ppp` object, windowed to the convex hull of `(x, y)`.
+#' @param window `"convex_hull"` (default) or `"rectangle"` - see above.
+#' @return A `spatstat.geom::ppp` object, windowed as requested.
 #' @export
-build_point_pattern <- function(x, y) {
+build_point_pattern <- function(x, y, window = c("convex_hull", "rectangle")) {
   if (!requireNamespace("spatstat.geom", quietly = TRUE)) {
     stop("Package 'spatstat.geom' is required for point pattern analysis.")
   }
+  window <- match.arg(window)
   valid <- is.finite(x) & is.finite(y)
   x <- x[valid]; y <- y[valid]
   n <- length(x)
@@ -78,6 +91,14 @@ build_point_pattern <- function(x, y) {
   # rather than the bare theoretical minimum (see clark_evans_test()'s own
   # n >= 3 floor for a similarly-motivated but distinct minimum).
   if (n < 4) stop("At least 4 valid points are required for point pattern analysis.")
+  if (window == "rectangle") {
+    xr <- range(x); yr <- range(y)
+    if (!all(is.finite(c(xr, yr))) || diff(xr) <= 0 || diff(yr) <= 0) {
+      stop("Points must span a non-zero area (X and Y cannot be constant).")
+    }
+    win <- spatstat.geom::owin(xrange = xr, yrange = yr)
+    return(spatstat.geom::ppp(x, y, window = win, checkdup = FALSE))
+  }
   # Fully collinear points (including the all-X-constant or all-Y-constant
   # special cases) can't form a valid 2-D convex hull at all - confirmed
   # directly: convexhull.xy() doesn't return a zero-area owin for this
@@ -181,38 +202,61 @@ compute_g_function <- function(pp) {
 #' Monte Carlo CSR envelope test on the L-function
 #'
 #' Simulates `nsim` independent complete-spatial-randomness (CSR) point
-#' patterns in the observed pattern's own window, and reports the pointwise
-#' min/max of their L(r) curves as a confidence envelope around the
-#' theoretical CSR line - the observed L(r) falling outside that envelope at
-#' a given `r` is evidence of a real departure from CSR at that distance.
+#' patterns in the observed pattern's own window and builds a confidence
+#' envelope around the theoretical CSR line for L(r); the observed L(r)
+#' leaving that envelope is evidence of a real departure from CSR.
+#'
+#' By default a **global** (simultaneous) envelope is used: its band is the
+#' single largest deviation any simulated curve reached, so "observed curve
+#' anywhere outside the band" is a valid test at the `2/(nsim+1)` level for
+#' the whole curve at once. A **pointwise** envelope (`global = FALSE`) is
+#' the per-`r` min/max instead - under true CSR the observed curve strays
+#' outside a pointwise band at *some* `r` far more than `2/(nsim+1)` of the
+#' time (multiple comparisons across `r`), so a pointwise band must be read
+#' as descriptive, not as a significance test.
+#'
+#' All of this assumes a **homogeneous** process. A pattern whose intensity
+#' varies across the window for reasons unrelated to point interaction
+#' (banding, an edge-affected zone, a compositional gradient) will breach
+#' the CSR envelope purely from that inhomogeneity - the test cannot
+#' separate "points attract each other" from "some regions simply have more
+#' points". Inspect the intensity map before reading a breach as clustering.
 #'
 #' @param pp A `spatstat.geom::ppp`, e.g. from `build_point_pattern()`.
-#' @param nsim Number of Monte Carlo CSR simulations. Default 99 (a
-#'   conventional choice - gives pointwise bands at roughly the 2/(nsim+1)
-#'   two-sided significance level).
+#' @param nsim Number of Monte Carlo CSR simulations. Default 99 (gives a
+#'   test at roughly the `2/(nsim+1)` two-sided significance level).
 #' @param seed RNG seed for the simulations; the caller's RNG state is saved
 #'   and restored afterward, matching `clark_evans_test()`'s own convention.
 #'   Default 42.
+#' @param global `TRUE` (default) for a simultaneous envelope (a valid
+#'   whole-curve test); `FALSE` for the pointwise per-`r` min/max
+#'   (descriptive only - see above).
 #' @return A data frame: `r`, `obs` (observed L(r)), `theo` (`= r` under
-#'   CSR), `lo`/`hi` (pointwise envelope bounds), `obs_minus_r`, `lo_minus_r`,
+#'   CSR), `lo`/`hi` (envelope bounds), `obs_minus_r`, `lo_minus_r`,
 #'   `hi_minus_r` (the same three shifted by `-r`, for plotting the
-#'   conventional `L(r) - r` diagnostic with its own envelope).
+#'   conventional `L(r) - r` diagnostic with its own envelope). Carries an
+#'   `envelope_type` attribute (`"global"` or `"pointwise"`).
 #' @export
-compute_csr_envelope <- function(pp, nsim = 99, seed = 42) {
+compute_csr_envelope <- function(pp, nsim = 99, seed = 42, global = TRUE) {
   if (!requireNamespace("spatstat.explore", quietly = TRUE)) {
     stop("Package 'spatstat.explore' is required for point pattern analysis.")
   }
   if (!is.numeric(nsim) || length(nsim) != 1L || is.na(nsim) || nsim < 1 || nsim != round(nsim)) {
     stop("nsim must be a single positive whole number.")
   }
+  if (!is.logical(global) || length(global) != 1L || is.na(global)) {
+    stop("global must be a single TRUE or FALSE.")
+  }
   old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) .GlobalEnv$.Random.seed else NULL
   on.exit(if (!is.null(old_seed)) assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
   set.seed(seed)
-  env <- spatstat.explore::envelope(pp, spatstat.explore::Lest, nsim = nsim, verbose = FALSE, savefuns = FALSE)
+  env <- spatstat.explore::envelope(pp, spatstat.explore::Lest, nsim = nsim, global = global,
+                                    verbose = FALSE, savefuns = FALSE)
   df <- as.data.frame(env)
   df$obs_minus_r <- df$obs - df$r
   df$lo_minus_r  <- df$lo  - df$r
   df$hi_minus_r  <- df$hi  - df$r
+  attr(df, "envelope_type") <- if (global) "global" else "pointwise"
   df
 }
 
@@ -220,18 +264,29 @@ compute_csr_envelope <- function(pp, nsim = 99, seed = 42) {
 #'
 #' A smoothed estimate of point density across the observation window, via
 #' `spatstat.explore::density.ppp()` with its own automatic bandwidth
-#' selection (no `sigma` override - lets spatstat pick a data-driven default
-#' rather than guessing one).
+#' selection (no `sigma` override - lets spatstat pick a data-driven
+#' default rather than guessing one).
+#'
+#' Edge-corrected by default (`diggle = TRUE`, the Jones-Diggle
+#' bias-corrected estimator). Without it, `density.ppp()`'s plain estimator
+#' systematically *under*-estimates intensity near the window boundary
+#' (part of each boundary kernel falls outside the window and is lost), so
+#' an uncorrected hotspot map reads as cooler at the edges than it really
+#' is - a real artefact for inclusion scans where edge fields matter.
 #'
 #' @param pp A `spatstat.geom::ppp`, e.g. from `build_point_pattern()`.
+#' @param edge_correct Apply the Diggle edge correction. Default `TRUE`.
 #' @return A data frame with one row per grid cell: `x`, `y`, `intensity`
 #'   (estimated points per unit area at that location).
 #' @export
-compute_kernel_intensity <- function(pp) {
+compute_kernel_intensity <- function(pp, edge_correct = TRUE) {
   if (!requireNamespace("spatstat.explore", quietly = TRUE)) {
     stop("Package 'spatstat.explore' is required for point pattern analysis.")
   }
-  dens <- spatstat.explore::density.ppp(pp)
+  if (!is.logical(edge_correct) || length(edge_correct) != 1L || is.na(edge_correct)) {
+    stop("edge_correct must be a single TRUE or FALSE.")
+  }
+  dens <- spatstat.explore::density.ppp(pp, diggle = edge_correct)
   df <- as.data.frame(dens)
   names(df)[names(df) == "value"] <- "intensity"
   df[is.finite(df$intensity), , drop = FALSE]
@@ -324,12 +379,18 @@ create_g_function_plot <- function(g_result) {
 #' @export
 create_csr_envelope_plot <- function(env_result) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 package is required for plotting")
+  env_type <- attr(env_result, "envelope_type")
+  subtitle <- if (identical(env_type, "pointwise")) {
+    "Shaded band: pointwise range across simulated random patterns (descriptive - not a whole-curve significance test)."
+  } else {
+    "Shaded band: simultaneous (global) envelope across simulated random patterns. Observed line leaving the band anywhere = significant departure from CSR."
+  }
   ggplot2::ggplot(env_result, ggplot2::aes(x = r)) +
     ggplot2::geom_ribbon(ggplot2::aes(ymin = lo_minus_r, ymax = hi_minus_r), fill = "#357ABD", alpha = 0.25) +
     ggplot2::geom_hline(yintercept = 0, color = "#d32f2f", linetype = "dashed", linewidth = 0.9) +
     ggplot2::geom_line(ggplot2::aes(y = obs_minus_r), color = "#002147", linewidth = 0.9) +
     ggplot2::labs(title = "CSR Envelope Test (L(r) - r)",
-                  subtitle = "Shaded band: pointwise range across simulated random patterns. Observed line leaving the band is significant departure from CSR.",
+                  subtitle = subtitle,
                   x = "r (distance)", y = "L(r) - r") +
     ggplot2::theme_minimal()
 }
