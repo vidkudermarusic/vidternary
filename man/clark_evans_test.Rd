@@ -9,7 +9,8 @@ clark_evans_test(
   y,
   n_sim = NULL,
   seed = 42,
-  nn_method = c("kdtree", "matrix")
+  nn_method = c("kdtree", "matrix"),
+  window = c("rectangle", "convex_hull")
 )
 }
 \arguments{
@@ -29,12 +30,25 @@ state is saved and restored afterward. Default 42.}
 \code{compute_nearest_neighbor_distances()}: \code{"kdtree"} (default, fast,
 exact) or \code{"matrix"} (slow for large \code{n}, exact). Both give identical
 results - this only affects runtime.}
+
+\item{window}{Observation window the null model is defined on:
+\code{"rectangle"} (default) uses the axis-aligned bounding box of the
+points - correct when the inspected region really is a rectangular
+scan; \code{"convex_hull"} uses the convex hull of the points instead -
+the right choice when the sampled region is irregular and the points
+don't fill their bounding box (a bounding-box null then underestimates
+the intensity and biases \code{R} toward a false "clustered" verdict). Both
+the area/perimeter used for the Donnelly correction and the Monte
+Carlo simulation window follow this choice. \code{"convex_hull"} needs the
+\code{spatstat.geom} package; the Donnelly coefficients (0.0514, 0.0412)
+were derived for rectangles, so on a hull they are approximate and the
+Monte Carlo p-value is the figure to trust.}
 }
 \value{
-A list: \code{n}, \code{area}, \code{density}, \code{nnd} (per-point distances),
-\code{Dobs}, \code{Dpois}, \code{Dkevin}, \code{R}, \code{SE_R}, \code{Z}, \code{p_value_asymptotic},
-\code{n_sim}, \code{nn_method}, \code{p_value_monte_carlo}, \code{p_value} (alias for the
-Monte Carlo one), \code{verdict} (text summary).
+A list: \code{n}, \code{area}, \code{density}, \code{window}, \code{nnd} (per-point
+distances), \code{Dobs}, \code{Dpois}, \code{Dkevin}, \code{R}, \code{SE_R}, \code{Z},
+\code{p_value_asymptotic}, \code{n_sim}, \code{nn_method}, \code{p_value_monte_carlo},
+\code{p_value} (alias for the Monte Carlo one), \code{verdict} (text summary).
 }
 \description{
 Reports both a Donnelly (1978) edge-corrected asymptotic Z-test and a

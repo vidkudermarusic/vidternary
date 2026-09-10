@@ -15,9 +15,15 @@ render_ternary_plot_preview <- function(pd) {
     # Create the ternary plot
     log_operation("INFO", "Starting to plot", paste(nrow(ternary_points1), "points"))
 
-    # Set outer margins to prevent clipping of multi-line titles and notes
-    # Top margin for titles, bottom margin for plot notes
-    op <- par(oma = c(4, 0, 3, 0))
+    # Set outer margins to prevent clipping of multi-line titles and notes.
+    # Top margin for titles, bottom margin for plot notes - the bottom
+    # margin now scales with how many lines the tallest plot-notes column
+    # actually needs (notes_bottom_margin, computed in
+    # prepare_ternary_plot_data()) instead of a fixed 4, which used to run
+    # out of room once Mahalanobis/Isolation Forest's own detail lines
+    # made a column taller than that fixed value - see
+    # draw_plot_notes_column()'s own comment for the full explanation.
+    op <- par(oma = c(notes_bottom_margin, 0, 3, 0))
     on.exit(par(op))
 
     # Check if Ternary package is available
@@ -179,13 +185,13 @@ render_ternary_plot_preview <- function(pd) {
     # prepare_ternary_plot_data(); this just draws it to the active device)
     if (include_plot_notes) {
       # Column 1 (left) - Elements and filters
-      mtext(col1_text, side = 1, line = line_pos, cex = text_cex, col = "darkblue", outer = TRUE, adj = 0)
+      draw_plot_notes_column(col1_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkblue", adj = 0)
 
       # Column 2 (center) - Optional parameters
-      mtext(col2_text, side = 1, line = line_pos, cex = text_cex, col = "darkgreen", outer = TRUE, adj = 0.5)
+      draw_plot_notes_column(col2_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkgreen", adj = 0.5)
 
       # Column 3 (right) - Analysis methods
-      mtext(col3_text, side = 1, line = line_pos, cex = text_cex, col = "darkred", outer = TRUE, adj = 1)
+      draw_plot_notes_column(col3_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkred", adj = 1)
 
       # Add a debug message to confirm plot notes are being added
       if (getOption("ternary.debug", FALSE)) {

@@ -4,10 +4,12 @@
 \alias{compute_kernel_intensity}
 \title{Kernel intensity ("hotspot") estimate}
 \usage{
-compute_kernel_intensity(pp)
+compute_kernel_intensity(pp, edge_correct = TRUE)
 }
 \arguments{
 \item{pp}{A \code{spatstat.geom::ppp}, e.g. from \code{build_point_pattern()}.}
+
+\item{edge_correct}{Apply the Diggle edge correction. Default \code{TRUE}.}
 }
 \value{
 A data frame with one row per grid cell: \code{x}, \code{y}, \code{intensity}
@@ -16,6 +18,14 @@ A data frame with one row per grid cell: \code{x}, \code{y}, \code{intensity}
 \description{
 A smoothed estimate of point density across the observation window, via
 \code{spatstat.explore::density.ppp()} with its own automatic bandwidth
-selection (no \code{sigma} override - lets spatstat pick a data-driven default
-rather than guessing one).
+selection (no \code{sigma} override - lets spatstat pick a data-driven
+default rather than guessing one).
+}
+\details{
+Edge-corrected by default (\code{diggle = TRUE}, the Jones-Diggle
+bias-corrected estimator). Without it, \code{density.ppp()}'s plain estimator
+systematically \emph{under}-estimates intensity near the window boundary
+(part of each boundary kernel falls outside the window and is lost), so
+an uncorrected hotspot map reads as cooler at the edges than it really
+is - a real artefact for inclusion scans where edge fields matter.
 }

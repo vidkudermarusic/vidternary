@@ -97,11 +97,12 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     }
 
     nn_method <- if (!is.null(input$spatial_nn_method) && input$spatial_nn_method == "matrix") "matrix" else "kdtree"
+    window <- if (!is.null(input$spatial_window) && input$spatial_window == "convex_hull") "convex_hull" else "rectangle"
     n_sim <- if (!is.null(input$spatial_n_sim) && is.finite(input$spatial_n_sim) && input$spatial_n_sim >= 10) {
       round(input$spatial_n_sim)
     } else NULL
 
-    ce <- tryCatch(clark_evans_test(x[valid], y[valid], n_sim = n_sim, nn_method = nn_method),
+    ce <- tryCatch(clark_evans_test(x[valid], y[valid], n_sim = n_sim, nn_method = nn_method, window = window),
                     error = function(e) { shiny::validate(paste("Error running spatial analysis:", e$message)) })
     list(ce = ce, x = x[valid], y = y[valid], color_by = color_by, color_label = input$spatial_color_col,
          n_rows_before_filter = nrow(combined_data()), n_rows_after_filter = nrow(d))
@@ -179,14 +180,17 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   output$spatial_summary_table <- renderTable({
     res <- result()
     ce <- res$ce
+    window_label <- if (isTRUE(ce$window == "convex_hull")) "Convex-hull area" else "Bounding-box area"
     data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
-                 "Points (n)", "Bounding-box area", "Density (points/area)",
+                 "Points (n)", "Observation window", window_label, "Density (points/area)",
                  "Observed mean NND", "Expected mean NND (Donnelly-corrected)",
                  "R statistic", "Z (asymptotic)", "p-value (asymptotic)",
                  "p-value (Monte Carlo)", "Monte Carlo simulations", "Nearest-neighbour method"),
       Value = c(sprintf("%d", res$n_rows_before_filter), sprintf("%d", res$n_rows_after_filter),
-                sprintf("%d", ce$n), sprintf("%.4g", ce$area), sprintf("%.6g", ce$density),
+                sprintf("%d", ce$n),
+                if (isTRUE(ce$window == "convex_hull")) "Convex hull" else "Rectangle (bounding box)",
+                sprintf("%.4g", ce$area), sprintf("%.6g", ce$density),
                 sprintf("%.4f", ce$Dobs), sprintf("%.4f", ce$Dkevin),
                 sprintf("%.4f", ce$R), sprintf("%.3f", ce$Z), sprintf("%.4f", ce$p_value_asymptotic),
                 sprintf("%.4f", ce$p_value_monte_carlo), sprintf("%d", ce$n_sim), ce$nn_method)

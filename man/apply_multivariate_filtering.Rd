@@ -19,7 +19,8 @@ apply_multivariate_filtering(
   custom_mdthresh,
   mdthresh_mode,
   isolation_ntrees = 200,
-  isolation_contamination = 0.1
+  isolation_contamination = 0.1,
+  isolation_sample_size = NULL
 )
 }
 \arguments{
@@ -52,6 +53,10 @@ Mahalanobis threshold formula (see \code{\link[=compute_mahalanobis_distance]{co
 \item{isolation_ntrees, isolation_contamination}{Number of trees and
 contamination fraction for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
 \code{use_isolation_forest = TRUE}. User-adjustable in the UI.}
+
+\item{isolation_sample_size}{Rows each isolation tree trains on - \code{NULL}
+for every complete reference row (default), or a whole number \verb{>= 2}
+to sub-sample (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
 }
 \value{
 This function's entire local environment as a list

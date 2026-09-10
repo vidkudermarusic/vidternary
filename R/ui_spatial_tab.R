@@ -23,7 +23,12 @@ create_spatial_tab <- function(id) {
             tags$li("For every point, the distance to its nearest neighbour is measured (nearest-neighbour distance, NND)."),
             tags$li("The observed mean NND is compared to what would be expected if the points were completely randomly scattered (CSR) in the same area."),
             tags$li("R = observed/expected: R < 1 means clustering, R > 1 means a more regular/even spread, R ≈ 1 means no evidence against randomness."),
-            tags$li(strong("Two p-values are reported: "), "an asymptotic one (Donnelly edge-corrected, the standard method used by the spatstat R package) and a Monte Carlo one (simulates many random point sets in the same bounding box). Trust the Monte Carlo value when the two disagree."),
+            tags$li(strong("Two p-values are reported: "), "an asymptotic one (Donnelly edge-corrected, the standard method used by the spatstat R package) and a Monte Carlo one (simulates many random point sets in the same observation window). Trust the Monte Carlo value when the two disagree."),
+            tags$li(strong("Observation window: "), "by default the null model uses the axis-aligned ", strong("bounding box"),
+              " of the points, which is exactly right when the analysed region really is a rectangular SEM scan. If the sampled region is irregular and the points don't fill their bounding box, switch to ", strong("convex hull"),
+              " below - a bounding-box null then overstates the area, understates the intensity, and biases the result toward a false ", em("\"clustered\""), " verdict."),
+            tags$li(strong("Homogeneity assumption: "), "the test assumes one uniform underlying process. Real, non-interacting inclusions whose ", em("density"), " varies across the section (banding, an edge-affected zone, a gradient) will read as ", em("\"clustered\""),
+              " even with no point-to-point attraction - the test cannot tell \"clumped points\" from \"more points in some regions than others\". Read a clustered verdict as \"not spatially uniform\", and check the scatter plot for a density gradient before concluding the inclusions themselves attract."),
             tags$li(strong("Small-sample caveat (checked empirically, simulating known-random data): "), "both p-values over-report significance somewhat below ~40 points, because the sampling window is estimated from the same points being tested. This bias is asymmetric - at n=15 a false ", em("\"significantly dispersed\""), " verdict occurred ~18% of the time (Monte Carlo) vs a nominal 5%, while a false ", em("\"significantly clustered\""), " verdict occurred well under 1% of the time. In practice: a ", strong("clustered/banding"), " verdict is trustworthy even at small n; treat a ", strong("regular/dispersed"), " verdict with real skepticism below ~40 points, regardless of which p-value you look at."),
             tags$li("Method: ", cite_link("Clark & Evans, 1954", "https://doi.org/10.2307/1931034"),
               "; edge correction: ", cite_link("Donnelly, 1978"), ".")
@@ -57,6 +62,18 @@ create_spatial_tab <- function(id) {
             h4("Monte Carlo simulations"),
             numericInput(ns("spatial_n_sim"), "Number of simulations:", value = 999, min = 49, max = 9999, step = 50),
             helpText("More simulations give a finer-grained p-value (the smallest reportable p-value is roughly 2/(simulations+1)) at the cost of runtime. With the k-d tree method this is cheap even at 999+; with the distance-matrix method, keep this lower for large datasets.")
+          )
+        ),
+
+        fluidRow(
+          column(6,
+            h4("Observation window (null model)"),
+            radioButtons(ns("spatial_window"), NULL,
+              choices = c("Rectangular scan area (bounding box)" = "rectangle",
+                          "Convex hull of the points" = "convex_hull"),
+              selected = "rectangle"),
+            helpText("Use the bounding box when the analysed region is a rectangular SEM scan (the usual case). ",
+                     "Use the convex hull when the sampled region is irregular and the points don't fill their bounding box - otherwise the null model overstates the area and biases the result toward \"clustered\".")
           )
         ),
 

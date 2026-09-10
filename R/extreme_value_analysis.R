@@ -185,27 +185,58 @@ gumbel_goodness_of_fit <- function(fit, n_sim = 999, seed = 42) {
 #' Predict the largest inclusion expected over a larger area
 #'
 #' Extrapolates the fitted Gumbel line to reduced variate
-#' `y_T = -ln(-ln(1 - 1/T))` for return period `T`, with a 95% prediction
-#' interval from the underlying linear model.
+#' `y_T = -ln(-ln(1 - 1/T))` for return period `T`, and returns two
+#' intervals from the underlying linear model:
+#'
+#' * **Prediction interval** (`lower`/`upper`): the range a *single* future
+#'   block maximum over `T` control areas is expected to fall in - the
+#'   "largest inclusion you might actually see" bound. Wider, because it
+#'   adds the residual scatter of block maxima about the fitted line.
+#' * **Confidence interval** (`ci_lower`/`ci_upper`) and its standard error
+#'   `se_fit`: the uncertainty in the *estimated* return level `predicted`
+#'   itself (`se_fit` is the delta-method SE of `a_hat + b_hat * y_T`, i.e.
+#'   `sqrt(c' vcov(model) c)` with `c = (1, y_T)`). This is the quantity
+#'   ASTM E2283 reports as the confidence bound on the predicted maximum.
+#'
+#' Both are **defensible approximations**, not exact: they treat the
+#' reduced variate `y_T` as known and the straight-line Gumbel
+#' probability-plot model as correct. They do not propagate the sampling
+#' uncertainty in the block maxima themselves, nor Gumbel-model
+#' misspecification - the latter is assessed separately by
+#' `gumbel_goodness_of_fit()`. This is the standard interval treatment for
+#' the least-squares probability-plot method (an exact interval would
+#' require MLE fitting and the Gumbel parameters' full information matrix).
 #'
 #' @param fit A result from `fit_evs_gumbel()`.
 #' @param return_period Return period `T` (multiples of the control area),
 #'   a finite number greater than 1.
-#' @return A list: `return_period`, `y`, `predicted`, `lower`, `upper` (95% PI bounds).
+#' @return A list: `return_period`, `y`, `predicted`, `lower`/`upper` (95%
+#'   prediction-interval bounds), `ci_lower`/`ci_upper` (95%
+#'   confidence-interval bounds on `predicted`), `se_fit` (standard error
+#'   of `predicted`).
 #' @export
 predict_evs_max <- function(fit, return_period) {
   if (!is.finite(return_period) || return_period <= 1) {
     stop("Return period T must be a finite number greater than 1.")
   }
   y_T <- -log(-log(1 - 1 / return_period))
-  pred <- stats::predict(fit$model, newdata = data.frame(y = y_T), interval = "prediction", level = 0.95)
+  newdata <- data.frame(y = y_T)
+  pi <- stats::predict(fit$model, newdata = newdata, interval = "prediction", level = 0.95)
+  # interval = "confidence" is exactly the delta-method CI for a_hat +
+  # b_hat*y_T (se.fit = sqrt(c' vcov(model) c), c = (1, y_T)); asking
+  # predict() for it directly keeps the arithmetic identical to R's own
+  # rather than re-deriving vcov() by hand.
+  ci <- stats::predict(fit$model, newdata = newdata, interval = "confidence", level = 0.95, se.fit = TRUE)
 
   list(
     return_period = return_period,
     y = y_T,
-    predicted = unname(pred[1, "fit"]),
-    lower = unname(pred[1, "lwr"]),
-    upper = unname(pred[1, "upr"])
+    predicted = unname(pi[1, "fit"]),
+    lower = unname(pi[1, "lwr"]),
+    upper = unname(pi[1, "upr"]),
+    ci_lower = unname(ci$fit[1, "lwr"]),
+    ci_upper = unname(ci$fit[1, "upr"]),
+    se_fit = unname(ci$se.fit[1])
   )
 }
 
@@ -248,8 +279,9 @@ create_gumbel_plot <- function(fit, prediction = NULL) {
                               width = 0.3, color = "#d32f2f") +
       ggplot2::geom_point(data = pred_df, color = "#d32f2f", size = 2.4, shape = 18) +
       ggplot2::labs(subtitle = sprintf(
-        "Predicted for T = %.0f control areas: √Area = %.2f µm [%.2f, %.2f] (95%% PI)",
-        prediction$return_period, prediction$predicted, prediction$lower, prediction$upper
+        "T = %.0f control areas: √Area = %.2f µm  |  95%% PI [%.2f, %.2f] (single future max)  |  95%% CI [%.2f, %.2f] (on the estimate, ASTM-style)",
+        prediction$return_period, prediction$predicted, prediction$lower, prediction$upper,
+        prediction$ci_lower, prediction$ci_upper
       ))
   }
 

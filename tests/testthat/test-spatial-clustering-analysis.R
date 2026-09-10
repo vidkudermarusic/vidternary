@@ -54,6 +54,45 @@ test_that("clark_evans_test flags a regular grid as dispersed", {
   expect_match(ce$verdict, "REGULAR/DISPERSED")
 })
 
+test_that("window = \"rectangle\" is the default and is reported back unchanged", {
+  set.seed(10)
+  x <- stats::runif(60); y <- stats::runif(60)
+  ce <- clark_evans_test(x, y, n_sim = 50)
+  expect_equal(ce$window, "rectangle")
+  # Default rectangle area is the bounding box.
+  expect_equal(ce$area, (max(x) - min(x)) * (max(y) - min(y)))
+})
+
+test_that("window = \"convex_hull\" uses the hull's (smaller) area and changes the null model", {
+  skip_if_not_installed("spatstat.geom")
+  # Points filling only a triangular corner of their bounding box: the
+  # convex hull is much smaller than the box, so intensity is higher and
+  # the expected NND under CSR is smaller - a real, directional change.
+  set.seed(11)
+  x <- stats::runif(200); y <- stats::runif(200)
+  keep <- y < x                       # lower-right triangle, ~half the box
+  x <- x[keep]; y <- y[keep]
+
+  ce_box  <- clark_evans_test(x, y, n_sim = 99, seed = 42, window = "rectangle")
+  ce_hull <- clark_evans_test(x, y, n_sim = 99, seed = 42, window = "convex_hull")
+
+  expect_equal(ce_hull$window, "convex_hull")
+  expect_lt(ce_hull$area, ce_box$area)            # hull is strictly smaller
+  expect_gt(ce_hull$density, ce_box$density)      # so intensity is higher
+  # Same points, same NNDs, but a smaller expected-NND baseline -> the
+  # hull's R is larger (less "clustered-looking") than the box's.
+  expect_equal(ce_hull$Dobs, ce_box$Dobs)
+  expect_gt(ce_hull$R, ce_box$R)
+})
+
+test_that("window = \"convex_hull\" rejects collinear points with a clear message", {
+  skip_if_not_installed("spatstat.geom")
+  expect_error(
+    clark_evans_test(c(1, 2, 3, 4, 5), c(1, 2, 3, 4, 5), n_sim = 10, window = "convex_hull"),
+    "collinear"
+  )
+})
+
 test_that("clark_evans_test's R and Monte Carlo p-value agree exactly between nn_methods", {
   # Both methods compute exact nearest-neighbour distances, and the same
   # seed drives the same simulated point sets, so the two algorithms

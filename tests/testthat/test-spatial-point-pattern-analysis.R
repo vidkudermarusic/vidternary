@@ -32,7 +32,7 @@ test_that("build_point_pattern drops non-finite coordinates before building the 
   expect_equal(spatstat.geom::npoints(pp), 4)
 })
 
-test_that("build_point_pattern's window is the convex hull, with a real positive area", {
+test_that("build_point_pattern's window is the convex hull by default, with a real positive area", {
   set.seed(1)
   x <- stats::runif(30, 0, 10); y <- stats::runif(30, 0, 10)
   pp <- build_point_pattern(x, y)
@@ -42,6 +42,19 @@ test_that("build_point_pattern's window is the convex hull, with a real positive
   # bounding box's own area (100) - a real, checkable upper bound, not just
   # "some positive number".
   expect_lte(area, 100)
+})
+
+test_that("build_point_pattern's window = \"rectangle\" uses the bounding box - strictly larger than the hull for scattered points", {
+  set.seed(1)
+  x <- stats::runif(40, 0, 10); y <- stats::runif(40, 0, 10)
+  pp_hull <- build_point_pattern(x, y, window = "convex_hull")
+  pp_rect <- build_point_pattern(x, y, window = "rectangle")
+  a_hull <- spatstat.geom::area.owin(spatstat.geom::Window(pp_hull))
+  a_rect <- spatstat.geom::area.owin(spatstat.geom::Window(pp_rect))
+  expect_equal(a_rect, (max(x) - min(x)) * (max(y) - min(y)))
+  expect_gt(a_rect, a_hull)
+  # The rectangle window tolerates collinear points (the hull path can't).
+  expect_no_error(build_point_pattern(c(0, 1, 2, 3), c(0, 1, 2, 3), window = "rectangle") )
 })
 
 test_that("compute_ripley_k returns the CSR expectation pi*r^2 and a real observed column", {
@@ -86,7 +99,28 @@ test_that("compute_csr_envelope validates nsim the same way compute_isolation_fo
   expect_error(compute_csr_envelope(pp, nsim = NA_real_), "nsim must be a single positive whole number")
   expect_error(compute_csr_envelope(pp, nsim = -5), "nsim must be a single positive whole number")
   expect_error(compute_csr_envelope(pp, nsim = 2.5), "nsim must be a single positive whole number")
+  expect_error(compute_csr_envelope(pp, nsim = 19, global = NA), "global must be a single TRUE or FALSE")
   expect_no_error(compute_csr_envelope(pp, nsim = 19))
+})
+
+test_that("compute_csr_envelope defaults to a global envelope and can switch to pointwise, tagged via the envelope_type attribute", {
+  set.seed(1)
+  x <- stats::runif(40, 0, 10); y <- stats::runif(40, 0, 10)
+  pp <- build_point_pattern(x, y)
+
+  env_global <- compute_csr_envelope(pp, nsim = 39, seed = 5)                 # default
+  env_point  <- compute_csr_envelope(pp, nsim = 39, seed = 5, global = FALSE)
+
+  expect_identical(attr(env_global, "envelope_type"), "global")
+  expect_identical(attr(env_point, "envelope_type"), "pointwise")
+
+  # A global (simultaneous) band is built from the largest deviation any
+  # sim reached, so it is never narrower than the pointwise per-r band at
+  # any r - and strictly wider somewhere.
+  width_global <- env_global$hi - env_global$lo
+  width_point  <- env_point$hi  - env_point$lo
+  expect_true(all(width_global >= width_point - 1e-9))
+  expect_true(any(width_global > width_point + 1e-9))
 })
 
 test_that("compute_csr_envelope is reproducible with the same seed and differs with a different one", {
@@ -123,7 +157,7 @@ test_that("compute_csr_envelope's _minus_r columns are exactly the corresponding
   expect_equal(env$hi_minus_r, env$hi - env$r, tolerance = 1e-12)
 })
 
-test_that("compute_kernel_intensity returns a finite x/y/intensity grid", {
+test_that("compute_kernel_intensity returns a finite x/y/intensity grid, edge-corrected by default", {
   set.seed(1)
   x <- stats::runif(40, 0, 10); y <- stats::runif(40, 0, 10)
   pp <- build_point_pattern(x, y)
@@ -132,6 +166,12 @@ test_that("compute_kernel_intensity returns a finite x/y/intensity grid", {
   expect_gt(nrow(dens), 0)
   expect_true(all(is.finite(dens$intensity)))
   expect_true(all(dens$intensity >= 0))
+
+  # edge_correct is a real toggle: the Diggle-corrected surface is not
+  # byte-identical to the raw one (they differ most near the boundary).
+  dens_raw <- compute_kernel_intensity(pp, edge_correct = FALSE)
+  expect_false(isTRUE(all.equal(dens$intensity, dens_raw$intensity)))
+  expect_error(compute_kernel_intensity(pp, edge_correct = NA), "edge_correct must be a single TRUE or FALSE")
 })
 
 test_that("a tight double-clump pattern shows real clustering: L(r) - r positive at short range", {

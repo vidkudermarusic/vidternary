@@ -4,29 +4,49 @@
 \alias{compute_csr_envelope}
 \title{Monte Carlo CSR envelope test on the L-function}
 \usage{
-compute_csr_envelope(pp, nsim = 99, seed = 42)
+compute_csr_envelope(pp, nsim = 99, seed = 42, global = TRUE)
 }
 \arguments{
 \item{pp}{A \code{spatstat.geom::ppp}, e.g. from \code{build_point_pattern()}.}
 
-\item{nsim}{Number of Monte Carlo CSR simulations. Default 99 (a
-conventional choice - gives pointwise bands at roughly the 2/(nsim+1)
-two-sided significance level).}
+\item{nsim}{Number of Monte Carlo CSR simulations. Default 99 (gives a
+test at roughly the \code{2/(nsim+1)} two-sided significance level).}
 
 \item{seed}{RNG seed for the simulations; the caller's RNG state is saved
 and restored afterward, matching \code{clark_evans_test()}'s own convention.
 Default 42.}
+
+\item{global}{\code{TRUE} (default) for a simultaneous envelope (a valid
+whole-curve test); \code{FALSE} for the pointwise per-\code{r} min/max
+(descriptive only - see above).}
 }
 \value{
 A data frame: \code{r}, \code{obs} (observed L(r)), \code{theo} (\verb{= r} under
-CSR), \code{lo}/\code{hi} (pointwise envelope bounds), \code{obs_minus_r}, \code{lo_minus_r},
+CSR), \code{lo}/\code{hi} (envelope bounds), \code{obs_minus_r}, \code{lo_minus_r},
 \code{hi_minus_r} (the same three shifted by \code{-r}, for plotting the
-conventional \code{L(r) - r} diagnostic with its own envelope).
+conventional \code{L(r) - r} diagnostic with its own envelope). Carries an
+\code{envelope_type} attribute (\code{"global"} or \code{"pointwise"}).
 }
 \description{
 Simulates \code{nsim} independent complete-spatial-randomness (CSR) point
-patterns in the observed pattern's own window, and reports the pointwise
-min/max of their L(r) curves as a confidence envelope around the
-theoretical CSR line - the observed L(r) falling outside that envelope at
-a given \code{r} is evidence of a real departure from CSR at that distance.
+patterns in the observed pattern's own window and builds a confidence
+envelope around the theoretical CSR line for L(r); the observed L(r)
+leaving that envelope is evidence of a real departure from CSR.
+}
+\details{
+By default a \strong{global} (simultaneous) envelope is used: its band is the
+single largest deviation any simulated curve reached, so "observed curve
+anywhere outside the band" is a valid test at the \code{2/(nsim+1)} level for
+the whole curve at once. A \strong{pointwise} envelope (\code{global = FALSE}) is
+the per-\code{r} min/max instead - under true CSR the observed curve strays
+outside a pointwise band at \emph{some} \code{r} far more than \code{2/(nsim+1)} of the
+time (multiple comparisons across \code{r}), so a pointwise band must be read
+as descriptive, not as a significance test.
+
+All of this assumes a \strong{homogeneous} process. A pattern whose intensity
+varies across the window for reasons unrelated to point interaction
+(banding, an edge-affected zone, a compositional gradient) will breach
+the CSR envelope purely from that inhomogeneity - the test cannot
+separate "points attract each other" from "some regions simply have more
+points". Inspect the intensity map before reading a breach as clustering.
 }

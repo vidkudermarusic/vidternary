@@ -426,16 +426,15 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       multivariate_methods <- c(multivariate_methods, "Isolation Forest")
       report_lines <- c(report_lines, "🌲 ISOLATION FOREST:")
       report_lines <- c(report_lines, "  • Method: Machine learning anomaly detection")
-      # Trees/contamination shown explicitly - both are now user-adjustable
-      # (previously fixed internal defaults with no way to see what was
-      # actually used), matching how Mahalanobis's own lambda/omega are
-      # already shown above. Sample size isn't listed here since it's not
-      # a setting - it always equals the reference dataset's own complete-
-      # row count, computed at run time (see compute_isolation_forest()'s
-      # own comment), not something chosen ahead of the run this report
-      # describes.
+      # Trees/contamination/sample size shown explicitly - all three are
+      # user-adjustable (previously fixed internal defaults with no way to
+      # see what was actually used), matching how Mahalanobis's own
+      # lambda/omega are already shown above.
       report_lines <- c(report_lines, paste("  • Number of trees:", input$isolation_ntrees))
       report_lines <- c(report_lines, paste("  • Contamination:", input$isolation_contamination))
+      report_lines <- c(report_lines, paste("  • Training sample size per tree:",
+                                            if (isTRUE(input$isolation_use_all_rows) || is.null(input$isolation_use_all_rows))
+                                              "all reference rows" else paste(input$isolation_sample_size, "(sub-sampled)")))
       report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_isolation) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, paste("  • Reference Dataset:", input$mahalanobis_reference_isolation))
       report_lines <- c(report_lines, "")

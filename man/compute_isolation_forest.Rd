@@ -12,7 +12,8 @@ compute_isolation_forest(
   keep_outliers = FALSE,
   ntrees = 200,
   score_type = "score",
-  seed = 42
+  seed = 42,
+  sample_size = NULL
 )
 }
 \arguments{
@@ -41,13 +42,23 @@ User-adjustable in the UI, same as \code{contamination} above.}
 \code{isotree::isolation.forest()}'s own \code{seed} argument (which governs its
 randomness independently of R's \code{set.seed()} - confirmed empirically,
 not assumed). Default 42.}
+
+\item{sample_size}{Number of reference rows each tree is trained on.
+\code{NULL} (default) uses every complete reference row - simple and fully
+reproducible, but a departure from the algorithm as published: Liu,
+Ting & Zhou (2008) sub-sample (their default \code{psi = 256}) specifically
+so trees stay shallow and the anomaly-score normalisation \code{c(psi)}
+matches the sub-sample. Pass a whole number \verb{>= 2} to sub-sample that
+many rows per tree instead; a value above the number of complete
+reference rows is clamped down to it. The value actually used is
+reported back in \code{sample_size}.}
 }
 \value{
 A list: \code{model} (the fitted isolation forest), \code{columns_used},
-\code{threshold}, \code{contamination}, \code{ntrees}, \code{sample_size} (always equal to
-the number of complete reference rows actually used to fit the model -
-not independently configurable, see this function's own inline
-comment), \code{scores} (length \code{nrow(data1)}), \code{outlier_indices},
+\code{threshold}, \code{contamination}, \code{ntrees}, \code{sample_size} (the row count
+each tree was actually trained on - either every complete reference
+row, or the sub-sample size requested, clamped to the rows available),
+\code{scores} (length \code{nrow(data1)}), \code{outlier_indices},
 \code{kept_mask}, \code{filtered_data1}, \code{ref_scores_sum}.
 }
 \description{

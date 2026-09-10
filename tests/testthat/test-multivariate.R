@@ -2,14 +2,13 @@
 # dedicated test file. Existing coverage before this was crash-shaped only
 # (test-pass5-regressions.R's 3 statistics-layer validation checks); this
 # file covers the isolation-forest-specific parameters (ntrees,
-# contamination, sample_size) that became user-adjustable in the UI - see
+# contamination, sample_size) that are user-adjustable in the UI - see
 # the vidternary Structural Audit for the full feature writeup.
 
-test_that("sample_size always equals the reference dataset's own complete-row count, not an independent setting", {
-  # Confirmed no longer an independently configurable parameter: it's
-  # derived, every time, from nrow() of the reference rows that actually
-  # survive the complete-cases filter for the selected columns - never a
-  # fixed default, never capped against an arbitrary ceiling.
+test_that("sample_size = NULL (default) uses every complete reference row", {
+  # NULL is the default and the pre-configurable behaviour: every tree
+  # trains on all reference rows that survive the complete-cases filter for
+  # the selected columns.
   set.seed(1)
   target <- data.frame(a = runif(50), b = runif(50))
   reference <- data.frame(a = runif(30), b = runif(30))
@@ -24,6 +23,51 @@ test_that("sample_size always equals the reference dataset's own complete-row co
   result_na <- compute_isolation_forest(target, reference_na, selected_columns = c("a", "b"))
   expect_equal(result_na$sample_size, sum(complete.cases(reference_na)))
   expect_lt(result_na$sample_size, nrow(reference_na))
+})
+
+test_that("sample_size = a number sub-samples that many rows per tree, and is reported back", {
+  set.seed(1)
+  target <- data.frame(a = runif(60), b = runif(60), c = runif(60))
+  reference <- data.frame(a = runif(400), b = runif(400), c = runif(400))
+
+  # A genuine sub-sample well below the reference row count.
+  result <- compute_isolation_forest(target, reference, selected_columns = c("a", "b", "c"),
+                                     sample_size = 128)
+  expect_equal(result$sample_size, 128)
+
+  # It actually reaches isotree and changes the model: a tiny sub-sample
+  # vs. all rows must not produce byte-identical scores at the same seed.
+  result_all <- compute_isolation_forest(target, reference, selected_columns = c("a", "b", "c"),
+                                         sample_size = NULL, seed = 7)
+  result_sub <- compute_isolation_forest(target, reference, selected_columns = c("a", "b", "c"),
+                                         sample_size = 32, seed = 7)
+  expect_false(isTRUE(all.equal(result_all$scores, result_sub$scores)))
+})
+
+test_that("sample_size above the available reference rows is clamped down, not passed through", {
+  set.seed(2)
+  target <- data.frame(a = runif(20), b = runif(20))
+  reference <- data.frame(a = runif(25), b = runif(25))
+
+  result <- compute_isolation_forest(target, reference, selected_columns = c("a", "b"),
+                                     sample_size = 10000)
+  expect_equal(result$sample_size, nrow(reference))
+})
+
+test_that("sample_size is validated - NA / < 2 / non-integer / length > 1 all rejected clearly", {
+  set.seed(3)
+  target <- data.frame(a = runif(20), b = runif(20))
+  reference <- data.frame(a = runif(20), b = runif(20))
+
+  expect_error(compute_isolation_forest(target, reference, selected_columns = c("a", "b"), sample_size = NA_real_),
+               "sample_size must be NULL")
+  expect_error(compute_isolation_forest(target, reference, selected_columns = c("a", "b"), sample_size = 1),
+               "sample_size must be NULL")
+  expect_error(compute_isolation_forest(target, reference, selected_columns = c("a", "b"), sample_size = 12.5),
+               "sample_size must be NULL")
+  expect_error(compute_isolation_forest(target, reference, selected_columns = c("a", "b"), sample_size = c(10, 20)),
+               "sample_size must be NULL")
+  expect_no_error(compute_isolation_forest(target, reference, selected_columns = c("a", "b"), sample_size = 10))
 })
 
 test_that("ntrees and contamination are both reported back exactly as passed in, and used for real", {

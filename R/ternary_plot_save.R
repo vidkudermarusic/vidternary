@@ -52,8 +52,11 @@ save_ternary_plot_to_file <- function(pd) {
     # R has a hard cap on simultaneously open devices.
     on.exit(dev.off(), add = TRUE)
 
-    # Set outer margins to prevent clipping of multi-line titles and notes
-    op <- par(oma = c(4, 0, 3, 0))
+    # Set outer margins to prevent clipping of multi-line titles and notes -
+    # bottom margin scales with notes_bottom_margin, matching
+    # ternary_plot_preview.R's own identical fix (see that file's comment,
+    # and draw_plot_notes_column()'s, for the full explanation).
+    op <- par(oma = c(notes_bottom_margin, 0, 3, 0))
 
     # Recreate the entire plot on the file device
     # Check if Ternary package is available
@@ -233,13 +236,13 @@ save_ternary_plot_to_file <- function(pd) {
     if (include_plot_notes && nchar(col1_text) > 0) {
       # Add plot notes in three columns below the plot with intelligent positioning
       # Column 1 (left) - Elements and filters
-      mtext(col1_text, side = 1, line = line_pos, cex = text_cex, col = "darkblue", outer = TRUE, adj = 0)
+      draw_plot_notes_column(col1_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkblue", adj = 0)
 
       # Column 2 (center) - Optional parameters
-      mtext(col2_text, side = 1, line = line_pos, cex = text_cex, col = "darkgreen", outer = TRUE, adj = 0.5)
+      draw_plot_notes_column(col2_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkgreen", adj = 0.5)
 
       # Column 3 (right) - Analysis methods
-      mtext(col3_text, side = 1, line = line_pos, cex = text_cex, col = "darkred", outer = TRUE, adj = 1)
+      draw_plot_notes_column(col3_text, side = 1, start_line = line_pos, cex = text_cex, col = "darkred", adj = 1)
 
       # Add a debug message to confirm plot notes are being added
       if (getOption("ternary.debug", FALSE)) {
