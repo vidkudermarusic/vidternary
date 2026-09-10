@@ -18,11 +18,11 @@ create_coda_tab <- function(id) {
         helpText("Wt% chemistry columns are compositional data (constrained to sum to ~100%), so ordinary statistics/PCA on raw percentages can be misleading. Log-ratio transforms fix this before running PCA."),
 
         div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5("🎯 How it works", style = "margin-top: 0; color: #0c5460;"),
+          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
           tags$ul(
             tags$li(strong("CLR"), " (centered log-ratio): each element's log-share relative to the geometric mean of all selected elements. Each axis maps directly to one element, so PCA loadings/biplots stay directly interpretable - used for the biplot below. ", cite_link("Aitchison, 1986"), "."),
             tags$li(strong("ILR"), " (isometric log-ratio): an orthonormal-coordinate version with a non-singular covariance matrix - each coordinate is an abstract contrast between groups of elements rather than one single element, but gives identical PCA/distance structure to CLR. Available as a download for use in methods that need non-singular covariance. ", cite_link("Egozcue et al., 2003", "https://doi.org/10.1023/A:1023818214614"), "."),
-            tags$li("Zeros are replaced with a small pseudo-count before taking logs, since log(0) is undefined: each element's own zeros are replaced with half that element's own smallest positive value (matching the convention used by the ", tags$code("zCompositions"), " R package) - a simplified version of ", cite_link("Martín-Fernández et al., 2003", "https://doi.org/10.1023/A:1023866030544"), "."),
+            tags$li("Zeros are replaced with a small pseudo-count before taking logs, since log(0) is undefined: each element's own zeros are replaced with half that element's own smallest positive value (matching the convention used by the ", tags$code("zCompositions"), " R package) - a simplified version of ", cite_link("Martin-Fernandez et al., 2003", "https://doi.org/10.1023/A:1023866030544"), "."),
             tags$li("PCA: ", cite_link("Jolliffe, 2002", "https://doi.org/10.1007/b98835"), ".")
           )
         ),

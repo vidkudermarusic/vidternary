@@ -16,7 +16,7 @@
 #
 # "Create & Save" is a downloadHandler now (one zip download instead of a
 # subfolder under a pre-chosen server-side Output Directory - see the
-# vidternary Structural Audit's §03). testServer()'s own output$id
+# vidternary Structural Audit's Sec.03). testServer()'s own output$id
 # accessor both runs the handler's content() function and returns the path
 # Shiny wrote its content to (basename reflecting the handler's own
 # filename() function - confirmed directly before relying on it here), or

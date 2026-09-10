@@ -11,8 +11,21 @@
 #' column ordering); if a pairwise `NA` still remains, falls back to the
 #' original column order instead of clustering.
 #'
+#' @details
+#' The correlation is computed on the columns exactly as supplied. When
+#' those columns are constant-sum compositional data (wt% chemistry that
+#' sums to ~100), the closure constraint induces spurious correlations -
+#' most visibly a negative bias, since an increase in one part forces the
+#' others down - so a Pearson `r` between two wt% columns is not a clean
+#' measure of their association. This is the problem the CoDA tab handles
+#' with a log-ratio transform (`compositional_data_analysis.R`). A caption
+#' line on the plot states this; for a quick rank-based alternative that is
+#' less distorted, pass `method = "spearman"`. Non-compositional columns
+#' (area, ECD, aspect ratio, coordinates) are unaffected.
+#'
 #' @param data A data frame of numeric columns.
 #' @param method Correlation method passed to `cor()`. Default `"pearson"`.
+#'   `"spearman"` (rank) is less affected by compositional closure.
 #' @param title Plot title.
 #' @param color_palette `corrplot::COL2()` palette name. Default `"RdBu"`.
 #' @return `TRUE` (invisibly `FALSE` if fewer than 2 non-constant numeric
@@ -54,10 +67,21 @@ create_correlation_plot <- function(data, method = "pearson",
   # column order rather than crashing.
   order_method <- if (anyNA(cor_matrix)) "original" else "hclust"
 
-  # Reserve extra room in the bottom margin when a note about excluded
-  # columns needs to be printed below the plot, so mtext() doesn't overlap
-  # the heatmap's own bottom row/labels.
-  bottom_margin <- if (length(constant_cols) > 0) 3 else 0
+  # Caption lines printed below the heatmap: always a note that the
+  # coefficient is computed on the raw columns (so closure distorts it for
+  # constant-sum wt% data - see this function's @details), plus, when
+  # relevant, which constant columns were dropped. Reserve bottom-margin
+  # room per line so mtext() doesn't overlap the heatmap's own labels.
+  method_label <- c(pearson = "Pearson r", spearman = "Spearman rho",
+                    kendall = "Kendall tau")[tolower(method)]
+  if (is.na(method_label)) method_label <- method
+  notes <- sprintf(
+    "%s on raw columns - for constant-sum (wt%%) data, closure distorts this; use the CoDA tab for a log-ratio analysis.",
+    method_label)
+  if (length(constant_cols) > 0) {
+    notes <- c(notes, paste("Excluded constant column(s):", paste(constant_cols, collapse = ", ")))
+  }
+  bottom_margin <- 2 + 1.4 * length(notes)
 
   # Create correlation plot
   corrplot::corrplot(cor_matrix,
@@ -71,9 +95,8 @@ create_correlation_plot <- function(data, method = "pearson",
     title = title,
                      mar = c(bottom_margin, 0, 2, 0))
 
-  if (length(constant_cols) > 0) {
-    mtext(paste("Excluded constant column(s):", paste(constant_cols, collapse = ", ")),
-          side = 1, line = 1.5, cex = 0.6, col = "grey40")
+  for (i in seq_along(notes)) {
+    mtext(notes[i], side = 1, line = 0.6 + 1.3 * (i - 1), cex = 0.6, col = "grey40")
   }
 
   return(TRUE)

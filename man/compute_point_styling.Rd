@@ -79,7 +79,7 @@ the reason this function takes and can return a modified
 \code{ternary_points1} and \code{selected_groups}, unlike a pure "compute some
 columns" helper. Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own
 function because it's the largest of that function's remaining inline
-responsibilities (per the vidternary Structural Audit's §04
+responsibilities (per the vidternary Structural Audit's Sec.04
 responsibility table) - everything here is genuinely self-contained once
 \code{ternary_points1}/\code{matrika} exist, with no interaction with the
 filtering or multivariate-analysis steps that ran earlier.

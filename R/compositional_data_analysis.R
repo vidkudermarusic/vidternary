@@ -38,7 +38,7 @@
 # far worse approximation than filling that element's own zeros with half
 # its own smallest observed value. This is still a simplified version of
 # the full multiplicative zero-replacement approach in the CoDA literature
-# (e.g. Martín-Fernández et al.) - documented here rather than implemented
+# (e.g. Martin-Fernandez et al.) - documented here rather than implemented
 # in full, since the full method needs a true detection limit per element
 # that this app's data doesn't carry; per-column is the standard middle
 # ground when only observed data (not real detection limits) is available.

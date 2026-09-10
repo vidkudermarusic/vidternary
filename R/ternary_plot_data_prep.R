@@ -27,7 +27,7 @@
 #' any filtering or coordinate computation is attempted. Extracted as its
 #' own function because it carries no shared mutable state with the rest
 #' of `prepare_ternary_plot_data()` (per the vidternary Structural Audit's
-#' §04 responsibility table) - its only output is the loaded data frame.
+#' Sec.04 responsibility table) - its only output is the loaded data frame.
 #'
 #' @param xlsx_file Path to the uploaded `.xlsx` file (temp upload path).
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
@@ -75,7 +75,7 @@ load_and_validate_ternary_source_data <- function(xlsx_file, element_A, element_
 #' diagram's corner/axis labels. Called once by
 #' [prepare_ternary_plot_data()], right after ternary coordinates are
 #' computed - extracted as its own function because it's purely cosmetic
-#' (per the vidternary Structural Audit's §04 responsibility table):
+#' (per the vidternary Structural Audit's Sec.04 responsibility table):
 #' builds display text only, and touches none of the actual filtered data.
 #'
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
@@ -224,7 +224,7 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
 #' mandatory-column-selection checks below raise a real, propagating error.
 #' Extracted from [prepare_ternary_plot_data()] as its own function because
 #' it's the most self-contained of that function's remaining
-#' responsibilities (per the vidternary Structural Audit's §04
+#' responsibilities (per the vidternary Structural Audit's Sec.04
 #' responsibility table) - its only real outputs are `M`, `mahal_result`,
 #' and `iso_result`.
 #'
@@ -447,7 +447,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
 #' `ternary_points1` and `selected_groups`, unlike a pure "compute some
 #' columns" helper. Extracted from [prepare_ternary_plot_data()] as its own
 #' function because it's the largest of that function's remaining inline
-#' responsibilities (per the vidternary Structural Audit's §04
+#' responsibilities (per the vidternary Structural Audit's Sec.04
 #' responsibility table) - everything here is genuinely self-contained once
 #' `ternary_points1`/`matrika` exist, with no interaction with the
 #' filtering or multivariate-analysis steps that ran earlier.
@@ -866,9 +866,16 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 #' original inline code's own behavior exactly (a pure lift, not a
 #' rewrite). Extracted from [prepare_ternary_plot_data()] as its own
 #' function because it's the most self-contained of that function's
-#' remaining responsibilities (per the vidternary Structural Audit's §04
+#' remaining responsibilities (per the vidternary Structural Audit's Sec.04
 #' responsibility table) - it only reads `M` and the filter flags/
 #' parameters below, and its only real output is `M`.
+#'
+#' Every active method is run over *all* of `selected_columns` and a row is
+#' dropped (or kept, if `keep_outliers_*`) when it crosses the fence in
+#' *any one* of them - so the effective per-row false-positive rate rises
+#' with the number of selected columns. See the scientific caveats in
+#' `statistical_filters.R`'s source header for that and for the
+#' skew/small-sample limitations of the individual fences.
 #'
 #' @param M The data frame to filter (already loaded/individually filtered).
 #' @param use_iqr_filter,use_zscore_filter,use_mad_filter Which method(s),
@@ -878,13 +885,17 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 #' @param keep_outliers_iqr,keep_outliers_zscore,keep_outliers_mad If
 #'   `TRUE` for the active method, keep only the flagged outliers instead
 #'   of removing them.
+#' @param stat_filter_log10 If `TRUE`, every active fence is fitted and
+#'   applied on `log10(value)` rather than the raw value - the appropriate
+#'   choice for the right-skewed inclusion measurements this app filters.
+#'   Default `FALSE` (raw-scale fences, the original behaviour).
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`) - `M` is the only field
 #'   [prepare_ternary_plot_data()] actually reads back.
 #' @export
 apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, use_mad_filter,
                                          selected_columns, keep_outliers_iqr, keep_outliers_zscore,
-                                         keep_outliers_mad) {
+                                         keep_outliers_mad, stat_filter_log10 = FALSE) {
   # Apply statistical filtering BEFORE multivariate analysis (as in legacy code)
   if (use_iqr_filter || use_zscore_filter || use_mad_filter) {
     if (getOption("ternary.debug", FALSE)) {
@@ -907,17 +918,17 @@ apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, us
 
     if (use_iqr_filter) {
       if (getOption("ternary.debug", FALSE)) cat("DEBUG: Applying IQR filter\n")
-      M <- apply_iqr_filter(M, selected_columns, 1.5, keep_outliers_iqr)
+      M <- apply_iqr_filter(M, selected_columns, 1.5, keep_outliers_iqr, log_transform = stat_filter_log10)
     }
 
     if (use_zscore_filter) {
       if (getOption("ternary.debug", FALSE)) cat("DEBUG: Applying Z-score filter\n")
-      M <- apply_zscore_filter(M, selected_columns, 3, keep_outliers_zscore)
+      M <- apply_zscore_filter(M, selected_columns, 3, keep_outliers_zscore, log_transform = stat_filter_log10)
     }
 
     if (use_mad_filter) {
       if (getOption("ternary.debug", FALSE)) cat("DEBUG: Applying MAD filter\n")
-      M <- apply_mad_filter(M, selected_columns, 3, keep_outliers_mad)
+      M <- apply_mad_filter(M, selected_columns, 3, keep_outliers_mad, log_transform = stat_filter_log10)
     }
 
     if (getOption("ternary.debug", FALSE)) {
@@ -941,7 +952,7 @@ apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, us
 #' per-charge subfolder (with a timestamp suffix if one already exists) or
 #' returns `custom_folder = NULL` in preview mode. Extracted from
 #' [prepare_ternary_plot_data()] as its own function because it's fully
-#' self-contained (per the vidternary Structural Audit's §04 responsibility
+#' self-contained (per the vidternary Structural Audit's Sec.04 responsibility
 #' table) - of its three outputs, only `file_base` is read again by this
 #' function's caller (passed to [build_ternary_plot_title()] for the
 #' title's "charge" line); `custom_folder`/`plot_folder_name` are computed
@@ -1014,13 +1025,13 @@ resolve_ternary_output_directory <- function(xlsx_file, xlsx_display_name, outpu
 #' unrelated global functions package-wide (a real instance of exactly
 #' this bug class, unrelated to these, was found and fixed three times
 #' elsewhere in this package - see the vidternary Structural Audit's
-#' §03/§08). [prepare_ternary_plot_data()] keeps its own two sibling local
+#' Sec.03/Sec.08). [prepare_ternary_plot_data()] keeps its own two sibling local
 #' closures (`preview_title_layout()`, `calculate_plot_dimensions()`)
 #' untouched in its own body - neither is used by filtering, and both are
 #' still needed there (as `build_ternary_plot_title()`'s `title_layout_fn`
 #' callback, and echoed into `pd` for `ternary_plot_save.R`'s own use).
 #' Extracted from [prepare_ternary_plot_data()] as its own function per the
-#' vidternary Structural Audit's §04 responsibility table.
+#' vidternary Structural Audit's Sec.04 responsibility table.
 #'
 #' @param M The data frame to filter (already loaded/validated).
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
@@ -1261,7 +1272,7 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #' or if nothing survives validation. Extracted from
 #' [prepare_ternary_plot_data()] as its own function because it's the last
 #' and most central of that function's identified responsibilities (per
-#' the vidternary Structural Audit's §04 responsibility table) - tackled
+#' the vidternary Structural Audit's Sec.04 responsibility table) - tackled
 #' last of the seven extractions on this function, once every other piece
 #' it interacts with (filtering, multivariate dispatch, point styling,
 #' title assembly) had already been extracted and verified.
@@ -1517,6 +1528,9 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 #'   Z-score / MAD statistical outlier filtering. Only one
 #'   statistical/multivariate filter is meant to be active per plot -
 #'   enforced upstream in [general_ternary_plot()].
+#' @param stat_filter_log10 If `TRUE`, the active IQR/Z-score/MAD fence is
+#'   fitted on `log10(value)` rather than the raw value (passed straight
+#'   through to [apply_statistical_filtering()]). Default `FALSE`.
 #' @param lambda,omega Sensitivity/leniency parameters for the automatic
 #'   Mahalanobis threshold formula (see [compute_mahalanobis_distance()]).
 #' @param keep_outliers_mahalanobis,keep_outliers_isolation,keep_outliers_iqr,keep_outliers_zscore,keep_outliers_mad
@@ -1556,7 +1570,7 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 #'   narrower return list risked silently dropping one.
 #' @export
 #'
-#' @section Restructuring (see the vidternary Structural Audit's §04/§08):
+#' @section Restructuring (see the vidternary Structural Audit's Sec.04/Sec.08):
 #' All seven of this function's identified responsibilities have now been
 #' extracted into their own top-level, independently testable/documented
 #' functions: [load_and_validate_ternary_source_data()] (the very first
@@ -1605,6 +1619,7 @@ prepare_ternary_plot_data <- function(
     use_iqr_filter,
     use_zscore_filter,
     use_mad_filter,
+    stat_filter_log10 = FALSE,
     lambda,
     omega,
     keep_outliers_mahalanobis,
@@ -1654,7 +1669,7 @@ prepare_ternary_plot_data <- function(
   # unrelated global utilities package-wide (a real instance of exactly
   # this bug class, unrelated to these, was found and fixed three times
   # elsewhere in this package - see the vidternary Structural Audit's
-  # §03/§08). This function's other three local closures -
+  # Sec.03/Sec.08). This function's other three local closures -
   # parse_filter_condition()/apply_filter()/apply_individual_filters() -
   # moved into apply_element_and_parameter_filters() (see this function's
   # own "Restructuring" doc section above) along with the filtering logic
@@ -1726,7 +1741,8 @@ prepare_ternary_plot_data <- function(
     selected_columns = selected_columns,
     keep_outliers_iqr = keep_outliers_iqr,
     keep_outliers_zscore = keep_outliers_zscore,
-    keep_outliers_mad = keep_outliers_mad
+    keep_outliers_mad = keep_outliers_mad,
+    stat_filter_log10 = stat_filter_log10
   )
   list2env(stat_result, environment())
 
@@ -1907,7 +1923,7 @@ prepare_ternary_plot_data <- function(
       mv_info <- c()
       if (use_mahalanobis) {
         outlier_status <- if (keep_outliers_mahalanobis) "(keep only outliers)" else "(remove outliers)"
-        mv_info <- c(mv_info, paste("Mahalanobis (λ=", lambda, ", ω=", omega, ")", outlier_status))
+        mv_info <- c(mv_info, paste("Mahalanobis (lambda=", lambda, ", omega=", omega, ")", outlier_status))
 
         # Add detailed Mahalanobis distance information if available
         if (!is.null(mahal_result)) {

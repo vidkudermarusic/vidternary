@@ -7,7 +7,7 @@
 # did everything "Generate" did (build the composite, update the preview)
 # plus the save itself - the two-button version was one redundant extra
 # click, not two independently useful actions. See the vidternary
-# Structural Audit's §03 for why this uses a downloadButton/downloadHandler
+# Structural Audit's Sec.03 for why this uses a downloadButton/downloadHandler
 # rather than the old global Output Directory picker in the first place.
 
 #' Wire up the Hexagonal Ternary Diagram tab's server logic
@@ -91,7 +91,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
   # Hands the composite PNG straight to the browser's own Save dialog
   # (downloadButton/downloadHandler) instead of writing it into a
   # pre-chosen server-side folder - see the vidternary Structural Audit's
-  # §03 for why the previous global Output Directory picker was removed.
+  # Sec.03 for why the previous global Output Directory picker was removed.
   # create_hex_ternary_diagram() still needs a real output_dir to work
   # with; a fresh, single-use temp directory supplies that.
   output$hex_save <- downloadHandler(
@@ -145,7 +145,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
 
   output$hex_plot_container <- renderUI({
     if (is.null(hex_result_path())) {
-      tags$p("Upload a file, select all 7 element positions and click “Create & Save diagram”.")
+      tags$p("Upload a file, select all 7 element positions and click 'Create & Save diagram'.")
     } else {
       # height must track the image's actual rendered size, not a fixed
       # px value: the composite PNG is generated at 1400x1400

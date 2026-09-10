@@ -34,5 +34,5 @@ of \code{xlsx_file}, then validates the element/output-format inputs before
 any filtering or coordinate computation is attempted. Extracted as its
 own function because it carries no shared mutable state with the rest
 of \code{prepare_ternary_plot_data()} (per the vidternary Structural Audit's
-§04 responsibility table) - its only output is the loaded data frame.
+Sec.04 responsibility table) - its only output is the loaded data frame.
 }

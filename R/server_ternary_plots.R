@@ -354,7 +354,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       # even though it was genuinely being applied to the plot.
       filters_A1 <- collect_main_ternary_filters(input$element_A1, "A", 1, input)
       for (filter_name in names(filters_A1)) {
-        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_A1[[filter_name]]))
+        report_lines <- c(report_lines, paste("  - Filter", filter_name, ":", filters_A1[[filter_name]]))
       }
     }
 
@@ -364,7 +364,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       # Add individual filters for Element B - see the Element A comment above.
       filters_B1 <- collect_main_ternary_filters(input$element_B1, "B", 1, input)
       for (filter_name in names(filters_B1)) {
-        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_B1[[filter_name]]))
+        report_lines <- c(report_lines, paste("  - Filter", filter_name, ":", filters_B1[[filter_name]]))
       }
     }
 
@@ -374,7 +374,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       # Add individual filters for Element C - see the Element A comment above.
       filters_C1 <- collect_main_ternary_filters(input$element_C1, "C", 1, input)
       for (filter_name in names(filters_C1)) {
-        report_lines <- c(report_lines, paste("  • Filter", filter_name, ":", filters_C1[[filter_name]]))
+        report_lines <- c(report_lines, paste("  - Filter", filter_name, ":", filters_C1[[filter_name]]))
       }
     }
 
@@ -382,17 +382,17 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     if (!is.null(input$optional_param1_1) && input$optional_param1_1 != "") {
       report_lines <- c(report_lines, paste("Optional Parameter 1 (Point Size):", input$optional_param1_1))
       if (!is.null(input$filter_op1_1) && nchar(input$filter_op1_1) > 0) {
-        report_lines <- c(report_lines, paste("  • Filter:", input$filter_op1_1))
+        report_lines <- c(report_lines, paste("  - Filter:", input$filter_op1_1))
       }
       if (!is.null(input$optional_param1_representation1)) {
-        report_lines <- c(report_lines, paste("  • Representation:", input$optional_param1_representation1))
+        report_lines <- c(report_lines, paste("  - Representation:", input$optional_param1_representation1))
       }
     }
 
     if (!is.null(input$optional_param2_1) && input$optional_param2_1 != "") {
       report_lines <- c(report_lines, paste("Optional Parameter 2 (Color):", input$optional_param2_1))
       if (!is.null(input$filter_op2_1) && nchar(input$filter_op2_1) > 0) {
-        report_lines <- c(report_lines, paste("  • Filter:", input$filter_op2_1))
+        report_lines <- c(report_lines, paste("  - Filter:", input$filter_op2_1))
       }
     }
 
@@ -407,65 +407,73 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     multivariate_methods <- c()
     if (input$use_mahalanobis) {
       multivariate_methods <- c(multivariate_methods, "Mahalanobis Distance")
-      report_lines <- c(report_lines, "🔧 MAHALANOBIS DISTANCE:")
-      report_lines <- c(report_lines, paste("  • Lambda (λ):", input$lambda))
-      report_lines <- c(report_lines, paste("  • Omega (ω):", input$omega))
-      report_lines <- c(report_lines, paste("  • Threshold Mode:", input$mdthresh_mode))
+      report_lines <- c(report_lines, " MAHALANOBIS DISTANCE:")
+      report_lines <- c(report_lines, paste("  - Lambda (lambda):", input$lambda))
+      report_lines <- c(report_lines, paste("  - Omega (omega):", input$omega))
+      report_lines <- c(report_lines, paste("  - Threshold Mode:", input$mdthresh_mode))
       if (input$mdthresh_mode == "manual") {
-        report_lines <- c(report_lines, paste("  • Custom Threshold:", input$custom_mdthresh))
+        report_lines <- c(report_lines, paste("  - Custom Threshold:", input$custom_mdthresh))
       } else {
-        report_lines <- c(report_lines, "  • Formula: MDthresh = MDmean + √(100/(100+λ-ω)) × stdMD")
+        report_lines <- c(report_lines, "  - Formula: MDthresh = MDmean + sqrt(100/(100+lambda-omega)) x stdMD")
       }
-      report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_mahalanobis) "Keep only outliers" else "Remove outliers"))
-      report_lines <- c(report_lines, paste("  • Reference Dataset:", input$mahalanobis_reference))
+      report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_mahalanobis) "Keep only outliers" else "Remove outliers"))
+      report_lines <- c(report_lines, paste("  - Reference Dataset:", input$mahalanobis_reference))
       report_lines <- c(report_lines, "")
     }
 
 
     if (input$use_isolation_forest) {
       multivariate_methods <- c(multivariate_methods, "Isolation Forest")
-      report_lines <- c(report_lines, "🌲 ISOLATION FOREST:")
-      report_lines <- c(report_lines, "  • Method: Machine learning anomaly detection")
+      report_lines <- c(report_lines, " ISOLATION FOREST:")
+      report_lines <- c(report_lines, "  - Method: Machine learning anomaly detection")
       # Trees/contamination/sample size shown explicitly - all three are
       # user-adjustable (previously fixed internal defaults with no way to
       # see what was actually used), matching how Mahalanobis's own
       # lambda/omega are already shown above.
-      report_lines <- c(report_lines, paste("  • Number of trees:", input$isolation_ntrees))
-      report_lines <- c(report_lines, paste("  • Contamination:", input$isolation_contamination))
-      report_lines <- c(report_lines, paste("  • Training sample size per tree:",
+      report_lines <- c(report_lines, paste("  - Number of trees:", input$isolation_ntrees))
+      report_lines <- c(report_lines, paste("  - Contamination:", input$isolation_contamination))
+      report_lines <- c(report_lines, paste("  - Training sample size per tree:",
                                             if (isTRUE(input$isolation_use_all_rows) || is.null(input$isolation_use_all_rows))
                                               "all reference rows" else paste(input$isolation_sample_size, "(sub-sampled)")))
-      report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_isolation) "Keep only outliers" else "Remove outliers"))
-      report_lines <- c(report_lines, paste("  • Reference Dataset:", input$mahalanobis_reference_isolation))
+      report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_isolation) "Keep only outliers" else "Remove outliers"))
+      # Isolation Forest uses the same reference selector as Mahalanobis
+      # (input$mahalanobis_reference) - there is no separate isolation-forest
+      # reference control. Report the value actually used.
+      report_lines <- c(report_lines, paste("  - Reference Dataset:", input$mahalanobis_reference))
       report_lines <- c(report_lines, "")
     }
 
     # Statistical Filtering Section
     statistical_methods <- c()
+    stat_scale_line <- paste("  - Scale:", if (isTRUE(input$stat_filter_log10)) "fence fitted on log10(value)" else "fence fitted on raw value")
     if (input$use_iqr_filter) {
       statistical_methods <- c(statistical_methods, "IQR Filter")
-      report_lines <- c(report_lines, "📊 IQR FILTER:")
-      report_lines <- c(report_lines, "  • Method: Interquartile Range")
-      report_lines <- c(report_lines, "  • Formula: Outliers > Q3+1.5×IQR (high values only)")
-      report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_iqr) "Keep only outliers" else "Remove outliers"))
+      report_lines <- c(report_lines, " IQR FILTER:")
+      report_lines <- c(report_lines, "  - Method: Interquartile Range")
+      report_lines <- c(report_lines, "  - Formula: Outliers > Q3+1.5xIQR (high values only)")
+      report_lines <- c(report_lines, stat_scale_line)
+      report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_iqr) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }
 
     if (input$use_zscore_filter) {
       statistical_methods <- c(statistical_methods, "Z-Score Filter")
-      report_lines <- c(report_lines, "📈 Z-SCORE FILTER:")
-      report_lines <- c(report_lines, "  • Method: Standardized scores")
-      report_lines <- c(report_lines, "  • Formula: Outliers z-score > 3 (high values only)")
-      report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_zscore) "Keep only outliers" else "Remove outliers"))
+      report_lines <- c(report_lines, " Z-SCORE FILTER:")
+      report_lines <- c(report_lines, "  - Method: Standardized scores")
+      report_lines <- c(report_lines, "  - Formula: Outliers z-score > 3 (high values only)")
+      report_lines <- c(report_lines, stat_scale_line)
+      report_lines <- c(report_lines, "  - Note: no row can be flagged unless n >= 11 (z-score sample-size ceiling)")
+      report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_zscore) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }
 
     if (input$use_mad_filter) {
       statistical_methods <- c(statistical_methods, "MAD Filter")
-      report_lines <- c(report_lines, "📏 MAD FILTER:")
-      report_lines <- c(report_lines, "  • Method: Median Absolute Deviation")
-      report_lines <- c(report_lines, "  • Formula: Outliers > median+3×MAD (high values only)")
-      report_lines <- c(report_lines, paste("  • Outlier Handling:", if (input$outlier_mode_mad) "Keep only outliers" else "Remove outliers"))
+      report_lines <- c(report_lines, " MAD FILTER:")
+      report_lines <- c(report_lines, "  - Method: Median Absolute Deviation")
+      report_lines <- c(report_lines, "  - Formula: Outliers > median+3xMAD (high values only)")
+      report_lines <- c(report_lines, stat_scale_line)
+      report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_mad) "Keep only outliers" else "Remove outliers"))
       report_lines <- c(report_lines, "")
     }
 
@@ -588,15 +596,15 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
           }
 
           report_lines <- c(report_lines, paste("  Row", i, ":"))
-          report_lines <- c(report_lines, paste("    • A (", paste(element_A_cols, collapse = "+"), "):", round(A_value, 3), "→", round(A_coord, 4)))
-          report_lines <- c(report_lines, paste("    • B (", paste(element_B_cols, collapse = "+"), "):", round(B_value, 3), "→", round(B_coord, 4)))
-          report_lines <- c(report_lines, paste("    • C (", paste(element_C_cols, collapse = "+"), "):", round(C_value, 3), "→", round(C_coord, 4)))
-          report_lines <- c(report_lines, paste("    • Total:", round(total, 3), "| Ternary coordinates: A=", round(A_coord, 4), ", B=", round(B_coord, 4), ", C=", round(C_coord, 4)))
+          report_lines <- c(report_lines, paste("    - A (", paste(element_A_cols, collapse = "+"), "):", round(A_value, 3), "->", round(A_coord, 4)))
+          report_lines <- c(report_lines, paste("    - B (", paste(element_B_cols, collapse = "+"), "):", round(B_value, 3), "->", round(B_coord, 4)))
+          report_lines <- c(report_lines, paste("    - C (", paste(element_C_cols, collapse = "+"), "):", round(C_value, 3), "->", round(C_coord, 4)))
+          report_lines <- c(report_lines, paste("    - Total:", round(total, 3), "| Ternary coordinates: A=", round(A_coord, 4), ", B=", round(B_coord, 4), ", C=", round(C_coord, 4)))
 
           # Add outlier-detection values if available (Mahalanobis distance
           # and/or Isolation Forest)
           if (length(multivariate_values) > 0) {
-            report_lines <- c(report_lines, paste("    • Outlier Detection:", paste(multivariate_values, collapse = ", ")))
+            report_lines <- c(report_lines, paste("    - Outlier Detection:", paste(multivariate_values, collapse = ", ")))
           }
         }
       }
@@ -668,7 +676,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   # ---- Save Plot Buttons for Main Ternary Plots ----
   # Each hands the saved file straight to the browser's own Save dialog
   # (downloadButton/downloadHandler) instead of writing to a pre-chosen
-  # server-side folder - see the vidternary Structural Audit's §03 for why
+  # server-side folder - see the vidternary Structural Audit's Sec.03 for why
   # the previous global Working/Output Directory picker was removed.
   # general_ternary_plot() still needs a real output_dir to actually save
   # (preview = FALSE, output_dir = NULL would just draw and return NULL,
@@ -700,12 +708,12 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       })
 
       if (is.null(result)) {
-        output$status <- renderText("❌ Failed to save Plot 1")
+        output$status <- renderText(" Failed to save Plot 1")
         log_operation("ERROR", "Failed to save Plot 1")
         stop("Failed to save Plot 1 - see the Analysis Log.")
       }
 
-      output$status <- renderText(paste("✅ Plot 1 saved successfully!\n📍 Location:", result))
+      output$status <- renderText(paste(" Plot 1 saved successfully!\n Location:", result))
       log_operation("SUCCESS", "Plot 1 saved successfully", paste("Saved to:", result))
       file.copy(result, file, overwrite = TRUE)
     }
@@ -734,12 +742,12 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       })
 
       if (is.null(result)) {
-        output$status <- renderText("❌ Failed to save Plot 2")
+        output$status <- renderText(" Failed to save Plot 2")
         log_operation("ERROR", "Failed to save Plot 2")
         stop("Failed to save Plot 2 - see the Analysis Log.")
       }
 
-      output$status <- renderText(paste("✅ Plot 2 saved successfully!\n📍 Location:", result))
+      output$status <- renderText(paste(" Plot 2 saved successfully!\n Location:", result))
       log_operation("SUCCESS", "Plot 2 saved successfully", paste("Saved to:", result))
       file.copy(result, file, overwrite = TRUE)
     }

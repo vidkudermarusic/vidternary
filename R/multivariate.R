@@ -365,7 +365,7 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     # This automatic threshold (MDmean + sqrt(100/(100+lambda-omega)) * stdMD)
     # is not an ad-hoc heuristic - it is the empirical Mahalanobis-distance
     # cutoff formula from:
-    #   Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovič, D. (2022).
+    #   Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovic, D. (2022).
     #   "Classification of Hot-Rolled Plates Using the Mahalanobis Distance
     #   of NMIs in Ti-Stabilized Austenitic Stainless-Steel Produced by
     #   Secondary Metallurgy." Materials, 15(2), 684. MDPI.
@@ -374,8 +374,8 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     # general-purpose statistical knobs, which is why they are kept separate
     # from the Z-score/MAD thresholds elsewhere in this codebase.
     MDthresh <- MDmean + sqrt(100/(100 + lambda - omega)) * stdMD
-    threshold_method <- "Automatic (MDthresh=MDmean+√(100/(100+λ-ω))×stdMD)"
-    threshold_formula <- sprintf("MDthresh = %.3f + √(100/(100+%.1f-%.1f)) × %.3f = %.3f", 
+    threshold_method <- "Automatic (MDthresh=MDmean+sqrt(100/(100+lambda-omega))xstdMD)"
+    threshold_formula <- sprintf("MDthresh = %.3f + sqrt(100/(100+%.1f-%.1f)) x %.3f = %.3f", 
                                MDmean, lambda, omega, stdMD, MDthresh)
     if (getOption("ternary.debug", FALSE)) cat("DEBUG: Using AUTOMATIC threshold:", MDthresh, "\n")
   }
@@ -412,7 +412,7 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     # na.rm = TRUE matches the NA-coercion outlier_indices already gets a
     # few lines up: an Inf value anywhere in the selected columns (see
     # validate_multivariate_data(), which now warns rather than crashing
-    # on this - §03) makes mahal_distances contain NA/NaN entries, and a
+    # on this - Sec.03) makes mahal_distances contain NA/NaN entries, and a
     # plain sum() over a logical vector containing NA returns NA itself -
     # silently turning a real count into a missing value with no error or
     # warning, unlike outlier_custom right below, which was already
@@ -525,15 +525,15 @@ compute_isolation_forest <- function(
     stop("Package 'isotree' is required for isolation forest outlier detection. Please install it first.")
   }
 
-  # 1) Podnabor in čiščenje
+  # 1) Subset and clean
   common_cols <- intersect(selected_columns, intersect(colnames(data1), colnames(data2)))
-  if (length(common_cols) < 2L) stop("Premalo skupnih numeričnih spremenljivk.")
+  if (length(common_cols) < 2L) stop("Too few numeric variables in common between the two datasets.")
 
   X1 <- data1[, common_cols, drop = FALSE]
   X2 <- data2[, common_cols, drop = FALSE]
 
   # Selected columns that aren't numeric in either dataset used to be
-  # silently dropped by the "obdrži samo numerične stolpce" filter below
+  # silently dropped by the "keep only numeric columns" filter below
   # rather than reported - inconsistent with the Mahalanobis path
   # (validate_multivariate_data()), which hard-stops with a clear message
   # naming exactly which selected columns are non-numeric. Matched here so
@@ -542,15 +542,15 @@ compute_isolation_forest <- function(
   # silent partial computation from one and a hard stop from the other.
   non_numeric <- common_cols[!vapply(X1, is.numeric, logical(1)) | !vapply(X2, is.numeric, logical(1))]
   if (length(non_numeric) > 0) {
-    stop("Izbrani stolpci niso numerični: ", paste(non_numeric, collapse = ", "))
+    stop("Selected columns are not numeric: ", paste(non_numeric, collapse = ", "))
   }
 
-  # obdrži samo numerične stolpce (varnostna mreža - po zgornjem preverjanju
-  # so vsi izbrani stolpci že znani kot numerični)
+  # keep only numeric columns (safety net - by this point the check
+  # above has already confirmed every selected column is numeric)
   num_cols <- names(X1)[vapply(X1, is.numeric, logical(1))]
   X1 <- X1[, num_cols, drop = FALSE]
   X2 <- X2[, num_cols, drop = FALSE]
-  if (ncol(X1) < 2L) stop("Po filtriranju numeričnih je ostalo premalo stolpcev.")
+  if (ncol(X1) < 2L) stop("Too few columns remain after keeping only the numeric ones.")
 
   # odstrani konstante / NA vrstice
   nzv <- vapply(X2, function(v) length(unique(na.omit(v))) > 1L, logical(1))
@@ -560,7 +560,7 @@ compute_isolation_forest <- function(
   # variance filter, so it can't catch the filter itself dropping columns
   # below 2 - re-checked here with the same friendly-error convention as
   # the rest of this function, instead of surfacing a raw isotree error.
-  if (ncol(X2) < 2L) stop("Po odstranitvi stolpcev z ničelno varianco je ostalo premalo spremenljivk.")
+  if (ncol(X2) < 2L) stop("Too few variables remain after dropping zero-variance columns.")
 
   cc1 <- complete.cases(X1); cc2 <- complete.cases(X2)
   X1c <- X1[cc1, , drop = FALSE]
@@ -571,7 +571,7 @@ compute_isolation_forest <- function(
   # complete-cases filter - if X2c has 0 rows, sample_size below would
   # silently become 0 and isotree::isolation.forest() would still be
   # called, rather than failing with a clear message.
-  if (nrow(X2c) < 2L) stop("Referenca nima dovolj popolnih vrstic za izolacijski gozd (potrebni sta vsaj 2).")
+  if (nrow(X2c) < 2L) stop("The reference dataset has too few complete rows for the isolation forest (at least 2 are required).")
   # Mirrors the reference-dataset guard just above: nothing checked that
   # the TARGET dataset (data1) had any complete rows to actually score -
   # if X1c has 0 rows, predict(iso_model, X1c, ...) doesn't quietly return
@@ -581,7 +581,7 @@ compute_isolation_forest <- function(
   # function already gets. Unlike the reference (which needs >= 2 rows to
   # fit a meaningful model), scoring a single complete row against an
   # already-fitted model is perfectly well-defined, so the floor here is 1.
-  if (nrow(X1c) < 1L) stop("Ciljni podatki nimajo nobene popolne vrstice za izolacijski gozd (izbrani stolpci vsebujejo manjkajoče vrednosti v vseh vrsticah).")
+  if (nrow(X1c) < 1L) stop("The target dataset has no complete rows for the isolation forest (the selected columns are missing in every row).")
 
   # 2) Treniranje na referenci
   #
@@ -608,17 +608,17 @@ compute_isolation_forest <- function(
     seed = seed
   )
 
-  # 3) Prag iz REFERENČNIH score-ov
+  # 3) Prag iz REFERENCNIH score-ov
   scores_ref <- as.numeric(predict(iso_model, X2c, type = score_type))
   threshold  <- as.numeric(stats::quantile(scores_ref, 1 - contamination, na.rm = TRUE))
 
-  # 4) Ocene za data1 + označevanje outlierjev
+  # 4) Ocene za data1 + oznacevanje outlierjev
   scores1_c  <- as.numeric(predict(iso_model, X1c, type = score_type))
   # mapiraj nazaj na originalni red
   scores1 <- rep(NA_real_, nrow(X1)); scores1[cc1] <- scores1_c
   outlier_indices <- !is.na(scores1) & (scores1 >= threshold)
 
-  # 5) Izvoz filtriranih podatkov (po želji)
+  # 5) Izvoz filtriranih podatkov (po zelji)
   kept <- if (keep_outliers) outlier_indices else !outlier_indices
   kept[is.na(kept)] <- FALSE
 
@@ -629,11 +629,11 @@ compute_isolation_forest <- function(
     contamination    = contamination,
     ntrees           = ntrees,
     sample_size      = ss,                        # == nrow(X2c) - see comment above
-    scores           = scores1,                  # dolžina = nrow(data1)
-    outlier_indices  = outlier_indices,          # logični vektor za data1
-    kept_mask        = kept,                     # kaj obdržiš glede na keep_outliers
+    scores           = scores1,                  # length = nrow(data1)
+    outlier_indices  = outlier_indices,          # logical vector for data1
+    kept_mask        = kept,                     # what is kept, per keep_outliers
     filtered_data1   = data1[kept, , drop = FALSE],
-    ref_scores_sum   = summary(scores_ref)       # za QC
+    ref_scores_sum   = summary(scores_ref)       # for QC
   ))
 }
 

@@ -4,7 +4,13 @@
 \alias{apply_mad_filter}
 \title{Filter rows by MAD outlier status (positive/high-value side only)}
 \usage{
-apply_mad_filter(data, cols, threshold = 3, keep_outliers = FALSE)
+apply_mad_filter(
+  data,
+  cols,
+  threshold = 3,
+  keep_outliers = FALSE,
+  log_transform = FALSE
+)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -15,6 +21,9 @@ apply_mad_filter(data, cols, threshold = 3, keep_outliers = FALSE)
 
 \item{keep_outliers}{If \code{TRUE}, keep only the flagged rows; if \code{FALSE}
 (default), remove them.}
+
+\item{log_transform}{If \code{TRUE}, compute the fence on \code{log10(value)}.
+Default \code{FALSE}.}
 }
 \value{
 The filtered data frame.
@@ -22,4 +31,14 @@ The filtered data frame.
 \description{
 Flags a row as an outlier if any of \code{cols} exceeds
 \code{median + threshold * MAD} (Leys et al., 2013).
+}
+\details{
+\code{mad()} uses R's default \code{constant = 1.4826}, so for normal data
+\code{median + 3*MAD} approximates \code{median + 3*sigma}. A row is flagged if it
+crosses the fence in \emph{any one} of \code{cols}, so the effective
+false-positive rate grows with the number of columns (see the module
+source header). MAD about the median is more robust than the IQR or
+z-score fences but still assumes symmetry; \code{log_transform = TRUE} fits
+it on \code{log10(value)} for right-skewed positive data, excluding
+non-positive and non-finite entries from the fit.
 }

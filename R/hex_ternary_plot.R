@@ -173,9 +173,9 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
   on.exit(grDevices::dev.off(), add = TRUE)
   graphics::plot(NA, xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5), asp = 1, axes = FALSE, xlab = "", ylab = "")
 
-  graphics::title(main = paste("Združeni ternarni diagrami:", paste(element_labels, collapse = ", ")),
+  graphics::title(main = paste("Joint ternary diagrams:", paste(element_labels, collapse = ", ")),
                    cex.main = 2.5, font.main = 2, line = 2)
-  graphics::title(main = paste("Na osnovi:", element_labels[3], paste(", šarža", file_base)),
+  graphics::title(main = paste("Based on:", element_labels[3], paste(", charge", file_base)),
                    cex.main = 2.0, font.main = 1, line = 0.1)
 
   n <- 6
@@ -197,12 +197,12 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
   }
 
   label_positions <- list(
-    list(text = paste0(element_labels[2], " mas. % →"), pos = c(1.2, 0.7), rot = -60, size = 1.5),
-    list(text = paste0(element_labels[1], " mas. % →"), pos = c(0, 1.4), rot = 0, size = 1.5),
-    list(text = paste0(element_labels[4], " mas. % →"), pos = c(-1.2, 0.7), rot = 60, size = 1.5),
-    list(text = paste0("←", element_labels[5], " mas. %"), pos = c(-1.2, -0.7), rot = -60, size = 1.5),
-    list(text = paste0("←", element_labels[6], " mas. %"), pos = c(0, -1.4), rot = 0, size = 1.5),
-    list(text = paste0("←", element_labels[7], " mas. %"), pos = c(1.2, -0.7), rot = 60, size = 1.5)
+    list(text = paste0(element_labels[2], " wt.% ->"), pos = c(1.2, 0.7), rot = -60, size = 1.5),
+    list(text = paste0(element_labels[1], " wt.% ->"), pos = c(0, 1.4), rot = 0, size = 1.5),
+    list(text = paste0(element_labels[4], " wt.% ->"), pos = c(-1.2, 0.7), rot = 60, size = 1.5),
+    list(text = paste0("<-", element_labels[5], " wt.%"), pos = c(-1.2, -0.7), rot = -60, size = 1.5),
+    list(text = paste0("<-", element_labels[6], " wt.%"), pos = c(0, -1.4), rot = 0, size = 1.5),
+    list(text = paste0("<-", element_labels[7], " wt.%"), pos = c(1.2, -0.7), rot = 60, size = 1.5)
   )
   for (label in label_positions) {
     graphics::text(label$pos[1], label$pos[2], label$text, cex = label$size,

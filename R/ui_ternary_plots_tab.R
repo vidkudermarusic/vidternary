@@ -19,7 +19,7 @@ create_ternary_plots_tab <- function(id) {
           column(6,
             h3("Dataset 2 (Reference)"),
             div(style = "margin-top: 10px;",
-              actionButton(ns("copy_settings"), "📋 Copy Settings from Dataset 1",
+              actionButton(ns("copy_settings"), " Copy Settings from Dataset 1",
                           class = "btn-info btn-sm",
                           style = "font-size: 0.9em; padding: 5px 10px;"),
               helpText("Copy all settings from Dataset 1 to Dataset 2")
@@ -150,7 +150,7 @@ create_ternary_plots_tab <- function(id) {
         fluidRow(
           column(4,
             div(style = "border: 2px solid #007bff; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h4(style = "color: #007bff; margin-top: 0;", "🔧 Outlier Detection: Mahalanobis Distance & Isolation Forest"),
+              h4(style = "color: #007bff; margin-top: 0;", " Outlier Detection: Mahalanobis Distance & Isolation Forest"),
 
               # Universal column selector for both outlier-detection methods
               # below - Mahalanobis distance (a multivariate statistical
@@ -158,11 +158,11 @@ create_ternary_plots_tab <- function(id) {
               # Grouped together because both share this column selection,
               # not because both are the same kind of method.
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #e3f2fd; border-radius: 5px; border-left: 4px solid #2196f3;",
-                h5(style = "color: #1976d2; margin-top: 0; margin-bottom: 10px;", "📋 Universal Column Selector (REQUIRED)"),
+                h5(style = "color: #1976d2; margin-top: 0; margin-bottom: 10px;", " Universal Column Selector (REQUIRED)"),
                 p(style = "font-size: 12px; color: #d32f2f; margin-bottom: 10px; font-weight: bold;",
-                  "⚠️ Column selection is MANDATORY for ALL analysis methods. Select at least 2 numeric columns."),
+                  " Column selection is MANDATORY for ALL analysis methods. Select at least 2 numeric columns."),
                 p(style = "font-size: 11px; color: #1976d2; margin-bottom: 10px;",
-                  "🔗 This column selection is used for BOTH outlier detection (Mahalanobis/Isolation Forest) AND statistical filtering"),
+                  " This column selection is used for BOTH outlier detection (Mahalanobis/Isolation Forest) AND statistical filtering"),
                 selectizeInput(ns("multivariate_columns"), "Columns for analysis:",
                   choices = NULL, multiple = TRUE,
                   options = list(placeholder = "Select at least 2 numeric columns (REQUIRED)"))
@@ -171,8 +171,8 @@ create_ternary_plots_tab <- function(id) {
               checkboxInput(ns("use_mahalanobis"), "Use Mahalanobis Distance", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f8ff; border-radius: 4px; border-left: 3px solid #007bff;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📐 Measures distance from data center using covariance structure. ",
-                  "Formula: MD = √[(x-μ)ᵀΣ⁻¹(x-μ)]. Automatic threshold: ",
+                  " Measures distance from data center using covariance structure. ",
+                  "Formula: MD = sqrt[(x-u)TSigma-1(x-u)]. Automatic threshold: ",
                   cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"), ".")
               ),
 
@@ -181,7 +181,7 @@ create_ternary_plots_tab <- function(id) {
               checkboxInput(ns("use_isolation_forest"), "Use Isolation Forest", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f8ff; border-radius: 4px; border-left: 3px solid #007bff;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "🌲 Machine learning approach using isolation trees. ",
+                  " Machine learning approach using isolation trees. ",
                   "Measures how easily points can be isolated from the rest. ",
                   cite_link("Liu, Ting & Zhou, 2008", "https://doi.org/10.1109/ICDM.2008.17"), ".")
               ),
@@ -191,8 +191,8 @@ create_ternary_plots_tab <- function(id) {
                 condition = paste0("input['", ns("use_mahalanobis"), "'] == true"),
                 hr(),
                 h5("Mahalanobis Parameters"),
-                numericInput(ns("lambda"), "Lambda (λ) parameter:", value = 1, min = 0, step = 0.1),
-                numericInput(ns("omega"), "Omega (ω) parameter:", value = 0, min = 0, step = 0.1),
+                numericInput(ns("lambda"), "Lambda (lambda) parameter:", value = 1, min = 0, step = 0.1),
+                numericInput(ns("omega"), "Omega (omega) parameter:", value = 0, min = 0, step = 0.1),
                 radioButtons(ns("outlier_mode_mahalanobis"), "Outlier handling:",
                   choices = c("Keep only outliers" = TRUE, "Remove outliers" = FALSE),
                   selected = FALSE, inline = TRUE),
@@ -203,9 +203,9 @@ create_ternary_plots_tab <- function(id) {
                   condition = paste0("input['", ns("mdthresh_mode"), "'] == 'auto'"),
                   div(style = "margin-top: 10px; padding: 8px; background-color: #e8f5e8; border-radius: 4px; border-left: 3px solid #28a745;",
                     p(style = "font-size: 12px; margin: 0; color: #155724; font-weight: bold;",
-                      "📐 Automatic Threshold Formula:"),
+                      " Automatic Threshold Formula:"),
                     p(style = "font-size: 11px; margin: 5px 0 0 0; color: #155724; font-family: monospace;",
-                      "MDthresh = MDmean + √(100/(100+λ-ω)) × stdMD"),
+                      "MDthresh = MDmean + sqrt(100/(100+lambda-omega)) x stdMD"),
                     p(style = "font-size: 11px; margin: 3px 0 0 0; color: #155724;",
                       cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"))
                   )
@@ -230,9 +230,6 @@ create_ternary_plots_tab <- function(id) {
                 radioButtons(ns("outlier_mode_isolation"), "Outlier handling:",
                   choices = c("Keep only outliers" = TRUE, "Remove outliers" = FALSE),
                   selected = FALSE, inline = TRUE),
-                radioButtons(ns("mahalanobis_reference_isolation"), "Reference dataset:",
-                  choices = c("Self-reference" = "self", "Dataset 1" = "dataset1", "Dataset 2" = "dataset2"),
-                  selected = "self", inline = TRUE),
                 fluidRow(
                   column(6, numericInput(ns("isolation_ntrees"), "Number of trees:", value = 200, min = 1, step = 1)),
                   column(6, numericInput(ns("isolation_contamination"), "Contamination:", value = 0.10, min = 0.001, max = 0.999, step = 0.01))
@@ -249,59 +246,80 @@ create_ternary_plots_tab <- function(id) {
                 ),
                 p(style = "font-size: 12px; color: #666; font-style: italic;",
                   "Columns selected above will be used for this analysis. ",
-                  "\"All reference rows\" is simple and fully reproducible, but a departure from the published algorithm - untick it to sub-sample.")
+                  "\"All reference rows\" is simple and fully reproducible, but a departure from the published algorithm - untick it to sub-sample."),
+                p(style = "font-size: 12px; color: #666; font-style: italic;",
+                  "Reference dataset: Isolation Forest uses the same reference as Mahalanobis Distance ",
+                  "(the \"Reference dataset\" control in the Mahalanobis Parameters panel; self-reference by default).")
               )
             )
           ),
           column(4,
             div(style = "border: 2px solid #28a745; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h4(style = "color: #28a745; margin-top: 0;", "📊 Statistical Filtering"),
+              h4(style = "color: #28a745; margin-top: 0;", " Statistical Filtering"),
 
               # One-sided by design: all three methods below (IQR, Z-score,
               # MAD) flag ONLY the upper tail - unusually HIGH values (>
-              # Q3+k·IQR, z > k, > median+k·MAD). Low-side outliers are never
+              # Q3+k-IQR, z > k, > median+k-MAD). Low-side outliers are never
               # flagged. Stated once here, prominently, in addition to the
               # per-method "(high values only)" notes, since it changes how
               # results should be read (e.g. an unusually small inclusion is
               # left in the data untouched).
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #d4edda; border-radius: 5px; border-left: 4px solid #28a745;",
-                p(style = "font-size: 12px; margin: 0; color: #155724;",
+                p(style = "font-size: 12px; margin: 0 0 8px 0; color: #155724;",
                   strong("Upper tail only. "),
                   "IQR, Z-score and MAD filtering all detect ", strong("unusually high values only"),
                   " - the upper threshold. Unusually low values are never flagged and stay in the data. ",
-                  "For two-sided detection across a covariance structure, use Mahalanobis distance instead.")
+                  "For two-sided detection across a covariance structure, use Mahalanobis distance instead."),
+                p(style = "font-size: 12px; margin: 0 0 8px 0; color: #155724;",
+                  strong("Any-column rule. "),
+                  "A row is removed (or kept) if it crosses the fence in ", strong("any one"),
+                  " of the selected columns. Across k columns the chance of a row being flagged by noise alone is roughly 1 - (1 - p)^k, well above the single-column rate - so select as few columns as the question needs."),
+                p(style = "font-size: 12px; margin: 0; color: #155724;",
+                  strong("Skew. "),
+                  "Inclusion measurements (wt%, ECD, area) are strongly right-skewed, and a raw upper fence sits close to the bulk - flagging part of the legitimate right tail. Tick ",
+                  em("Fence on log10(value)"), " below to fit the fence on a log scale, which suits skewed positive data.")
               ),
 
               # Universal column selector reminder for statistical filters
               div(style = "margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;",
-                h5(style = "color: #856404; margin-top: 0; margin-bottom: 10px;", "📋 Universal Column Selector"),
+                h5(style = "color: #856404; margin-top: 0; margin-bottom: 10px;", " Universal Column Selector"),
                 p(style = "font-size: 12px; color: #d32f2f; margin-bottom: 10px; font-weight: bold;",
-                  "⚠️ IMPORTANT: Statistical filtering uses the SAME column selection as outlier detection!"),
+                  " IMPORTANT: Statistical filtering uses the SAME column selection as outlier detection!"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 5px;",
-                  "• Select columns in the 'Outlier Detection' section above"),
+                  "- Select columns in the 'Outlier Detection' section above"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 5px;",
-                  "• At least 2 numeric columns are required"),
+                  "- At least 2 numeric columns are required"),
                 p(style = "font-size: 11px; color: #856404; margin-bottom: 0;",
-                  "• The same columns will be used for ALL filtering methods")
+                  "- The same columns will be used for ALL filtering methods")
               ),
               checkboxInput(ns("use_iqr_filter"), "Use IQR Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📊 Uses Interquartile Range. Outliers: > Q3+1.5×IQR (high values only). ",
+                  " Uses Interquartile Range. Outliers: > Q3+1.5xIQR (high values only). ",
                   cite_link("Tukey, 1977"), ".")
               ),
 
               checkboxInput(ns("use_zscore_filter"), "Use Z-Score Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
-                p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📈 Standardized scores. Outliers: z-score > 3 (3 standard deviations above mean, high values only)")
+                p(style = "font-size: 11px; margin: 0 0 4px 0; color: #555;",
+                  " Standardized scores. Outliers: z-score > 3 (3 standard deviations above mean, high values only)"),
+                p(style = "font-size: 11px; margin: 0; color: #b8860b;",
+                  strong("Needs a large sample. "),
+                  "The biggest z-score any point can reach in n rows is (n-1)/sqrt(n), so at the fixed threshold of 3 ",
+                  strong("nothing is flagged until n is at least 11"), ", and the fit stays masked for n in the hundreds. On a small filtered subset this filter can do nothing - use IQR or MAD there.")
               ),
 
               checkboxInput(ns("use_mad_filter"), "Use MAD Filtering", value = FALSE),
               div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
                 p(style = "font-size: 11px; margin: 0; color: #555;",
-                  "📏 Median Absolute Deviation. Outliers: > median+3×MAD (high values only). ",
+                  " Median Absolute Deviation. Outliers: > median+3xMAD (high values only). ",
                   cite_link("Leys et al., 2013", "https://doi.org/10.1016/j.jesp.2013.03.013"), ".")
+              ),
+
+              checkboxInput(ns("stat_filter_log10"), "Fence on log10(value) (better for right-skewed data)", value = FALSE),
+              div(style = "margin-left: 20px; margin-bottom: 10px; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 3px solid #28a745;",
+                p(style = "font-size: 11px; margin: 0; color: #555;",
+                  " Applies to whichever of IQR / Z-score / MAD is active. The fence is fitted on log10(value); non-positive values are dropped from the fit and never flagged.")
               ),
 
               # Advanced IQR parameters
@@ -337,7 +355,7 @@ create_ternary_plots_tab <- function(id) {
           ),
           column(4,
             div(style = "border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h4(style = "color: #ffc107; margin-top: 0;", "🎨 Output Options"),
+              h4(style = "color: #ffc107; margin-top: 0;", " Output Options"),
               selectInput(ns("output_format"), "Output Format:",
                 choices = c("PNG" = "png", "JPEG" = "jpeg", "PDF" = "pdf", "TIFF" = "tiff"),
                 selected = "png"),
@@ -368,7 +386,7 @@ create_ternary_plots_tab <- function(id) {
           ),
           hr(),
           div(style = "border: 2px solid #6c757d; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-            h4(style = "color: #6c757d; margin-top: 0;", "📋 Analysis Report"),
+            h4(style = "color: #6c757d; margin-top: 0;", " Analysis Report"),
             p(style = "font-size: 12px; color: #666; margin-bottom: 15px;",
               "This report will show details about the applied filtering and analysis methods after plot generation."),
             verbatimTextOutput(ns("analysis_report"))

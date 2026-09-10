@@ -307,6 +307,9 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   use_iqr_filter <- if (!is.null(input$use_iqr_filter)) input$use_iqr_filter else FALSE
   use_zscore_filter <- if (!is.null(input$use_zscore_filter)) input$use_zscore_filter else FALSE
   use_mad_filter <- if (!is.null(input$use_mad_filter)) input$use_mad_filter else FALSE
+  # When set, the active IQR/Z-score/MAD fence is fitted on log10(value) -
+  # better for the right-skewed inclusion measurements this app filters.
+  stat_filter_log10 <- isTRUE(input$stat_filter_log10)
 
   lambda <- if (!is.null(input$lambda)) input$lambda else 1
   omega <- if (!is.null(input$omega)) input$omega else 0
@@ -425,7 +428,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     # for relative-path resolution - getwd() always works and nothing
     # meaningful depends on it being user-chosen (confirmed by grep before
     # removing the old Working Directory picker - see the vidternary
-    # Structural Audit's §03). output_dir stays NULL (no save) until a
+    # Structural Audit's Sec.03). output_dir stays NULL (no save) until a
     # real save path overrides it with a fresh temp directory right before
     # calling general_ternary_plot() - see this function's own @return doc.
     working_dir = getwd(),
@@ -443,6 +446,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     use_iqr_filter = use_iqr_filter,
     use_zscore_filter = use_zscore_filter,
     use_mad_filter = use_mad_filter,
+    stat_filter_log10 = stat_filter_log10,
     lambda = lambda,
     omega = omega,
     isolation_ntrees = isolation_ntrees,

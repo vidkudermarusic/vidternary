@@ -5,13 +5,13 @@
 # for the Shiny wiring.
 
 HEX_ELEMENT_SLOT_LABELS <- c(
-  "Element 1 (A) – zgoraj",
-  "Element 2 (B) – zgoraj desno",
-  "Element 3 (C) – osrednja os (v vseh 6 diagramih)",
-  "Element 4 (D) – zgoraj levo",
-  "Element 5 (E) – spodaj levo",
-  "Element 6 (F) – spodaj",
-  "Element 7 (G) – spodaj desno"
+  "Element 1 (A) - zgoraj",
+  "Element 2 (B) - zgoraj desno",
+  "Element 3 (C) - osrednja os (v vseh 6 diagramih)",
+  "Element 4 (D) - zgoraj levo",
+  "Element 5 (E) - spodaj levo",
+  "Element 6 (F) - spodaj",
+  "Element 7 (G) - spodaj desno"
 )
 
 # Legend diagram for the Purpose box: which of the 6 composited triangles

@@ -27,6 +27,7 @@ prepare_ternary_plot_data(
   use_iqr_filter,
   use_zscore_filter,
   use_mad_filter,
+  stat_filter_log10 = FALSE,
   lambda,
   omega,
   keep_outliers_mahalanobis,
@@ -99,6 +100,10 @@ Z-score / MAD statistical outlier filtering. Only one
 statistical/multivariate filter is meant to be active per plot -
 enforced upstream in \code{\link[=general_ternary_plot]{general_ternary_plot()}}.}
 
+\item{stat_filter_log10}{If \code{TRUE}, the active IQR/Z-score/MAD fence is
+fitted on \code{log10(value)} rather than the raw value (passed straight
+through to \code{\link[=apply_statistical_filtering]{apply_statistical_filtering()}}). Default \code{FALSE}.}
+
 \item{lambda, omega}{Sensitivity/leniency parameters for the automatic
 Mahalanobis threshold formula (see \code{\link[=compute_mahalanobis_distance]{compute_mahalanobis_distance()}}).}
 
@@ -160,7 +165,7 @@ for \code{setwd(working_dir)} (with \code{on.exit()} restore) before calling thi
 since that needs to stay in effect across this call and the render call
 that follows it.
 }
-\section{Restructuring (see the vidternary Structural Audit's §04/§08)}{
+\section{Restructuring (see the vidternary Structural Audit's Sec.04/Sec.08)}{
 
 All seven of this function's identified responsibilities have now been
 extracted into their own top-level, independently testable/documented

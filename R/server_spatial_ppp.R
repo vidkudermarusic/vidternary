@@ -146,7 +146,7 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
                          error = function(e) { shiny::validate(paste("Error computing kernel intensity:", e$message)) })
 
       shiny::incProgress(0.05, detail = sprintf(
-        "Running %d CSR envelope simulations - this is the slow step, especially for larger datasets. Lower “Number of CSR envelope simulations” above for a faster (still valid, just coarser) result.",
+        "Running %d CSR envelope simulations - this is the slow step, especially for larger datasets. Lower 'Number of CSR envelope simulations' above for a faster (still valid, just coarser) result.",
         nsim))
       env <- tryCatch(compute_csr_envelope(pp, nsim = nsim, global = global_env),
                         error = function(e) { shiny::validate(paste("Error running CSR envelope test:", e$message)) })

@@ -106,7 +106,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         cat("Target rows:", nrow(td$target), "| Reference rows:", nrow(td$reference), "\n\n")
 
         if (!is.null(mahal_result)) {
-          cat("✅ Analysis completed successfully!\n\n")
+          cat(" Analysis completed successfully!\n\n")
           cat("Threshold method:", mahal_result$threshold_method, "\n")
           cat("Threshold value:", round(mahal_result$MDthresh, 3), "\n")
           cat("Total points analyzed:", mahal_result$total_points, "\n")
@@ -119,7 +119,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
             cat("\nThreshold formula:", mahal_result$threshold_formula, "\n")
           }
         } else {
-          cat("❌ Analysis failed. Please check data quality.\n")
+          cat(" Analysis failed. Please check data quality.\n")
         }
       })
 
@@ -174,7 +174,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           # fields; this analysis was silently printing blanks for them).
           total_points <- length(result$outlier_indices)
           outlier_count <- sum(result$outlier_indices, na.rm = TRUE)
-          cat("✅ Analysis completed successfully!\n\n")
+          cat(" Analysis completed successfully!\n\n")
           # Model parameters reported explicitly - ntrees/contamination are
           # now user-adjustable (previously fixed defaults with no way to
           # see what was actually used); sample_size is read back from the
@@ -189,7 +189,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           cat("Outliers detected:", outlier_count, "\n")
           cat("Outlier percentage:", round(outlier_count / total_points * 100, 1), "%\n")
         } else {
-          cat("❌ Analysis failed. Please check data quality.\n")
+          cat(" Analysis failed. Please check data quality.\n")
         }
       })
 
@@ -219,7 +219,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
     col_error <- validate_mv_columns(td, selected_cols)
     if (!is.null(col_error)) {
-      output$mahalanobis_info <- renderPrint(cat("❌", col_error))
+      output$mahalanobis_info <- renderPrint(cat("", col_error))
       return()
     }
 
@@ -257,7 +257,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         cat("Columns used:", paste(selected_cols, collapse = ", "), "\n\n")
 
         if (!is.null(mahal_result)) {
-          cat("📊 Mahalanobis Distance:\n")
+          cat(" Mahalanobis Distance:\n")
           cat("  Total points analyzed:", mahal_result$total_points, "\n")
           cat("  Degrees of freedom:", mahal_result$df, "\n")
           cat("  MDmean:", round(mahal_result$MDmean, 3), "\n")
@@ -266,7 +266,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           cat("  MDthresh:", round(mahal_result$MDthresh, 3), "\n")
           cat("  Outliers detected:", mahal_result$outlier_custom, "(", round(mahal_result$outlier_custom / mahal_result$total_points * 100, 1), "%)\n")
         } else {
-          cat("📊 Mahalanobis Distance: analysis failed\n")
+          cat(" Mahalanobis Distance: analysis failed\n")
         }
 
         cat("\n")
@@ -276,17 +276,17 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           # total_points/outlier_count directly.
           iso_total_points <- length(iso_result$outlier_indices)
           iso_outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
-          cat("🌲 Isolation Forest:\n")
+          cat(" Isolation Forest:\n")
           cat("  Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
               "| Sample size (reference rows used):", iso_result$sample_size, "\n")
           cat("  Total points analyzed:", iso_total_points, "\n")
           cat("  Threshold value:", round(iso_result$threshold, 3), "\n")
           cat("  Outliers detected:", iso_outlier_count, "(", round(iso_outlier_count / iso_total_points * 100, 1), "%)\n")
         } else {
-          cat("🌲 Isolation Forest: analysis failed\n")
+          cat(" Isolation Forest: analysis failed\n")
         }
 
-        cat("\n💡 Interpretation:\n")
+        cat("\n Interpretation:\n")
         if (td$target_name == td$reference_name) {
           cat("- Self-reference: points flagged as outliers stand out within", td$target_name, "itself.\n")
         } else {
@@ -299,7 +299,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
       paste(report_text, collapse = "\n")
     }, error = function(e) {
       log_operation("ERROR", "Comprehensive multivariate analysis failed", e$message)
-      paste("❌ Error in multivariate analysis:", e$message)
+      paste(" Error in multivariate analysis:", e$message)
     })
 
     output$mahalanobis_info <- renderPrint(cat(result, "\n"))

@@ -62,7 +62,7 @@ whose resulting coordinate is \code{NA}/infinite from both \code{M} and
 or if nothing survives validation. Extracted from
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own function because it's the last
 and most central of that function's identified responsibilities (per
-the vidternary Structural Audit's §04 responsibility table) - tackled
+the vidternary Structural Audit's Sec.04 responsibility table) - tackled
 last of the seven extractions on this function, once every other piece
 it interacts with (filtering, multivariate dispatch, point styling,
 title assembly) had already been extracted and verified.

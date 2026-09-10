@@ -4,7 +4,7 @@
 # crash-scenario spot check - despite driving real graphics-device work
 # (create_hex_ternary_diagram(): 6 triangle PNGs + 1 composite, ~13 device
 # open/close cycles) and having its own history of real bugs (the pass-4
-# composite race condition and device-leak fixes, see the audit's §03).
+# composite race condition and device-leak fixes, see the audit's Sec.03).
 # These tests exercise the module through the real moduleServer("hex_ternary",
 # ...) wrapper end to end - a genuine upload, genuine element selections, and
 # a genuine call into create_hex_ternary_diagram() that writes real PNGs to
@@ -77,7 +77,7 @@ test_that("uploading a file populates all 7 element dropdowns with its real colu
 
 # "Create & Save diagram" is a single downloadHandler (browser Save dialog
 # instead of a pre-chosen server-side folder - see the vidternary
-# Structural Audit's §03) - a genuine two-button "Generate" + "Save"
+# Structural Audit's Sec.03) - a genuine two-button "Generate" + "Save"
 # workflow used to exist here (see the audit's own writeup for that
 # change), merged into this one button at the user's request since "Save"
 # already built the composite and updated the preview on its own; the

@@ -44,6 +44,7 @@ build_pd <- function(d, ...) {
     optional_param1_representation = "point_size", output_format = "png",
     use_isolation_forest = FALSE, isolation_ntrees = 200, isolation_contamination = 0.10,
     use_iqr_filter = FALSE, use_zscore_filter = FALSE, use_mad_filter = FALSE,
+    stat_filter_log10 = FALSE,
     lambda = 1, omega = 0,
     keep_outliers_mahalanobis = FALSE, keep_outliers_isolation = FALSE,
     keep_outliers_iqr = FALSE, keep_outliers_zscore = FALSE, keep_outliers_mad = FALSE,
@@ -111,18 +112,19 @@ test_that("draw_plot_notes_column() draws one mtext() call per non-empty line, e
   # This is the exact bug confirmed by direct rendering: a single mtext()
   # call on a "\n"-joined string anchors its LAST line at the given
   # `line=`, not its first - so columns of different lengths converged and
-  # overlapped. Verified here via testthat's own sanctioned mocking of a
-  # base graphics function (not this app's own statistics/plotting logic,
-  # which this project's test suite deliberately never stubs - see
-  # test-server-hex-ternary.R's own header comment) - the cleanest way to
-  # confirm the exact `line=` value used per call without needing to
-  # re-render and visually inspect a PNG for every regression run.
+  # overlapped. Verified here via testthat's own sanctioned mocking of
+  # graphics::mtext (imported into this package's namespace via
+  # @importFrom, hence .package = "vidternary" - not this app's own
+  # statistics/plotting logic, which this project's test suite
+  # deliberately never stubs, see test-server-hex-ternary.R's own header
+  # comment) - the cleanest way to confirm the exact `line=` value used
+  # per call without re-rendering and visually inspecting a PNG every run.
   calls <- list()
   testthat::local_mocked_bindings(
     mtext = function(text, side, line, cex, col, outer, adj) {
       calls[[length(calls) + 1]] <<- list(text = text, line = line)
     },
-    .package = "graphics"
+    .package = "vidternary"
   )
 
   draw_plot_notes_column("Line A\nLine B\nLine C", side = 1, start_line = 3, cex = 0.55, col = "red", adj = 1)
@@ -147,7 +149,7 @@ test_that("draw_plot_notes_column() skips empty lines instead of drawing a blank
     mtext = function(text, side, line, cex, col, outer, adj) {
       calls[[length(calls) + 1]] <<- list(text = text, line = line)
     },
-    .package = "graphics"
+    .package = "vidternary"
   )
 
   draw_plot_notes_column("Line A\n\nLine C", side = 1, start_line = 2, cex = 0.6, col = "blue", adj = 0)

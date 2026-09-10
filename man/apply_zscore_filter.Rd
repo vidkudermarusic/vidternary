@@ -4,7 +4,13 @@
 \alias{apply_zscore_filter}
 \title{Filter rows by Z-score outlier status (positive/high-value side only)}
 \usage{
-apply_zscore_filter(data, cols, threshold = 3, keep_outliers = FALSE)
+apply_zscore_filter(
+  data,
+  cols,
+  threshold = 3,
+  keep_outliers = FALSE,
+  log_transform = FALSE
+)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -15,10 +21,27 @@ apply_zscore_filter(data, cols, threshold = 3, keep_outliers = FALSE)
 
 \item{keep_outliers}{If \code{TRUE}, keep only the flagged rows; if \code{FALSE}
 (default), remove them.}
+
+\item{log_transform}{If \code{TRUE}, compute z-scores on \code{log10(value)}.
+Default \code{FALSE}.}
 }
 \value{
 The filtered data frame.
 }
 \description{
 Flags a row as an outlier if any of \code{cols} has a Z-score above \code{threshold}.
+}
+\details{
+Two properties of the sample z-score matter here. First, a row is
+flagged if it crosses \code{threshold} in \emph{any one} of \code{cols}, so the
+effective false-positive rate grows with the number of columns (see the
+module source header). Second - and specific to this method - the
+largest \eqn{|z|} any single point can reach in a sample of size \code{n} is
+\eqn{(n-1)/\sqrt{n}} (Shiffler, 1988). With the default \code{threshold = 3}
+no row can be flagged until \code{n >= 11}, and the estimate stays heavily
+masked (the outlier inflates the mean and SD it is judged against) for
+\code{n} into the hundreds. This function emits a \code{warning()} when \code{n} is
+below the ceiling for the chosen \code{threshold}. IQR and MAD do not share
+this failure mode. \code{log_transform = TRUE} fits the z-score on
+\code{log10(value)}; NA/non-positive entries are ignored and never flagged.
 }

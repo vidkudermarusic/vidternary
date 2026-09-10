@@ -4,13 +4,16 @@
 \alias{build_correlation_pairs_table}
 \title{Build a long-format correlation table, one row per variable pair}
 \usage{
-build_correlation_pairs_table(df, numeric_cols = NULL)
+build_correlation_pairs_table(df, numeric_cols = NULL, method = "pearson")
 }
 \arguments{
 \item{df}{A data frame.}
 
 \item{numeric_cols}{Columns to correlate. Defaults to all numeric
 columns of \code{df}. Needs at least 2.}
+
+\item{method}{Correlation method passed to \code{stats::cor()}. Default
+\code{"pearson"}.}
 }
 \value{
 A data frame: \code{Variable_1}, \code{Variable_2}, \code{Correlation}.
@@ -18,4 +21,10 @@ A data frame: \code{Variable_1}, \code{Variable_2}, \code{Correlation}.
 \description{
 Sorted by \verb{|Correlation|} descending, so the strongest relationships
 appear first - easier to sort/scan than a full n x n matrix.
+}
+\details{
+For constant-sum compositional columns (wt\% chemistry) a Pearson \code{r} is
+distorted by closure (see \code{\link[=create_correlation_plot]{create_correlation_plot()}}'s details); pass
+\code{method = "spearman"} for a rank-based alternative that is less
+affected.
 }

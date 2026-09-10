@@ -1,0 +1,19 @@
+^\.claude$
+^\.Rhistory$
+^LICENSE\.md$
+^testdata$
+^.*\.Rproj$
+^\.Rproj\.user$
+^FILES\.md$
+^legacy$
+^renv$
+^renv\.lock$
+^data-raw$
+^output$
+^Rplots\.pdf$
+^\.github$
+^codebase_audit\.html$
+^backup copies$
+^_problems$
+^cran-comments\.md$
+^CRAN-SUBMISSION$

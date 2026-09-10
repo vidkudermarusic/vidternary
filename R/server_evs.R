@@ -157,14 +157,14 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     }
     tryCatch({
       fit <- fit_result()
-      base_msg <- sprintf("Fit successful: n = %d control areas, R² = %.3f, intercept a = %.3f, slope b = %.3f",
+      base_msg <- sprintf("Fit successful: n = %d control areas, R2 = %.3f, intercept a = %.3f, slope b = %.3f",
                            fit$n, fit$r_squared, fit$intercept, fit$slope)
       if (is.null(fit$gof)) return(base_msg)
       gof_msg <- if (fit$gof$reject_at_05) {
-        sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> data DEVIATE from a single Gumbel distribution (see note below).",
+        sprintf("Goodness-of-fit: Anderson-Darling A2 = %.3f, p %s -> data DEVIATE from a single Gumbel distribution (see note below).",
                 fit$gof$statistic, fit$gof$p_value_bracket)
       } else {
-        sprintf("Goodness-of-fit: Anderson-Darling A² = %.3f, p %s -> no evidence against a single Gumbel distribution.",
+        sprintf("Goodness-of-fit: Anderson-Darling A2 = %.3f, p %s -> no evidence against a single Gumbel distribution.",
                 fit$gof$statistic, fit$gof$p_value_bracket)
       }
       paste(base_msg, gof_msg, sep = "\n")
@@ -186,7 +186,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     fit <- tryCatch(fit_result(), error = function(e) NULL)
     if (is.null(fit) || is.null(fit$gof) || !fit$gof$reject_at_05) return(NULL)
     div(style = "border: 1px solid #dc3545; padding: 12px; border-radius: 5px; margin: 10px 0; background-color: #f8d7da; color: #721c24;",
-      strong("⚠ Goodness-of-fit test (Anderson-Darling) rejects a single Gumbel distribution at the 5% level. "),
+      strong(" Goodness-of-fit test (Anderson-Darling) rejects a single Gumbel distribution at the 5% level. "),
       "The block maxima likely come from more than one population (e.g. a mix of inclusion types with different size distributions), or one control area is an outlier. ",
       "The straight-line fit and its extrapolation may understate the true tail - consider filtering/stratifying the data by inclusion type before fitting, or inspecting individual control areas for outliers."
     )
@@ -215,19 +215,19 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     pred <- prediction()
     df <- data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
-                 "Control areas (n)", "Intercept (a)", "Slope (b)", "R²"),
+                 "Control areas (n)", "Intercept (a)", "Slope (b)", "R2"),
       Value = c(sprintf("%d", fit$n_rows_before_filter), sprintf("%d", fit$n_rows_after_filter),
                 sprintf("%d", fit$n), sprintf("%.4f", fit$intercept), sprintf("%.4f", fit$slope), sprintf("%.4f", fit$r_squared))
     )
     if (!is.null(fit$gof)) {
       df <- rbind(df, data.frame(
-        Metric = c("Anderson-Darling A²", "Goodness-of-fit (p-value)", "Rejects Gumbel at 5%?"),
+        Metric = c("Anderson-Darling A2", "Goodness-of-fit (p-value)", "Rejects Gumbel at 5%?"),
         Value = c(sprintf("%.4f", fit$gof$statistic), fit$gof$p_value_bracket, if (fit$gof$reject_at_05) "Yes" else "No")
       ))
     }
     if (!is.null(pred)) {
       df <- rbind(df, data.frame(
-        Metric = c("Return period T", "Predicted √Area (µm)",
+        Metric = c("Return period T", "Predicted sqrtArea (um)",
                    "95% prediction interval (single future max)",
                    "95% confidence interval (on the estimate, ASTM-style)",
                    "Std. error of the estimate"),
@@ -248,7 +248,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
   # shiny::validate()/req() condition whose $message is always "" by
   # design - the same blank-error gap found and fixed in
   # server_plot_builder.R's output$builder_download (see the vidternary
-  # Structural Audit's §03 for that writeup); confirmed reachable here the
+  # Structural Audit's Sec.03 for that writeup); confirmed reachable here the
   # same way, via direct testServer() reproduction against the unmodified
   # handler. safe_fit_result() gives both handlers below a clear,
   # actionable message for that case, while still surfacing a genuine

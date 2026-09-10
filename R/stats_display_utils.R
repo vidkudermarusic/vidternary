@@ -71,17 +71,24 @@ build_descriptive_stats_comparison_table <- function(dfs) {
 #' Sorted by `|Correlation|` descending, so the strongest relationships
 #' appear first - easier to sort/scan than a full n x n matrix.
 #'
+#' For constant-sum compositional columns (wt% chemistry) a Pearson `r` is
+#' distorted by closure (see [create_correlation_plot()]'s details); pass
+#' `method = "spearman"` for a rank-based alternative that is less
+#' affected.
+#'
 #' @param df A data frame.
 #' @param numeric_cols Columns to correlate. Defaults to all numeric
 #'   columns of `df`. Needs at least 2.
+#' @param method Correlation method passed to `stats::cor()`. Default
+#'   `"pearson"`.
 #' @return A data frame: `Variable_1`, `Variable_2`, `Correlation`.
 #' @export
-build_correlation_pairs_table <- function(df, numeric_cols = NULL) {
+build_correlation_pairs_table <- function(df, numeric_cols = NULL, method = "pearson") {
   if (is.null(numeric_cols)) numeric_cols <- names(df)[sapply(df, is.numeric)]
   if (length(numeric_cols) < 2) {
     return(data.frame(Variable_1 = character(0), Variable_2 = character(0), Correlation = numeric(0)))
   }
-  m <- suppressWarnings(stats::cor(df[, numeric_cols, drop = FALSE], use = "complete.obs"))
+  m <- suppressWarnings(stats::cor(df[, numeric_cols, drop = FALSE], use = "complete.obs", method = method))
   pairs <- utils::combn(numeric_cols, 2, simplify = FALSE)
   rows <- lapply(pairs, function(p) {
     data.frame(Variable_1 = p[1], Variable_2 = p[2], Correlation = m[p[1], p[2]], stringsAsFactors = FALSE)
@@ -100,15 +107,17 @@ build_correlation_pairs_table <- function(df, numeric_cols = NULL) {
 #'
 #' @param dfs A named list of 2+ data frames; names become the `Dataset` column's values.
 #' @param common_cols Numeric columns present in all of `dfs`, to correlate. Needs at least 2.
+#' @param method Correlation method passed through to
+#'   [build_correlation_pairs_table()]. Default `"pearson"`.
 #' @return A data frame: `Dataset`, `Variable_1`, `Variable_2`, `Correlation`.
 #' @export
-build_correlation_comparison_table <- function(dfs, common_cols) {
+build_correlation_comparison_table <- function(dfs, common_cols, method = "pearson") {
   if (length(common_cols) < 2) {
     return(data.frame(Dataset = character(0), Variable_1 = character(0),
                        Variable_2 = character(0), Correlation = numeric(0)))
   }
   rows <- lapply(names(dfs), function(nm) {
-    pairs_table <- build_correlation_pairs_table(dfs[[nm]], common_cols)
+    pairs_table <- build_correlation_pairs_table(dfs[[nm]], common_cols, method = method)
     if (nrow(pairs_table) > 0) cbind(Dataset = nm, pairs_table, stringsAsFactors = FALSE) else pairs_table
   })
   result <- do.call(rbind, rows)
@@ -177,7 +186,7 @@ build_stat_cards <- function(stats_table) {
 
     div(style = "display: inline-block; vertical-align: top; width: 160px; margin: 4px; padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; background-color: #f8f9fa;",
       div(style = "font-weight: bold; font-size: 13px; color: #343a40;", paste0(row$Variable, dataset_txt)),
-      div(style = "font-size: 16px; color: #002147; margin-top: 4px;", paste0(mean_txt, " ± ", sd_txt)),
+      div(style = "font-size: 16px; color: #002147; margin-top: 4px;", paste0(mean_txt, " +/- ", sd_txt)),
       div(style = "font-size: 11px; color: #6c757d;", paste("Median:", median_txt)),
       div(style = "font-size: 11px; color: #6c757d;", paste("N:", row$N, if (row$Missing > 0) paste0(" (", row$Missing, " missing)") else ""))
     )
