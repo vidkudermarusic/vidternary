@@ -6,7 +6,7 @@
 # filter downstream of an already-computed result. Requested directly: EVS,
 # Spatial Clustering, and Point Pattern Analysis all analyze whatever rows
 # survive upload with no way to exclude some first (e.g. a real dataset
-# with inclusions as small as 0.01 µm², where running extreme-value/spatial
+# with inclusions as small as 0.01 um2, where running extreme-value/spatial
 # statistics on the smallest ones is described as "pointless").
 #
 # Deliberately a set of small, shared, independently-testable helper
@@ -44,7 +44,7 @@
 #' @export
 create_pre_filter_ui <- function(ns, prefix) {
   div(style = "border: 1px solid #6c757d; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #f8f9fa;",
-    h4("🔍 Pre-Analysis Data Filter (optional)"),
+    h4(" Pre-Analysis Data Filter (optional)"),
     helpText("Exclude rows before running the analysis below - e.g. \"Area > 1\" to drop inclusions smaller than 1 (in whatever unit your Area column uses), or \"Fe > 10\" to restrict to a chemistry range. Leave this empty to use every uploaded row. Multiple columns combine with AND (a row must satisfy all of them)."),
     selectizeInput(ns(paste0(prefix, "_filter_cols")), "Filter columns:", choices = NULL, multiple = TRUE,
                     options = list(placeholder = "Select column(s) to filter on, e.g. Area, Fe (wt.%)")),

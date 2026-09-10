@@ -86,7 +86,7 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
   # Data readiness status for Data Comparison tab
   output$data_readiness_status <- renderPrint({
     if (is.null(rv$comparison_data) || length(rv$comparison_data) == 0) {
-      cat("📋 Please upload one or more Excel files to begin.\n")
+      cat("Please upload one or more Excel files to begin.\n")
       # invisible(), not a bare return(): renderPrint() replicates console
       # auto-print semantics (via withVisible()) - a plain return() yields
       # a VISIBLE NULL, which renderPrint() then explicitly prints as a
@@ -112,12 +112,12 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
     cat("Common numeric columns across all", length(dfs), "dataset(s):", length(common_cols), "\n")
 
     if (length(dfs) >= 2 && length(common_cols) >= 2) {
-      cat("✅ Ready for comparison and multivariate analysis\n")
+      cat("Ready for comparison and multivariate analysis\n")
       cat("Available columns:", paste(common_cols, collapse = ", "), "\n")
     } else if (length(dfs) == 1) {
-      cat("ℹ️ One dataset loaded - upload another to enable comparison, or proceed with single-dataset stats/correlation.\n")
+      cat("One dataset loaded - upload another to enable comparison, or proceed with single-dataset stats/correlation.\n")
     } else {
-      cat("❌ Need at least 2 common numeric columns across the selected datasets\n")
+      cat("Need at least 2 common numeric columns across the selected datasets\n")
     }
   })
 }

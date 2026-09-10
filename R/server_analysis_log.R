@@ -12,7 +12,7 @@
 #' to also be a separate "Save Log to File" button that wrote the same
 #' entries to a pre-chosen server-side folder - removed as a fully
 #' redundant duplicate of "Export Log" (see the vidternary Structural
-#' Audit's §03), not converted to anything, once the global directory
+#' Audit's Sec.03), not converted to anything, once the global directory
 #' picker it depended on went away.
 #'
 #' @param input The Shiny `input` object.

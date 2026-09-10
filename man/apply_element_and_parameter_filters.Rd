@@ -57,11 +57,11 @@ becoming top-level functions, to avoid silently shadowing those
 unrelated global functions package-wide (a real instance of exactly
 this bug class, unrelated to these, was found and fixed three times
 elsewhere in this package - see the vidternary Structural Audit's
-§03/§08). \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} keeps its own two sibling local
+Sec.03/Sec.08). \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} keeps its own two sibling local
 closures (\code{preview_title_layout()}, \code{calculate_plot_dimensions()})
 untouched in its own body - neither is used by filtering, and both are
 still needed there (as \code{build_ternary_plot_title()}'s \code{title_layout_fn}
 callback, and echoed into \code{pd} for \code{ternary_plot_save.R}'s own use).
 Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own function per the
-vidternary Structural Audit's §04 responsibility table.
+vidternary Structural Audit's Sec.04 responsibility table.
 }

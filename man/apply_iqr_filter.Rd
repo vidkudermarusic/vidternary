@@ -4,7 +4,13 @@
 \alias{apply_iqr_filter}
 \title{Filter rows by IQR outlier status (positive/high-value side only)}
 \usage{
-apply_iqr_filter(data, cols, multiplier = 1.5, keep_outliers = FALSE)
+apply_iqr_filter(
+  data,
+  cols,
+  multiplier = 1.5,
+  keep_outliers = FALSE,
+  log_transform = FALSE
+)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -15,6 +21,9 @@ apply_iqr_filter(data, cols, multiplier = 1.5, keep_outliers = FALSE)
 
 \item{keep_outliers}{If \code{TRUE}, keep only the flagged rows; if \code{FALSE}
 (default), remove them.}
+
+\item{log_transform}{If \code{TRUE}, compute the fence on \code{log10(value)}
+(recommended for right-skewed positive data). Default \code{FALSE}.}
 }
 \value{
 The filtered data frame.
@@ -22,4 +31,15 @@ The filtered data frame.
 \description{
 Flags a row as an outlier if any of \code{cols} exceeds \code{Q3 + multiplier * IQR}
 (Tukey, 1977).
+}
+\details{
+A row is flagged if it crosses the fence in \emph{any one} of \code{cols}, so the
+effective per-row false-positive rate grows with the number of columns
+(roughly \code{1 - (1 - p)^k} for \code{k} columns; see the module source header).
+Tukey's fence assumes a roughly symmetric distribution - on the
+right-skewed measurements this app filters (wt\%, ECD, area) it flags
+part of the legitimate upper tail. Set \code{log_transform = TRUE} to fit and
+apply the fence on \code{log10(value)} instead, which suits right-skewed
+positive data; non-positive and non-finite entries are then excluded
+from the fit and never flagged.
 }

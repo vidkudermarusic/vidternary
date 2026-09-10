@@ -142,7 +142,7 @@ test_that("data_readiness_status reports the right state for 0, 1, and 2+ datase
     # alone doesn't catch this - the intended text is still present either
     # way - so the exact string is checked here instead of just a substring.
     expect_equal(output[["data_comparison-data_readiness_status"]],
-                 "\U0001F4CB Please upload one or more Excel files to begin.")
+                 "Please upload one or more Excel files to begin.")
 
     upload1 <- make_upload(make_comparison_data(cols = c("Al", "Si")), "one.xlsx")
     session$setInputs(`data_comparison-comparison_files` = upload1)

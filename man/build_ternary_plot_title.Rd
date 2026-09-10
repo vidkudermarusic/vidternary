@@ -70,6 +70,6 @@ filter/method annotations, source-file "charge" line) and the ternary
 diagram's corner/axis labels. Called once by
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}}, right after ternary coordinates are
 computed - extracted as its own function because it's purely cosmetic
-(per the vidternary Structural Audit's §04 responsibility table):
+(per the vidternary Structural Audit's Sec.04 responsibility table):
 builds display text only, and touches none of the actual filtered data.
 }

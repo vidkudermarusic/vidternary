@@ -206,7 +206,6 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       updateRadioButtons(session, "mdthresh_mode", selected = input$mdthresh_mode)
       updateNumericInput(session, "custom_mdthresh", value = input$custom_mdthresh)
       updateRadioButtons(session, "mahalanobis_reference", selected = input$mahalanobis_reference)
-      updateRadioButtons(session, "mahalanobis_reference_isolation", selected = input$mahalanobis_reference_isolation)
       updateSelectizeInput(session, "multivariate_columns", selected = input$multivariate_columns)
       
       show_message("Settings copied from Dataset 1 to Dataset 2 successfully!", "success")

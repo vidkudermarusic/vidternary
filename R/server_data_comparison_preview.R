@@ -63,6 +63,13 @@ register_data_comparison_preview_handlers <- function(input, output, session, rv
       print(iqr_summary[iqr_summary > 0])
 
       cat("\n--- Outliers per column: Z-Score method (z-score > 3) ---\n")
+      # Small-sample ceiling: the largest |z| a single point can reach in n
+      # rows is (n-1)/sqrt(n), which stays below 3 until n = 11 - so a small
+      # dataset can show zero z-score outliers no matter how extreme a value
+      # is. Flag it so the empty result isn't misread as "no outliers".
+      if (nrow(df) < 11) {
+        cat("  (n = ", nrow(df), " rows: no z-score can exceed 3 at this sample size - counts below are structurally 0; rely on IQR/MAD here)\n", sep = "")
+      }
       zscore_summary <- per_column_outlier_counts(df, numeric_cols, "zscore")
       print(zscore_summary[zscore_summary > 0])
 

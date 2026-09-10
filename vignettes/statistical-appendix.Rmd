@@ -193,20 +193,33 @@ suffer the same self-distortion.
 ecd2 <- c(0.50, 0.60, 0.55, 0.62, 0.58, 5.20)
 df_out <- data.frame(ECD = ecd2)
 
-cat("IQR flags:   ", get_iqr_outlier_flags(df_out, "ECD"), "\n")
-cat("Z-score flags:", get_zscore_outlier_flags(df_out, "ECD"), "\n")
-cat("MAD flags:    ", get_mad_outlier_flags(df_out, "ECD"), "\n")
+# apply_*_filter(..., keep_outliers = TRUE) returns only the flagged rows;
+# their row names identify which of the original rows they were.
+flags <- function(f) {
+  kept <- f(df_out, "ECD", keep_outliers = TRUE)
+  seq_len(nrow(df_out)) %in% as.integer(rownames(kept))
+}
+
+cat("IQR flags:    ", flags(apply_iqr_filter), "\n")
+cat("Z-score flags:", flags(apply_zscore_filter), "\n")
+cat("MAD flags:    ", flags(apply_mad_filter), "\n")
 
 q3 <- quantile(ecd2, 0.75); iqr <- IQR(ecd2)
 cat(sprintf("IQR upper bound: %.3f\n", q3 + 1.5 * iqr))
-cat(sprintf("Z-score of the outlier: %.2f\n", (5.20 - mean(ecd2)) / sd(ecd2)))
+cat(sprintf("Z-score of the outlier: %.2f (threshold 3)\n", (5.20 - mean(ecd2)) / sd(ecd2)))
 cat(sprintf("MAD upper bound: %.3f\n", median(ecd2) + 3 * mad(ecd2)))
 ```
 
-**Interpreting the result:** all three agree on this obvious case. They
-diverge most on *moderate* outliers in small samples - if the three
-methods disagree, that itself is informative (the point is borderline, not
-unambiguously anomalous).
+**Interpreting the result:** IQR and MAD both flag the 5.20 value; the
+Z-score method does *not*. This is not a bug - it is exactly the
+self-distortion warned about above, made visible: with only six points,
+the single outlier inflates the sample SD so much that its own z-score
+(~2.0) falls below the threshold of 3. IQR and MAD stay robust because
+they are built on quantiles and the median, which the outlier barely
+moves. The lesson: on small samples, an extreme value can *mask itself*
+under the Z-score, and disagreement between the three methods is itself
+informative - here it says "the mean/SD-based test is being pulled around,
+trust the robust ones".
 
 **When they can't help you:** with $n<10$ or so, $Q_1$/$Q_3$/SD are too
 unstable to trust literally; and none of the three know anything about

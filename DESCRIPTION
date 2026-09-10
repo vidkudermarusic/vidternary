@@ -2,32 +2,23 @@ Package: vidternary
 Type: Package
 Title: Modular Ternary Plot Analysis Tool
 Version: 1.0.0
-Date: 2024-12-19
 Authors@R: person("Vid", "Kuder Marušič", email = "vid.kudermarusic@gmail.com", role = c("aut", "cre"))
 Description: A comprehensive R package for creating ternary plots with advanced filtering and multivariate analysis capabilities. The package is built with a modular architecture for maintainability and extensibility.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.3.3
-Depends: 
+Depends:
     R (>= 4.0.0)
 Imports:
     openxlsx,
     Ternary,
     PlotTools,
     shiny,
-    shinyjqui,
-    shinyBS,
     ggplot2,
-    GGally,
-    rmarkdown,
     corrplot,
-    knitr,
-    colourpicker,
     DT,
     isotree,
     RColorBrewer,
-    plotly,
     writexl,
     jsonlite,
     zip,

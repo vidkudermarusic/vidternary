@@ -11,7 +11,7 @@
 # following this script's own guidance specifically wouldn't have gotten
 # it installed. shinyFiles/fs were removed once the global Working/Output
 # Directory picker (server_directory_management.R) was replaced by
-# per-save browser downloads (see the vidternary Structural Audit's §03) -
+# per-save browser downloads (see the vidternary Structural Audit's Sec.03) -
 # neither is used anywhere else in R/. zip was previously removed here as
 # dead code, then reinstated for a genuine new use: the batch save handler
 # (server_ternary_plots_batch.R's "Create & Save all ternary plots") zips
@@ -24,10 +24,15 @@
 # envelope test, kernel intensity) - only those two sub-packages of the
 # spatstat family are imported, not the full `spatstat` umbrella, which
 # also pulls in spatstat.model/spatstat.linnet/etc that nothing here uses.
+# GGally, colourpicker, plotly, shinyBS and shinyjqui were removed once
+# `R CMD check` (and a fresh grep of R/) confirmed zero call sites anywhere
+# - a leftover from an earlier UI design. knitr/rmarkdown are vignette-
+# build tooling only (DESCRIPTION's Suggests + VignetteBuilder), never
+# loaded at app runtime, so they are not listed here either.
 required_packages <- c(
-  "openxlsx", "Ternary", "PlotTools", "shiny", "shinyjqui", "shinyBS",
-  "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
-  "isotree", "RColorBrewer", "plotly", "writexl", "jsonlite", "zip",
+  "openxlsx", "Ternary", "PlotTools", "shiny",
+  "ggplot2", "corrplot", "DT",
+  "isotree", "RColorBrewer", "writexl", "jsonlite", "zip",
   "viridisLite", "magick", "png", "rlang", "RANN",
   "spatstat.geom", "spatstat.explore"
 )

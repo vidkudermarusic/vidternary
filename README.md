@@ -67,14 +67,9 @@ The package is organized into logical modules, each handling specific functional
 ### Installation
 
 ```r
-# Install required packages first (matches DESCRIPTION's Imports:)
-install.packages(c("openxlsx", "Ternary", "PlotTools", "shiny", "shinyjqui", "shinyBS",
-                    "ggplot2", "GGally", "rmarkdown", "corrplot", "knitr", "colourpicker", "DT",
-                    "isotree", "RColorBrewer", "plotly", "writexl", "jsonlite", "zip",
-                    "viridisLite", "magick", "png", "rlang", "RANN"))
-
-# Install vidternary from GitHub
-devtools::install_github("vidkudermarusic/vidternary")
+# Install vidternary from GitHub (its Imports: are pulled in automatically)
+# install.packages("remotes")
+remotes::install_github("vidkudermarusic/vidternary")
 
 # Load and run the application
 library(vidternary)

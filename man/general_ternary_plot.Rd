@@ -27,6 +27,7 @@ general_ternary_plot(
   use_iqr_filter = FALSE,
   use_zscore_filter = FALSE,
   use_mad_filter = FALSE,
+  stat_filter_log10 = FALSE,
   lambda = 1,
   omega = 0,
   keep_outliers_mahalanobis = FALSE,
@@ -104,6 +105,11 @@ reference row; a whole number \verb{>= 2} sub-samples that many per tree
 \item{use_zscore_filter}{Apply a Z-score outlier filter. Default \code{FALSE}.}
 
 \item{use_mad_filter}{Apply a MAD outlier filter. Default \code{FALSE}.}
+
+\item{stat_filter_log10}{If \code{TRUE}, the active IQR/Z-score/MAD fence is
+fitted and applied on \code{log10(value)} instead of the raw value - the
+appropriate choice for the right-skewed inclusion measurements this
+app filters (wt\%, ECD, area). Default \code{FALSE}.}
 
 \item{lambda}{Sensitivity parameter for the automatic Mahalanobis threshold. Default 1.}
 

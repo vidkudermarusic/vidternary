@@ -100,13 +100,15 @@ test_that("Server logic can be created", {
 })
 
 test_that("Package structure is complete", {
-  # Test that all expected files exist
-  # Note: testthat runs test files with the working directory set to
-  # tests/testthat/, not the package root (verified empirically) - these
-  # paths were relative to the package root and so always resolved to
-  # FALSE when actually run through devtools::test()/test_check(), not
-  # just when invoked a particular way.
+  # Test that all expected source files exist. This is a repo-layout check,
+  # so it only makes sense when run from the source tree (devtools::test()).
+  # Under `R CMD check` the tests run against the INSTALLED package in
+  # <pkg>.Rcheck/, where the R/ sources have been compiled into the package
+  # database and no longer exist as files - skip in that case rather than
+  # report spurious failures.
   pkg_root <- file.path("..", "..")
+  testthat::skip_if_not(dir.exists(file.path(pkg_root, "R")),
+                        "source tree not present (running against an installed package)")
   expect_true(file.exists(file.path(pkg_root, "R", "dependencies.R")))
   expect_true(file.exists(file.path(pkg_root, "R", "helpers.R")))
   expect_true(file.exists(file.path(pkg_root, "R", "multivariate.R")))

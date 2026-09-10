@@ -48,7 +48,7 @@ outside \code{output_dir}; otherwise delegates to
 per-charge subfolder (with a timestamp suffix if one already exists) or
 returns \code{custom_folder = NULL} in preview mode. Extracted from
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own function because it's fully
-self-contained (per the vidternary Structural Audit's §04 responsibility
+self-contained (per the vidternary Structural Audit's Sec.04 responsibility
 table) - of its three outputs, only \code{file_base} is read again by this
 function's caller (passed to \code{\link[=build_ternary_plot_title]{build_ternary_plot_title()}} for the
 title's "charge" line); \code{custom_folder}/\code{plot_folder_name} are computed

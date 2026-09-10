@@ -19,7 +19,7 @@ create_data_comparison_tab <- function(id) {
 
         # ---- Data Source ----
         div(style = "border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #f8f9fa;",
-          h5("📁 Data Source", style = "margin-top: 0; color: #495057;"),
+          h5(" Data Source", style = "margin-top: 0; color: #495057;"),
           fileInput(ns("comparison_files"), "Select Excel File(s)",
             multiple = TRUE, accept = c(".xlsx", ".xls")),
           helpText("Each file's Sheet 1 is read independently. Select any 2 or more datasets below to compare them - not limited to two files."),
@@ -27,7 +27,7 @@ create_data_comparison_tab <- function(id) {
         ),
 
         div(style = "border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #f8f9fa;",
-          h5("📊 Data Readiness Check", style = "margin-top: 0; color: #495057;"),
+          h5(" Data Readiness Check", style = "margin-top: 0; color: #495057;"),
           verbatimTextOutput(ns("data_readiness_status"))
         ),
 
@@ -45,6 +45,10 @@ create_data_comparison_tab <- function(id) {
           column(6,
             h4("Correlation Analysis"),
             helpText("Selecting one dataset above shows its correlation heatmap; the comparison table supports any number of datasets, but the heatmap itself needs exactly 2 selected to stay readable."),
+            radioButtons(ns("correlation_method"), "Coefficient:",
+              choices = c("Pearson" = "pearson", "Spearman (rank)" = "spearman"),
+              selected = "pearson", inline = TRUE),
+            helpText(HTML("For constant-sum <b>wt% chemistry</b> columns, the closure constraint distorts correlations (a spurious negative bias) - use the CoDA tab's log-ratio analysis for those, or pick <b>Spearman</b> here as a less-affected rank measure. Non-compositional columns (area, ECD, aspect ratio) are unaffected.")),
             actionButton(ns("compute_correlations"), "Compute Correlations", class = "btn-info"),
             br(), br(),
             plotOutput(ns("correlation_heatmap"), height = "400px"),
@@ -63,7 +67,7 @@ create_data_comparison_tab <- function(id) {
             hr(),
             h4("Outlier Detection: Mahalanobis Distance & Isolation Forest"),
             div(style = "border: 1px solid #007bff; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h5("🔧 Outlier Detection Options", style = "margin-top: 0; color: #007bff;"),
+              h5(" Outlier Detection Options", style = "margin-top: 0; color: #007bff;"),
               helpText("Target: the dataset being analyzed. Reference: the dataset its distribution is compared against - pick \"Self\" to detect outliers within the target dataset alone, or another dataset to test the target against that dataset's distribution."),
               fluidRow(
                 column(4, selectInput(ns("comparison_mv_target"), "Target dataset:", choices = NULL)),
@@ -80,8 +84,8 @@ create_data_comparison_tab <- function(id) {
               div(style = "border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin: 10px 0; background-color: #fff;",
                 h6("Mahalanobis Parameters", style = "margin-top: 0;"),
                 fluidRow(
-                  column(3, numericInput(ns("comparison_mv_lambda"), "Lambda (λ):", value = 1, min = 0, step = 0.1)),
-                  column(3, numericInput(ns("comparison_mv_omega"), "Omega (ω):", value = 0, min = 0, step = 0.1)),
+                  column(3, numericInput(ns("comparison_mv_lambda"), "Lambda (lambda):", value = 1, min = 0, step = 0.1)),
+                  column(3, numericInput(ns("comparison_mv_omega"), "Omega (omega):", value = 0, min = 0, step = 0.1)),
                   column(3, radioButtons(ns("comparison_mv_mdthresh_mode"), "Threshold mode:",
                     choices = c("Automatic" = "auto", "Manual" = "manual"),
                     selected = "auto")),
@@ -95,7 +99,7 @@ create_data_comparison_tab <- function(id) {
                 conditionalPanel(
                   condition = paste0("input['", ns("comparison_mv_mdthresh_mode"), "'] == 'auto'"),
                   p(style = "font-size: 11px; margin: 0; color: #666; font-family: monospace;",
-                    "MDthresh = MDmean + √(100/(100+λ-ω)) × stdMD (", cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"), ")")
+                    "MDthresh = MDmean + sqrt(100/(100+lambda-omega)) x stdMD (", cite_link("Vode et al., 2022", "https://doi.org/10.3390/ma15020684"), ")")
                 )
               ),
 
@@ -136,7 +140,7 @@ create_data_comparison_tab <- function(id) {
               # Comprehensive Outlier Detection Display
               fluidRow(
                 column(12,
-                  h5("📊 Comprehensive Analysis Results"),
+                  h5(" Comprehensive Analysis Results"),
                   actionButton(ns("comparison_mv_run_comprehensive"), "Run Comprehensive Analysis", class = "btn-primary btn-sm"),
                   verbatimTextOutput(ns("mahalanobis_info"))
                 )
@@ -149,9 +153,9 @@ create_data_comparison_tab <- function(id) {
         fluidRow(
           column(12,
             hr(),
-            h4("🔍 Interactive Analysis Tools"),
+            h4(" Interactive Analysis Tools"),
             div(style = "border: 1px solid #6f42c1; padding: 15px; border-radius: 8px; margin: 10px 0; background-color: #f8f9fa;",
-              h5("📊 Dataset Analysis Options", style = "margin-top: 0; color: #6f42c1;"),
+              h5(" Dataset Analysis Options", style = "margin-top: 0; color: #6f42c1;"),
               selectInput(ns("comparison_preview_target"), "Dataset:", choices = NULL),
               actionButton(ns("show_missing_selected"), "Missing/Outlier Summary"),
               actionButton(ns("show_excel_selected"), "Excel File Preview"),

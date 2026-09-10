@@ -268,7 +268,7 @@ create_nnd_histogram <- function(ce_result) {
     ggplot2::geom_vline(xintercept = ce_result$Dobs, color = "#002147", linewidth = 1, linetype = "solid") +
     ggplot2::geom_vline(xintercept = ce_result$Dkevin, color = "#d32f2f", linewidth = 1, linetype = "dashed") +
     ggplot2::labs(title = "Nearest-Neighbour Distance Distribution",
-                  subtitle = "Solid line: observed mean · Dashed line: expected mean under complete spatial randomness",
+                  subtitle = "Solid line: observed mean - Dashed line: expected mean under complete spatial randomness",
                   x = "Nearest-neighbour distance", y = "Count") +
     ggplot2::theme_minimal()
 }

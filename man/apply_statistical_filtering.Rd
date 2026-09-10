@@ -12,7 +12,8 @@ apply_statistical_filtering(
   selected_columns,
   keep_outliers_iqr,
   keep_outliers_zscore,
-  keep_outliers_mad
+  keep_outliers_mad,
+  stat_filter_log10 = FALSE
 )
 }
 \arguments{
@@ -27,6 +28,11 @@ names to use; mandatory whenever any method is active.}
 \item{keep_outliers_iqr, keep_outliers_zscore, keep_outliers_mad}{If
 \code{TRUE} for the active method, keep only the flagged outliers instead
 of removing them.}
+
+\item{stat_filter_log10}{If \code{TRUE}, every active fence is fitted and
+applied on \code{log10(value)} rather than the raw value - the appropriate
+choice for the right-skewed inclusion measurements this app filters.
+Default \code{FALSE} (raw-scale fences, the original behaviour).}
 }
 \value{
 This function's entire local environment as a list
@@ -45,8 +51,16 @@ three in sequence if somehow more than one flag is set, matching the
 original inline code's own behavior exactly (a pure lift, not a
 rewrite). Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own
 function because it's the most self-contained of that function's
-remaining responsibilities (per the vidternary Structural Audit's §04
+remaining responsibilities (per the vidternary Structural Audit's Sec.04
 responsibility table) - it only reads \code{M} and the filter flags/
 parameters below, and its only real output is \code{M}.
 }
+}
+\details{
+Every active method is run over \emph{all} of \code{selected_columns} and a row is
+dropped (or kept, if \verb{keep_outliers_*}) when it crosses the fence in
+\emph{any one} of them - so the effective per-row false-positive rate rises
+with the number of selected columns. See the scientific caveats in
+\code{statistical_filters.R}'s source header for that and for the
+skew/small-sample limitations of the individual fences.
 }

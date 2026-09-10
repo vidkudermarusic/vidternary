@@ -67,16 +67,17 @@ register_data_comparison_stats_handlers <- function(input, output, session, rv, 
     tryCatch({
       selected <- input$comparison_selected
       dfs <- rv$comparison_data[selected]
+      cor_method <- if (!is.null(input$correlation_method)) input$correlation_method else "pearson"
 
       if (length(dfs) == 1) {
         nm <- names(dfs)[1]
-        pairs_table <- build_correlation_pairs_table(dfs[[1]])
+        pairs_table <- build_correlation_pairs_table(dfs[[1]], method = cor_method)
         if (nrow(pairs_table) == 0) {
           show_message("Need at least 2 numeric columns for correlation analysis", "warning")
           return()
         }
         numeric_cols <- names(dfs[[1]])[sapply(dfs[[1]], is.numeric)]
-        output$correlation_heatmap <- renderPlot(create_correlation_plot(dfs[[1]][, numeric_cols, drop = FALSE], title = paste(nm, "Correlation Heatmap")))
+        output$correlation_heatmap <- renderPlot(create_correlation_plot(dfs[[1]][, numeric_cols, drop = FALSE], method = cor_method, title = paste(nm, "Correlation Heatmap")))
         output$correlation_output <- DT::renderDataTable(render_stats_datatable(pairs_table, "Correlation"), server = FALSE)
         log_operation("SUCCESS", paste("Computed correlations for", nm), paste("Pairs analyzed:", nrow(pairs_table)))
       } else {
@@ -102,12 +103,12 @@ register_data_comparison_stats_handlers <- function(input, output, session, rv, 
           output$correlation_heatmap <- renderPlot({
             graphics::par(mfrow = c(1, 2))
             for (nm in names(dfs)) {
-              create_correlation_plot(dfs[[nm]][, common_cols, drop = FALSE], title = nm)
+              create_correlation_plot(dfs[[nm]][, common_cols, drop = FALSE], method = cor_method, title = nm)
             }
           })
         }
 
-        comparison_table <- build_correlation_comparison_table(dfs, common_cols)
+        comparison_table <- build_correlation_comparison_table(dfs, common_cols, method = cor_method)
         output$correlation_output <- DT::renderDataTable(render_stats_datatable(comparison_table, "Correlation"), server = FALSE)
         log_operation("SUCCESS", "Compared correlations", paste("Datasets:", paste(names(dfs), collapse = ", "), "| Common columns:", length(common_cols)))
       }

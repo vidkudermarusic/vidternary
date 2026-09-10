@@ -34,7 +34,7 @@ render_ternary_plot_preview <- function(pd) {
     # Create the ternary plot using the Ternary package
     Ternary::TernaryPlot(
       atip = clean_labels_A, btip = clean_labels_B, ctip = clean_labels_C,
-      alab = paste(axis_labels_A, "→"), blab = paste(axis_labels_B, "→"), clab = paste("←", axis_labels_C),
+      alab = paste(axis_labels_A, "->"), blab = paste(axis_labels_B, "->"), clab = paste("<-", axis_labels_C),
       col = "white",
       grid.lines = 5,
       grid.lty = "dotted",

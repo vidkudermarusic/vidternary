@@ -81,7 +81,7 @@ fit_evs_gumbel <- function(sqrt_area_max) {
 }
 
 # Anderson-Darling goodness-of-fit test for the fitted Gumbel distribution,
-# calibrated by parametric bootstrap. R² alone doesn't say whether the
+# calibrated by parametric bootstrap. R2 alone doesn't say whether the
 # block maxima actually follow a Gumbel distribution - a mixture of
 # populations (e.g. two inclusion types with different size distributions)
 # can still fit a straight line reasonably well while visibly curving away
@@ -110,7 +110,7 @@ fit_evs_gumbel <- function(sqrt_area_max) {
 #' @param n_sim Number of bootstrap replicates. Default 999.
 #' @param seed RNG seed for the bootstrap; the caller's RNG state is saved
 #'   and restored afterward.
-#' @return A list: `statistic` (observed A²), `n`, `n_sim`, `p_value`,
+#' @return A list: `statistic` (observed A2), `n`, `n_sim`, `p_value`,
 #'   `p_value_bracket` (formatted string), `reject_at_05` (logical) - or
 #'   `NULL` if the fit is degenerate (see below), matching how the rest of
 #'   this pipeline signals "not applicable."
@@ -279,7 +279,7 @@ create_gumbel_plot <- function(fit, prediction = NULL) {
                               width = 0.3, color = "#d32f2f") +
       ggplot2::geom_point(data = pred_df, color = "#d32f2f", size = 2.4, shape = 18) +
       ggplot2::labs(subtitle = sprintf(
-        "T = %.0f control areas: √Area = %.2f µm  |  95%% PI [%.2f, %.2f] (single future max)  |  95%% CI [%.2f, %.2f] (on the estimate, ASTM-style)",
+        "T = %.0f control areas: sqrtArea = %.2f um  |  95%% PI [%.2f, %.2f] (single future max)  |  95%% CI [%.2f, %.2f] (on the estimate, ASTM-style)",
         prediction$return_period, prediction$predicted, prediction$lower, prediction$upper,
         prediction$ci_lower, prediction$ci_upper
       ))

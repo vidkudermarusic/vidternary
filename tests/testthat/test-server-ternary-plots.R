@@ -218,7 +218,7 @@ test_that("selecting two columns for Element A renders two per-element filter in
 # ---- Save Plot 1/2 (server_ternary_plots.R) ----
 # Each is a downloadHandler now (browser Save dialog instead of a
 # pre-chosen server-side folder - see the vidternary Structural Audit's
-# §03). testServer()'s own output$id accessor both runs the handler's
+# Sec.03). testServer()'s own output$id accessor both runs the handler's
 # content() function and returns the path Shiny wrote its content to -
 # confirmed directly against a toy downloadHandler before relying on it
 # here: reading output$id executes content() and hands back a real file

@@ -5,7 +5,7 @@
 # Save/Export button prompts for where to save right when it's clicked,
 # via the browser's native Save dialog (a plain downloadButton/
 # downloadHandler), the same pattern used across every tab (see the
-# vidternary Structural Audit's §03 for the removal of the previous
+# vidternary Structural Audit's Sec.03 for the removal of the previous
 # always-visible, pre-selected Working/Output Directory pair). Each tab's
 # own UI tree is built by a dedicated function in a
 # sibling module, split out for size:
@@ -126,7 +126,7 @@ create_main_ui <- function() {
 
     tags$hr(),
     tags$footer(
-      HTML("Vid Kuder Marušič — <a href='mailto:vid.kudermarusic@gmail.com'>vid.kudermarusic@gmail.com</a>"),
+      HTML("Vid Kuder Marusic - <a href='mailto:vid.kudermarusic@gmail.com'>vid.kudermarusic@gmail.com</a>"),
       align = "center",
       style = "color: #888; background-color: #f9f9f9; padding: 10px 0; font-size: 0.95em;"
     )

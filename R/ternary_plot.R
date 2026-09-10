@@ -54,6 +54,10 @@
 #' @param use_iqr_filter Apply an IQR outlier filter. Default `FALSE`.
 #' @param use_zscore_filter Apply a Z-score outlier filter. Default `FALSE`.
 #' @param use_mad_filter Apply a MAD outlier filter. Default `FALSE`.
+#' @param stat_filter_log10 If `TRUE`, the active IQR/Z-score/MAD fence is
+#'   fitted and applied on `log10(value)` instead of the raw value - the
+#'   appropriate choice for the right-skewed inclusion measurements this
+#'   app filters (wt%, ECD, area). Default `FALSE`.
 #' @param lambda Sensitivity parameter for the automatic Mahalanobis threshold. Default 1.
 #' @param omega Leniency parameter for the automatic Mahalanobis threshold. Default 0.
 #' @param keep_outliers_mahalanobis If `TRUE`, keep only Mahalanobis
@@ -107,6 +111,7 @@ general_ternary_plot <- function(
     use_iqr_filter = FALSE,
     use_zscore_filter = FALSE,
     use_mad_filter = FALSE,
+    stat_filter_log10 = FALSE,
     lambda = 1,
     omega = 0,
     keep_outliers_mahalanobis = FALSE,
@@ -223,6 +228,7 @@ general_ternary_plot <- function(
     use_iqr_filter = use_iqr_filter,
     use_zscore_filter = use_zscore_filter,
     use_mad_filter = use_mad_filter,
+    stat_filter_log10 = stat_filter_log10,
     lambda = lambda,
     omega = omega,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,

@@ -153,7 +153,7 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
   # of a real preview - so it's been folded into the one button that always
   # saves. Writes into a fresh temp directory rather than a subfolder under
   # a pre-chosen server-side Output Directory, then zips whatever succeeded
-  # - see the vidternary Structural Audit's §03 for why the previous global
+  # - see the vidternary Structural Audit's Sec.03 for why the previous global
   # directory picker was removed.
   output$create_save_multiple_ternary <- downloadHandler(
     filename = function() {

@@ -4,12 +4,15 @@
 \alias{build_correlation_comparison_table}
 \title{Compare the internal correlation structure of 2+ datasets}
 \usage{
-build_correlation_comparison_table(dfs, common_cols)
+build_correlation_comparison_table(dfs, common_cols, method = "pearson")
 }
 \arguments{
 \item{dfs}{A named list of 2+ data frames; names become the \code{Dataset} column's values.}
 
 \item{common_cols}{Numeric columns present in all of \code{dfs}, to correlate. Needs at least 2.}
+
+\item{method}{Correlation method passed through to
+\code{\link[=build_correlation_pairs_table]{build_correlation_pairs_table()}}. Default \code{"pearson"}.}
 }
 \value{
 A data frame: \code{Dataset}, \code{Variable_1}, \code{Variable_2}, \code{Correlation}.

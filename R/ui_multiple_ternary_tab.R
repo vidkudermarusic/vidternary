@@ -19,7 +19,7 @@ create_multiple_ternary_tab <- function(id) {
 
         # Purpose and limitations note
         div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5("🎯 Purpose & Limitations", style = "margin-top: 0; color: #0c5460;"),
+          h5(" Purpose & Limitations", style = "margin-top: 0; color: #0c5460;"),
           p("This tool is designed for batch processing of ternary plots with consistent parameters:", style = "margin: 5px 0; color: #0c5460;"),
           tags$ul(
             tags$li("Focus: Element selection, optional parameters, and individual element filters"),
@@ -94,7 +94,7 @@ create_multiple_ternary_tab <- function(id) {
         fluidRow(
           column(12, style = "text-align: center; margin: 15px 0;",
             div(style = "background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;",
-              h5("📋 Workflow", style = "margin-top: 0; color: #495057;"),
+              h5(" Workflow", style = "margin-top: 0; color: #495057;"),
               p("Upload files, choose Elements A/B/C (and any optional parameters), then click the button below - each file's ternary plot is generated and saved directly to a timestamped subfolder under your configured output directory.", style = "margin: 5px 0; color: #6c757d;")
             )
           )

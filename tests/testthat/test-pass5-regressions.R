@@ -1,5 +1,5 @@
 # Regression guards for pass 5's findings (see the vidternary Structural
-# Audit's §08 recommendation: "aim new test coverage at what this pass
+# Audit's Sec.08 recommendation: "aim new test coverage at what this pass
 # proved, not a general push"). Each test below reproduces the exact
 # scenario that used to crash or misbehave, against the now-fixed code -
 # scoped deliberately narrow (one test per finding, not broad coverage
@@ -186,6 +186,40 @@ test_that("apply_iqr_filter()/apply_zscore_filter()/apply_mad_filter() reject NA
   expect_error(apply_mad_filter(d, "x", threshold = NA_real_), "non-negative")
   # regression: normal calls still filter correctly
   expect_lt(nrow(apply_iqr_filter(d, "x")), nrow(d))
+})
+
+# ---- Scientific correctness: z-score small-sample ceiling ----
+# The largest |z| a single point can reach in n rows is (n-1)/sqrt(n),
+# which is < 3 until n = 11. apply_zscore_filter() must warn (not silently
+# no-op) when n is below that ceiling for the chosen threshold.
+
+test_that("apply_zscore_filter() warns below the sample-size ceiling and is silent above it", {
+  small <- data.frame(x = c(1:9, 1000))          # n = 10 -> below ceiling for threshold 3
+  big   <- data.frame(x = c(1:29, 1000))         # n = 30 -> above ceiling
+
+  expect_warning(apply_zscore_filter(small, "x"), "no row can be flagged")
+  # Below the ceiling nothing is flagged, so a "remove outliers" pass keeps every row.
+  expect_equal(nrow(suppressWarnings(apply_zscore_filter(small, "x", keep_outliers = FALSE))), nrow(small))
+  expect_silent(apply_zscore_filter(big, "x"))
+  expect_lt(nrow(apply_zscore_filter(big, "x", keep_outliers = FALSE)), nrow(big))
+})
+
+# ---- Scientific correctness: log10 fence for right-skewed data ----
+
+test_that("log_transform = TRUE fits the fence on log10(value) and changes which rows are flagged", {
+  set.seed(1)
+  # Strongly right-skewed positive column: raw IQR fence over-flags the
+  # heavy tail; the log fence is far more permissive.
+  skewed <- data.frame(v = c(round(rlnorm(200, meanlog = 1, sdlog = 1), 3)))
+  raw_removed <- nrow(skewed) - nrow(apply_iqr_filter(skewed, "v", log_transform = FALSE))
+  log_removed <- nrow(skewed) - nrow(apply_iqr_filter(skewed, "v", log_transform = TRUE))
+  expect_gt(raw_removed, log_removed)
+
+  # Non-positive entries are dropped from the log fit and never flagged as
+  # high outliers (these filters are upper-tail only).
+  withzero <- data.frame(v = c(0, -1, 1:50, 5000))
+  out <- apply_mad_filter(withzero, "v", log_transform = TRUE, keep_outliers = TRUE)
+  expect_true(all(out$v > 0))
 })
 
 # ---- Crash / silent misbehavior: compute_isolation_forest()'s 3 statistics-layer gaps ----

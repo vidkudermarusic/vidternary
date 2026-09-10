@@ -205,7 +205,7 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   # result() throws a shiny::validate()/req() condition whose $message is
   # always "" by design - the same blank-error gap found and fixed in
   # server_plot_builder.R's output$builder_download (see the vidternary
-  # Structural Audit's §03 for that writeup); confirmed reachable here the
+  # Structural Audit's Sec.03 for that writeup); confirmed reachable here the
   # same way, via direct testServer() reproduction against the unmodified
   # handler. safe_result() gives every handler below a clear, actionable
   # message for that case, while still surfacing a genuine error's own

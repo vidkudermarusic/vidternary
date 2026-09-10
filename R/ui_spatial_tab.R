@@ -18,11 +18,11 @@ create_spatial_tab <- function(id) {
         helpText("Tests whether inclusion positions are randomly scattered, clustered together, or more evenly spread out than chance would predict."),
 
         div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5("🎯 How it works", style = "margin-top: 0; color: #0c5460;"),
+          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
           tags$ul(
             tags$li("For every point, the distance to its nearest neighbour is measured (nearest-neighbour distance, NND)."),
             tags$li("The observed mean NND is compared to what would be expected if the points were completely randomly scattered (CSR) in the same area."),
-            tags$li("R = observed/expected: R < 1 means clustering, R > 1 means a more regular/even spread, R ≈ 1 means no evidence against randomness."),
+            tags$li("R = observed/expected: R < 1 means clustering, R > 1 means a more regular/even spread, R ~ 1 means no evidence against randomness."),
             tags$li(strong("Two p-values are reported: "), "an asymptotic one (Donnelly edge-corrected, the standard method used by the spatstat R package) and a Monte Carlo one (simulates many random point sets in the same observation window). Trust the Monte Carlo value when the two disagree."),
             tags$li(strong("Observation window: "), "by default the null model uses the axis-aligned ", strong("bounding box"),
               " of the points, which is exactly right when the analysed region really is a rectangular SEM scan. If the sampled region is irregular and the points don't fill their bounding box, switch to ", strong("convex hull"),
@@ -56,7 +56,7 @@ create_spatial_tab <- function(id) {
               choices = c("k-d tree (fast, recommended for large datasets)" = "kdtree",
                           "Distance matrix (slower for large n)" = "matrix"),
               selected = "kdtree"),
-            helpText("Both give identical results - this only affects speed. The distance-matrix method is O(n²) and can take many minutes above a few thousand points; the k-d tree method is O(n log n) and stays fast even at tens of thousands of points.")
+            helpText("Both give identical results - this only affects speed. The distance-matrix method is O(n2) and can take many minutes above a few thousand points; the k-d tree method is O(n log n) and stays fast even at tens of thousands of points.")
           ),
           column(6,
             h4("Monte Carlo simulations"),

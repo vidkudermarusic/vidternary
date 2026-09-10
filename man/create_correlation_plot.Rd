@@ -14,7 +14,8 @@ create_correlation_plot(
 \arguments{
 \item{data}{A data frame of numeric columns.}
 
-\item{method}{Correlation method passed to \code{cor()}. Default \code{"pearson"}.}
+\item{method}{Correlation method passed to \code{cor()}. Default \code{"pearson"}.
+\code{"spearman"} (rank) is less affected by compositional closure.}
 
 \item{title}{Plot title.}
 
@@ -30,4 +31,16 @@ Constant (zero-variance) columns are dropped first (their correlation
 is undefined and would crash \code{corrplot}'s hierarchical-clustering
 column ordering); if a pairwise \code{NA} still remains, falls back to the
 original column order instead of clustering.
+}
+\details{
+The correlation is computed on the columns exactly as supplied. When
+those columns are constant-sum compositional data (wt\% chemistry that
+sums to ~100), the closure constraint induces spurious correlations -
+most visibly a negative bias, since an increase in one part forces the
+others down - so a Pearson \code{r} between two wt\% columns is not a clean
+measure of their association. This is the problem the CoDA tab handles
+with a log-ratio transform (\code{compositional_data_analysis.R}). A caption
+line on the plot states this; for a quick rank-based alternative that is
+less distorted, pass \code{method = "spearman"}. Non-compositional columns
+(area, ECD, aspect ratio, coordinates) are unaffected.
 }

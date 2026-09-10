@@ -15,7 +15,7 @@ gumbel_goodness_of_fit(fit, n_sim = 999, seed = 42)
 and restored afterward.}
 }
 \value{
-A list: \code{statistic} (observed A²), \code{n}, \code{n_sim}, \code{p_value},
+A list: \code{statistic} (observed A2), \code{n}, \code{n_sim}, \code{p_value},
 \code{p_value_bracket} (formatted string), \code{reject_at_05} (logical) - or
 \code{NULL} if the fit is degenerate (see below), matching how the rest of
 this pipeline signals "not applicable."
