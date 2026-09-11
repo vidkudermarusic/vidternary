@@ -888,3 +888,101 @@ test_that("the categorical-detection cap treats character AND factor columns ide
     expect_equal(nrow(result$ternary_points1), 10, info = paste("column type:", col_type))
   }
 })
+
+# ---- Silent wrong result: matrika/ternary_points1 row misalignment under
+# categorical Optional Param 2 grouping ----
+# compute_ternary_coordinates() used to filter `matrika` (zero-sum rows,
+# then na.omit() across ALL needed columns including Optional Param 1/2) and
+# `M`/`ternary_points1` (total_values > 0, no NA/Inf) independently. Any row
+# with a genuinely missing Optional Param 1/2 value - while its A/B/C
+# element data stayed complete - was then dropped from `matrika` but kept in
+# `ternary_points1`, so the two ended up with different row counts.
+# compute_point_styling() reads categorical group membership from `matrika`
+# and applies the resulting logical mask POSITIONALLY against
+# `ternary_points1` (`ternary_points1[group_mask, ]`) - a mask shorter than
+# `ternary_points1` gets silently recycled by R, offsetting every row's
+# group assignment by one from the first missing value onward. Confirmed via
+# direct reproduction: selecting "only group H2" returned 4 real H1 rows
+# mislabeled/colored as H2, while 4 real H2 rows were silently dropped.
+# Fixed by computing ONE shared valid-rows mask and applying it identically
+# to matrika, M, and ternary_points1.
+test_that("a categorical group filter is not corrupted by an unrelated missing Optional Param 1 value", {
+  n <- 12
+  d <- data.frame(
+    Fe = c(24.79, 34.51, 32.93, 30.13, 28.97, 38.91, 24.31, 39.95, 25.56, 33.13, 27.46, 39.80),
+    Al = c(11.36, 6.87, 7.53, 8.81, 5.89, 8.04, 10.85, 6.52, 11.60, 7.71, 9.68, 6.40),
+    Ti = c(13.60, 8.62, 9.53, 11.06, 12.28, 17.14, 8.65, 16.47, 12.07, 9.66, 15.73, 9.72),
+    ECD = c(1.2, 2.1, 3.4, 0.9, NA, 4.4, 1.8, 2.9, 0.6, 3.3, 1.1, 2.7),  # row 5's ECD is missing
+    Batch = rep(c("H1", "H2"), length.out = n)
+  )
+  true_h2_rows <- which(d$Batch == "H2")  # 2,4,6,8,10,12
+
+  xlsx_path <- tempfile(fileext = ".xlsx")
+  openxlsx::write.xlsx(d, xlsx_path)
+  out_dir <- tempfile("out_"); dir.create(out_dir)
+
+  pd <- prepare_ternary_plot_data(
+    xlsx_file = xlsx_path, working_dir = tempdir(), output_dir = out_dir,
+    element_A = list(col = "Fe"), element_B = list(col = "Al"), element_C = list(col = "Ti"),
+    optional_param1 = list(col = "ECD", filter = NULL),
+    optional_param2 = list(col = "Batch", filter = NULL),
+    color_palette = "blue", xlsx_display_name = "test.xlsx",
+    preview = TRUE, use_mahalanobis = FALSE, reference_data = NULL,
+    optional_param1_representation = "point_size", output_format = "png",
+    use_isolation_forest = FALSE, use_iqr_filter = FALSE, use_zscore_filter = FALSE, use_mad_filter = FALSE,
+    stat_filter_log10 = FALSE,
+    lambda = 1, omega = 0, keep_outliers_mahalanobis = FALSE, keep_outliers_isolation = FALSE,
+    keep_outliers_iqr = FALSE, keep_outliers_zscore = FALSE, keep_outliers_mad = FALSE,
+    individual_filters_A = NULL, individual_filters_B = NULL, individual_filters_C = NULL,
+    custom_mdthresh = NULL, mdthresh_mode = "auto", mahalanobis_reference = "self",
+    selected_columns = NULL, include_plot_notes = FALSE, use_manual_point_size = FALSE,
+    manual_point_size = NULL,
+    selected_groups = "H2 (6 samples)",
+    is_categorical_group = TRUE
+  )
+
+  # Every returned point's TRUE original row (identified by its exact,
+  # unique A = Fe/(Fe+Al+Ti) fraction, since the fixture's values are all
+  # distinct) must really be a Batch == "H2" row - not offset/mislabeled.
+  true_A_all <- d$Fe / (d$Fe + d$Al + d$Ti)
+  matched_rows <- vapply(pd$ternary_points1$A, function(a) {
+    hit <- which(abs(true_A_all - a) < 1e-9)
+    if (length(hit) == 1) hit else NA_integer_
+  }, integer(1))
+
+  expect_false(anyNA(matched_rows), info = "every returned point must trace back to exactly one real row")
+  expect_setequal(matched_rows, true_h2_rows)
+  expect_true(all(d$Batch[matched_rows] == "H2"))
+})
+
+# The root-cause invariant this fix establishes lives inside
+# compute_ternary_coordinates() itself, *before* compute_point_styling()'s
+# later categorical group-filtering step further (and legitimately) shrinks
+# ternary_points1 on its own - so it's checked directly here rather than via
+# the fuller pipeline test above, where the two objects are no longer
+# expected to match in size by the time prepare_ternary_plot_data() returns.
+test_that("compute_ternary_coordinates() always returns matrika/M/ternary_points1 with identical row counts", {
+  d <- data.frame(
+    Fe = c(24.79, 34.51, 32.93, 30.13, 28.97, 38.91),
+    Al = c(11.36, 6.87, 7.53, 8.81, 5.89, 8.04),
+    Ti = c(13.60, 8.62, 9.53, 11.06, 12.28, 17.14),
+    ECD = c(1.2, 2.1, 3.4, 0.9, NA, 4.4),   # row 5 missing - an optional param, not an A/B/C element
+    Batch = c("H1", "H2", "H1", "H2", "H1", "H2")
+  )
+  res <- compute_ternary_coordinates(
+    M = d, all_selected_elements = c("Fe", "Al", "Ti"),
+    element_A = list(col = "Fe"), element_B = list(col = "Al"), element_C = list(col = "Ti"),
+    optional_param1 = list(col = "ECD", filter = NULL),
+    optional_param2 = list(col = "Batch", filter = NULL),
+    use_mahalanobis = FALSE, reference_data = NULL
+  )
+  expect_equal(nrow(res$matrika), nrow(res$ternary_points1))
+  expect_equal(nrow(res$M), nrow(res$ternary_points1))
+  expect_equal(nrow(res$ternary_points1), 5)  # the NA-ECD row correctly dropped from all three
+  expect_false(any(is.na(res$matrika$ECD)))
+  # Row order must also match, not just the count: matrika's Batch column
+  # (read positionally by compute_point_styling()) must correspond to the
+  # SAME rows, in the SAME order, as ternary_points1 - i.e. every row
+  # except row 5 (the only one with a missing ECD), in original order.
+  expect_equal(res$matrika$Batch, d$Batch[-5])
+})

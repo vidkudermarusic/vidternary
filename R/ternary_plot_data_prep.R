@@ -1263,19 +1263,40 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #' Compute and validate a ternary plot's normalized A/B/C coordinates
 #'
 #' Builds `matrika` (the numeric-plus-optional-parameter working data frame:
-#' selects `needed_columns`, drops zero-sum rows, `na.omit()`s, then splits
-#' `element_columns` vs. `optional_columns`), sums each element's selected
-#' column(s) into `A_values`/`B_values`/`C_values`, normalizes by their row
-#' total into `ternary_points1`, and drops any row whose total is zero or
-#' whose resulting coordinate is `NA`/infinite from both `M` and
-#' `ternary_points1` - erroring if a needed column is missing from the data,
-#' or if nothing survives validation. Extracted from
-#' [prepare_ternary_plot_data()] as its own function because it's the last
-#' and most central of that function's identified responsibilities (per
-#' the vidternary Structural Audit's Sec.04 responsibility table) - tackled
-#' last of the seven extractions on this function, once every other piece
-#' it interacts with (filtering, multivariate dispatch, point styling,
-#' title assembly) had already been extracted and verified.
+#' selects `needed_columns`, splits `element_columns` vs. `optional_columns`,
+#' converts the former to numeric), sums each element's selected column(s)
+#' into `A_values`/`B_values`/`C_values`, and normalizes by their row total
+#' into `ternary_points1` - erroring if a needed column is missing from the
+#' data, or if nothing survives validation.
+#'
+#' @section One shared `valid_rows` mask:
+#' A row is valid when its element total is finite and positive, AND no
+#' needed column (any element sub-column, or either optional parameter's
+#' column) is `NA` for that row - a genuinely missing measurement is not
+#' silently treated as zero and plotted as if the composition were fully
+#' known. That single mask is computed once and applied identically to
+#' `matrika`, `M`, and `ternary_points1`, so all three end up with the
+#' exact same rows in the exact same order. This matters because
+#' [compute_point_styling()] later reads Optional Param 1/2 values out of
+#' `matrika` and applies them *positionally* against `ternary_points1` -
+#' an earlier version computed each object's row-validity independently
+#' (matrika's own zero-sum-row-removal plus `na.omit()`, versus
+#' `ternary_points1`'s own total-based check) and could let their row
+#' counts silently diverge whenever a needed column had an NA that didn't
+#' also zero out the element total (almost always an Optional Param 1/2
+#' value, since SEM/EDS element columns are normally complete) - R then
+#' recycled the shorter logical mask against the longer data frame with no
+#' warning surfaced to the UI, confirmed to silently swap in wrong points
+#' and wrong group colors under a categorical Optional Param 2 grouping.
+#' Fixed by deciding row validity in exactly one place.
+#'
+#' Extracted from [prepare_ternary_plot_data()] as its own function because
+#' it's the last and most central of that function's identified
+#' responsibilities (per the vidternary Structural Audit's Sec.04
+#' responsibility table) - tackled last of the seven extractions on this
+#' function, once every other piece it interacts with (filtering,
+#' multivariate dispatch, point styling, title assembly) had already been
+#' extracted and verified.
 #'
 #' @param M The data frame to compute coordinates from (already
 #'   loaded/filtered by the earlier pipeline stages).
@@ -1299,12 +1320,10 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`) - `matrika` and `ternary_points1` are the
 #'   fields [prepare_ternary_plot_data()] and the preview/save renderers
-#'   actually read back; the rest (`needed_columns`, `element_columns`,
+#'   actually read back, and now always share the same row set/order as
+#'   `M`. The rest (`needed_columns`, `element_columns`,
 #'   `optional_columns`, `A_values`/`B_values`/`C_values`, `total_values`,
-#'   `valid_rows`, and the possibly-further-filtered `M`) are echoed back
-#'   unchanged from how they already existed in
-#'   `prepare_ternary_plot_data()`'s own environment before this
-#'   extraction.
+#'   `valid_rows`) are echoed back for diagnostic/debug use.
 #' @export
 compute_ternary_coordinates <- function(M, all_selected_elements, element_A, element_B, element_C,
                                          optional_param1, optional_param2, use_mahalanobis, reference_data) {
@@ -1367,16 +1386,20 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
   # raw all_selected_elements, fixes the assignment on the next line and
   # its counterpart further down without changing which columns end up
   # selected (a repeated name selects the same column either way).
+  #
+  # This numeric conversion also makes reading A/B/C sums FROM matrika
+  # (below) strictly safer than the old approach of reading them from M
+  # directly: a numeric-looking Excel column openxlsx read in as character
+  # now coerces here (as.numeric()) instead of making rowSums() error, or
+  # - for the A/B/C sums specifically - instead of silently disagreeing
+  # with what matrika itself considers "this column's numeric value".
   element_columns <- unique(all_selected_elements)
   matrika[, element_columns] <- lapply(matrika[, element_columns, drop = FALSE], as.numeric)
-  row_sums <- rowSums(matrika[, element_columns, drop = FALSE], na.rm = TRUE)
-  matrika <- matrika[row_sums > 0, , drop = FALSE]
-  cat("DEBUG: Matrika dimensions after removing zero-sum rows:", dim(matrika), "\n")
-  matrika <- na.omit(matrika)
-  cat("DEBUG: Matrika dimensions after na.omit:", dim(matrika), "\n")
-  log_operation("INFO", "Removed NA values", paste("Matrix dimensions:", dim(matrika)[1], "rows x", dim(matrika)[2], "columns"))
+  log_operation("INFO", "Converted element columns to numeric", paste(element_columns, collapse = ", "))
 
-  # Only convert element columns to numeric, preserve optional parameter columns as character/factor
+  # Optional parameter columns are kept as character/factor (not coerced to
+  # numeric) so categorical grouping still works downstream in
+  # compute_point_styling().
   optional_columns <- c()
   # all() wraps the %in% check because optional_param*$col can be a
   # multi-column selection (a vector), and %in% then returns a vector -
@@ -1393,82 +1416,68 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
     optional_columns <- c(optional_columns, optional_param2$col)
   }
 
-  # Element columns were already converted to numeric above (right after
-  # matrika was built) - this used to redundantly repeat the identical
-  # conversion here a second time; harmless (as.numeric() on already-numeric
-  # data is a no-op) but pointless, so it's gone rather than left as
-  # confusing duplicate work for the next reader.
-
-  # Keep optional parameter columns as character/factor for categorical data
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: Element columns converted to numeric:", paste(element_columns, collapse = ", "), "\n")
     cat("DEBUG: Optional columns preserved as character:", paste(optional_columns, collapse = ", "), "\n")
     cat("DEBUG: Final matrika column classes:", paste(sapply(matrika, class), collapse = ", "), "\n")
   }
 
-  # Keep as data frame to preserve different column types
-  # matrika <- as.matrix(matrika)  # Don't convert to matrix to preserve column types
-
   log_operation("INFO", "Generating ternary coordinates")
 
-  # Calculate ternary coordinates from the filtered data
+  # Sum the selected columns for each element - per-element sums, NOT a
+  # pooled/deduplicated total. A column shared between two elements (e.g.
+  # A: Fe+O, B: Al+O) legitimately contributes to both sums; that overlap
+  # is intentional (see this function's @param doc) and must be preserved
+  # for correct ternary math, so this reads from matrika (element_A$col
+  # etc. are always a subset of element_columns) rather than deduplicating.
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: About to calculate ternary coordinates\n")
-    cat("DEBUG: Final filtered data dimensions:", dim(M), "\n")
     cat("DEBUG: Element A columns:", paste(element_A$col, collapse=", "), "\n")
     cat("DEBUG: Element B columns:", paste(element_B$col, collapse=", "), "\n")
     cat("DEBUG: Element C columns:", paste(element_C$col, collapse=", "), "\n")
   }
-
-  # Sum the selected columns for each element
-  A_values <- rowSums(M[, element_A$col, drop = FALSE], na.rm = TRUE)
-  B_values <- rowSums(M[, element_B$col, drop = FALSE], na.rm = TRUE)
-  C_values <- rowSums(M[, element_C$col, drop = FALSE], na.rm = TRUE)
+  A_values <- rowSums(matrika[, element_A$col, drop = FALSE], na.rm = TRUE)
+  B_values <- rowSums(matrika[, element_B$col, drop = FALSE], na.rm = TRUE)
+  C_values <- rowSums(matrika[, element_C$col, drop = FALSE], na.rm = TRUE)
+  total_values <- A_values + B_values + C_values
 
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: A_values range:", range(A_values, na.rm=TRUE), "\n")
     cat("DEBUG: B_values range:", range(B_values, na.rm=TRUE), "\n")
     cat("DEBUG: C_values range:", range(C_values, na.rm=TRUE), "\n")
-  }
-
-  # Calculate ternary coordinates
-  total_values <- A_values + B_values + C_values
-  ternary_points1 <- data.frame(
-    A = A_values / total_values,
-    B = B_values / total_values,
-    C = C_values / total_values
-  )
-
-  # Validate ternary coordinates to prevent Ternary package errors
-  if (getOption("ternary.debug", FALSE)) {
-    cat("DEBUG: Validating ternary coordinates\n")
     cat("DEBUG: Total values range:", range(total_values, na.rm=TRUE), "\n")
-    cat("DEBUG: Any zero totals:", any(total_values == 0, na.rm=TRUE), "\n")
-    cat("DEBUG: Any NA in coordinates:", any(is.na(ternary_points1)), "\n")
-    cat("DEBUG: Any infinite values:", any(is.infinite(as.matrix(ternary_points1))), "\n")
   }
 
-  # Remove rows with invalid coordinates (zero totals, NA, or infinite values)
-  valid_rows <- total_values > 0 & !is.na(total_values) &
-                !is.na(ternary_points1$A) & !is.na(ternary_points1$B) & !is.na(ternary_points1$C) &
-                !is.infinite(ternary_points1$A) & !is.infinite(ternary_points1$B) & !is.infinite(ternary_points1$C)
+  # ---- One shared valid-rows mask (see this function's own "One shared
+  # valid_rows mask" doc section above for why) ----
+  # A row is valid when its element total is finite and positive (a
+  # genuine ternary point needs a real, positive A+B+C to normalize by),
+  # AND no needed column - any element sub-column, or either optional
+  # parameter's column - is NA for that row. rowSums(..., na.rm = TRUE)
+  # above would otherwise silently treat a missing element reading as
+  # zero; checking matrika directly (before any row is dropped) catches
+  # that instead of letting it through as a partially-known composition.
+  na_in_needed <- rowSums(is.na(matrika)) > 0
+  valid_rows <- is.finite(total_values) & total_values > 0 & !na_in_needed
 
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: Valid rows:", sum(valid_rows), "out of", length(valid_rows), "\n")
   }
 
-  # Filter data and coordinates
+  # Apply the SAME mask to matrika, M, and the computed coordinates - the
+  # three end up with identical rows in identical order, by construction.
+  matrika <- matrika[valid_rows, , drop = FALSE]
   M <- M[valid_rows, , drop = FALSE]
-  ternary_points1 <- ternary_points1[valid_rows, , drop = FALSE]
+  ternary_points1 <- data.frame(
+    A = A_values[valid_rows] / total_values[valid_rows],
+    B = B_values[valid_rows] / total_values[valid_rows],
+    C = C_values[valid_rows] / total_values[valid_rows]
+  )
 
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: After validation - M dimensions:", dim(M), "\n")
+    cat("DEBUG: After validation - matrika dimensions:", dim(matrika), "\n")
     cat("DEBUG: After validation - ternary_points1 dimensions:", dim(ternary_points1), "\n")
-  }
-
-  if (getOption("ternary.debug", FALSE)) {
-    cat("DEBUG: Ternary coordinates calculated\n")
-    cat("DEBUG: ternary_points1 dimensions:", dim(ternary_points1), "\n")
     cat("DEBUG: Sample ternary coordinates (first 3 rows):\n")
     print(head(ternary_points1, 3))
   }
