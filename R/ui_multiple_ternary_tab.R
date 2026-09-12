@@ -72,14 +72,27 @@ create_multiple_ternary_tab <- function(id) {
               h5("Optional Parameters"),
               fluidRow(
                 column(6,
-                  selectizeInput(ns("multiple_optional_param1"), "Optional Parameter 1 (Point Size/Type):", choices = NULL, multiple = TRUE),
+                  # Single-select (matching the main Ternary Plots tab's own
+                  # optional_param1_1/_2, which use plain selectInput()) -
+                  # Optional Parameter 1/2 are a styling dimension (point
+                  # size/type, or color), not a composition axis, and were
+                  # never meant to support the "sum several columns" pattern
+                  # Elements A/B/C legitimately use. This was previously
+                  # `multiple = TRUE`, which let the per-column filter UI
+                  # below silently collapse to one filter misapplied to
+                  # every selected column, and let Optional Parameter 2
+                  # silently color by only its first selected column while
+                  # the legend and title both claimed otherwise - see the
+                  # vidternary Structural Audit's Sec.03 for the full
+                  # writeup of both symptoms and this fix.
+                  selectizeInput(ns("multiple_optional_param1"), "Optional Parameter 1 (Point Size/Type):", choices = NULL, multiple = FALSE),
                   radioButtons(ns("multiple_optional_param1_representation"), "Representation:",
                     choices = c("Point Size" = "point_size", "Point Type" = "point_type"),
                     selected = "point_size", inline = TRUE),
                   uiOutput(ns("multiple_optional_param1_filter"))
                 ),
                 column(6,
-                  selectizeInput(ns("multiple_optional_param2"), "Optional Parameter 2 (Color):", choices = NULL, multiple = TRUE),
+                  selectizeInput(ns("multiple_optional_param2"), "Optional Parameter 2 (Color):", choices = NULL, multiple = FALSE),
                   selectInput(ns("multiple_color_palette"), "Color Palette:",
                     choices = c("Blue" = "blue", "Red" = "red", "Viridis" = "viridis", "Rainbow" = "rainbow"),
                     selected = "blue"),
@@ -95,7 +108,7 @@ create_multiple_ternary_tab <- function(id) {
           column(12, style = "text-align: center; margin: 15px 0;",
             div(style = "background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;",
               h5(" Workflow", style = "margin-top: 0; color: #495057;"),
-              p("Upload files, choose Elements A/B/C (and any optional parameters), then click the button below - each file's ternary plot is generated and saved directly to a timestamped subfolder under your configured output directory.", style = "margin: 5px 0; color: #6c757d;")
+              p("Upload files, choose Elements A/B/C (and any optional parameters), then click the button below - each file's ternary plot is generated and bundled into a single zip file, delivered through your browser's normal download prompt.", style = "margin: 5px 0; color: #6c757d;")
             )
           )
         ),

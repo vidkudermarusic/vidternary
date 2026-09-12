@@ -70,13 +70,15 @@ so you can tell datasets apart afterwards, and only the columns that are
 **common to every selected file** survive the combine - if two files share
 no column names, you'll see a validation error instead of a partial merge.
 
-## Directory Settings and Cache
+## Saving and Downloading
 
-Every tab shares one Working Directory / Output Directory panel (native
-folder pickers) at the page level, plus a Cache Management control. Any
-"Save" action across the app writes into the configured Output Directory,
-defaulting to an `output/` subfolder next to the app if you never pick one.
-Set this once at the start of a session.
+There is no shared Working Directory / Output Directory panel and no Cache
+Management control - every tab's own Save/Export button prompts for where
+to save right when you click it, through your browser's normal download
+dialog (the Multiple Ternary Creator's "Create & Save all ternary plots"
+button works the same way, bundling every generated plot into one zip
+file). Nothing is written anywhere until you actually choose a save
+location in that prompt.
 
 # Glossary
 
@@ -144,9 +146,9 @@ filters - no button needed for previewing, only for saving.
   Dataset 1 and want a matching Dataset 2 plot.
 - Changing which columns are selected for an element rebuilds that
   element's filter box, so any text you'd typed into it is lost.
-- Saved images go straight into the Output Directory root (not a
-  timestamped subfolder), named
-  `charge_<originalfilename>_<timestamp>.<format>`.
+- Saved images download as
+  `charge_<originalfilename>_<timestamp>.<format>`, through your browser's
+  normal download prompt.
 
 ## Multiple Ternary Creator
 
@@ -166,8 +168,8 @@ that.
    no preview step.
 
 Errors on individual files are collected and reported together at the end;
-one bad file doesn't stop the rest of the batch. Output goes to
-`<OutputDir>/<folder_name>_<timestamp>/`.
+one bad file doesn't stop the rest of the batch. Every plot is bundled into
+one zip file, delivered through your browser's normal download prompt.
 
 ## Hexagonal Ternary Diagram
 
@@ -180,12 +182,13 @@ central axis into a single hexagonal image, from one uploaded file.
 2. Fill in **all seven** element-slot dropdowns (labeled A-G to match the
    legend diagram shown on the tab) - every slot is required, and slot 3
    (C) is the shared central axis for all six sub-triangles.
-3. Click **Generate** ("Ustvari heksagonalni diagram") to preview.
-4. Click **Save** ("Shrani v izhodno mapo") to write the final image to
-   `<OutputDir>/<folder_name>_<timestamp>/`.
+3. Click **Create & Save diagram** - the composite is built and immediately
+   previewed on the tab, and your browser's normal download prompt opens
+   for the final image, in one step (there is no separate preview-only
+   button).
 
-If any of the seven slots is left empty, both buttons simply show an error
-and do nothing - there's no way to render a partial hexagon.
+If any of the seven slots is left empty, the button simply shows an error
+and does nothing - there's no way to render a partial hexagon.
 
 ## Plot Builder
 
@@ -334,16 +337,15 @@ current session (uploads, saves, analyses, errors) across every tab.
 
 **Steps:** the log fills itself automatically - nothing to configure.
 Use the Level dropdown (All/INFO/WARNING/ERROR) and the search box to
-narrow it down, and **Clear / Save to File / Export** to manage it.
+narrow it down, and **Clear Log / Export Log** to manage it.
 
 **Tips & gotchas:**
 
-- The log is in-memory only - restarting the app clears it. "Save to File"
-  (writes into the Output Directory) is the only way to keep a permanent
-  copy.
-- "Save to File" and "Export" both save exactly what's currently visible -
-  if you've narrowed the view with a Level filter or search, you'll save a
-  partial log, not the full session history.
+- The log is in-memory only - restarting the app clears it. "Export Log"
+  (a normal browser download) is the only way to keep a permanent copy.
+- "Export Log" saves exactly what's currently visible - if you've narrowed
+  the view with a Level filter or search, you'll export a partial log, not
+  the full session history.
 - The Log Statistics counts (top of the tab) always reflect the *entire*
   session log, even while a filter narrows what's shown below - so the
   visible entry count and the stats box can legitimately disagree.

@@ -183,41 +183,43 @@ save_ternary_plot_to_file <- function(pd) {
         # Categorical group legend for file save
         create_group_legend(unique_groups, group_colors, group_counts)
       } else if (length(optional_param2$col) == 1) {
-        # Numeric data legend - show color legend with exactly 5 bins
-        # Generate 5 colors for the legend using the selected palette
-        if (color_palette == "blue") {
-          legend_colors <- colorRampPalette(c("#357ABD", "#002147"))(5)
-        } else if (color_palette == "red") {
-          legend_colors <- colorRampPalette(c("#FF6666", "#990000"))(5)
-        } else if (color_palette == "viridis") {
-          if (!requireNamespace("viridisLite", quietly = TRUE)) install.packages("viridisLite")
-          legend_colors <- viridisLite::viridis(5)
-        } else if (color_palette == "rainbow") {
-          legend_colors <- rainbow(5)
-        } else {
-          legend_colors <- rep("grey", 5)
-        }
-
-        # Create legend labels based on whether it's Aspect.Ratio or not
+        # Numeric data legend. Was: a fresh, evenly-spaced min-to-max
+        # relabeling (seq(range[1], range[2], length.out = 6)) drawn next
+        # to a freshly-recomputed, always-length-5 color ramp - neither
+        # matches what compute_point_styling() actually used to color the
+        # points (quantile-binned breaks, and a palette sized to the real
+        # bin count after unique() dedup, which can be under 5). On the
+        # right-skewed wt%/ECD/area data this app filters the two binnings
+        # diverge substantially, so a swatch's printed range didn't
+        # correspond to the values that actually received that color - and
+        # in the degenerate case (too little variation for 5 unique
+        # breaks), 5 swatches were still shown for what was really 1 color
+        # (vidternary Structural Audit, "Optional Parameter 2's numeric
+        # color legend..." finding). Fixed by reusing param2_colors/
+        # param2_breaks directly - the exact objects compute_point_styling()
+        # already computed and used for the real points - instead of
+        # re-deriving either one here.
         if (optional_param2$col == "Aspect.Ratio") {
-          # Use hardcoded labels for Aspect.Ratio
+          # Aspect.Ratio's bins are the fixed, hardcoded breaks in
+          # compute_point_styling() itself (1/1.5/3/5/10/100000), not a
+          # quantile - its own hardcoded labels already match exactly.
           legend_labels <- c("1-1.5", "1.5-3", "3-5", "5-10", "10+")
+        } else if (is.numeric(param2_values) && all(is.finite(param2_values), na.rm = TRUE) && length(param2_breaks) >= 2) {
+          # length(param2_breaks) - 1 always equals n_colors (and so
+          # length(param2_colors)) exactly - that's how cut() defines its
+          # bins - so this can never show more or fewer swatches than
+          # colors, including the degenerate 1-bin case.
+          legend_labels <- paste0(round(param2_breaks[-length(param2_breaks)], 3), " - ", round(param2_breaks[-1], 3))
         } else {
-          # Use dynamic range labels for other columns
-          # Check if data is actually numeric
-          if (is.numeric(param2_values) && all(is.finite(param2_values), na.rm = TRUE)) {
-            param2_range <- range(param2_values, na.rm = TRUE)
-            param2_breaks_legend <- seq(param2_range[1], param2_range[2], length.out = 6)
-            legend_labels <- paste0(round(param2_breaks_legend[1:5], 3), " - ", round(param2_breaks_legend[2:6], 3))
-          } else {
-            # Fallback for non-numeric data
-            legend_labels <- "All"
-          }
+          # Fallback for non-numeric data, or the fully-degenerate case
+          # (every value identical) where param2_breaks itself collapsed
+          # below 2 entries.
+          legend_labels <- "All"
         }
 
         legend("topleft",
                legend = legend_labels,
-               col = legend_colors,
+               col = param2_colors,
                pch = 16,
                title = paste(optional_param2$col, collapse = "+"),
                cex = 0.7,

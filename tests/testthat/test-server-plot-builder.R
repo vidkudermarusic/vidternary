@@ -418,3 +418,52 @@ test_that("deleting a preset removes it from rv, from disk, and from the dropdow
   })
   expect_false("ToDelete" %in% names(load_builder_presets()))
 })
+
+test_that("a concurrent session's own preset survives this session's save and delete, instead of being silently discarded by a wholesale overwrite (regression)", {
+  # Both sessions share the same on-disk plot_builder_presets.json (one bare
+  # relative path for the whole R process). Session B's own rv$plot_presets
+  # is deliberately initialized to what was on disk *before* Session A's
+  # save below - exactly what a real second browser tab/session would have
+  # loaded at its own server-creation time, with no way to know about a
+  # write that happened afterward in a different session.
+  old_wd <- getwd()
+  tmp <- tempfile("pb_preset_concurrent"); dir.create(tmp); setwd(tmp)
+  on.exit(setwd(old_wd), add = TRUE)
+
+  pre_existing <- list(type = "scatter", x = "Al", y = "Si", color_by = "none",
+                        log_x = FALSE, log_y = FALSE, percent = FALSE,
+                        bar_values = NULL, rose_bin_width = NULL, hist_bins = NULL)
+  save_builder_presets(list(PreExisting = pre_existing))
+
+  server_a <- make_plot_builder_server(plot_presets = list(PreExisting = pre_existing))
+  testServer(server_a$app, {
+    session$setInputs(`plot_builder-builder_type` = "scatter",
+                       `plot_builder-builder_x` = "Al", `plot_builder-builder_y` = "Mn")
+    session$setInputs(`plot_builder-builder_preset_name` = "Alpha")
+    session$setInputs(`plot_builder-builder_save_preset` = 1)
+  })
+  # Session B started before Session A's save above and never saw "Alpha".
+  server_b <- make_plot_builder_server(plot_presets = list(PreExisting = pre_existing))
+  testServer(server_b$app, {
+    session$setInputs(`plot_builder-builder_type` = "hist", `plot_builder-builder_x` = "Fe")
+    session$setInputs(`plot_builder-builder_preset_name` = "Bravo")
+    session$setInputs(`plot_builder-builder_save_preset` = 1)
+
+    # The merged result is stored back into this session's own rv too, so
+    # it can see what the other session already saved, not just its own edit.
+    expect_true(all(c("PreExisting", "Alpha", "Bravo") %in% names(server_b$rv$plot_presets)))
+  })
+  on_disk_after_save <- load_builder_presets()
+  expect_true(all(c("PreExisting", "Alpha", "Bravo") %in% names(on_disk_after_save)))
+
+  # Now Session B (still unaware of anything beyond its own last refresh)
+  # deletes its own "Bravo" - "Alpha" must not be collaterally wiped out.
+  testServer(server_b$app, {
+    session$setInputs(`plot_builder-builder_preset_select` = "Bravo")
+    session$setInputs(`plot_builder-builder_delete_preset` = 1)
+  })
+  on_disk_after_delete <- load_builder_presets()
+  expect_false("Bravo" %in% names(on_disk_after_delete))
+  expect_true("Alpha" %in% names(on_disk_after_delete))
+  expect_true("PreExisting" %in% names(on_disk_after_delete))
+})

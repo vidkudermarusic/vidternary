@@ -38,9 +38,25 @@
 #'   observers it registers.
 #' @export
 create_server_file_handlers <- function(input, output, session, rv, show_message, log_operation) {
-  
+
+  # Intersects a possibly-multi-value current selection against a new set of
+  # valid choices, so a column that's still present survives a choices
+  # refresh and one that isn't gets dropped. Needed because
+  # updateSelectizeInput() rebuilds the widget's underlying <option> list
+  # from scratch on any `choices` change - confirmed directly against the
+  # real selectize input binding (receiveMessage() destroys and reinitializes
+  # the widget whenever `options` is sent) - and that rebuild silently clears
+  # the current selection entirely unless a `selected` value is explicitly
+  # given back, even when the old value is still a valid choice. Returns
+  # `default` (not character(0)) when nothing survives, for a single-select
+  # input with its own blank "" placeholder option.
+  preserve_selection <- function(current, valid_choices, default = character(0)) {
+    kept <- intersect(current, valid_choices)
+    if (length(kept) == 0) default else kept
+  }
+
   # ---- File Upload Handlers ----
-  
+
   # Handle file uploads and populate column choices for Dataset 1
   observeEvent(input$xlsx_file1, {
     req(input$xlsx_file1)
@@ -48,12 +64,19 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       data <- openxlsx::read.xlsx(input$xlsx_file1$datapath, sheet = 1)
       rv$df1 <- data
       rv$xlsx_file1 <- input$xlsx_file1$datapath  # Store the file path
-      
-      # Update column choices
-      updateSelectizeInput(session, "element_A1", choices = names(data))
-      updateSelectizeInput(session, "element_B1", choices = names(data))
-      updateSelectizeInput(session, "element_C1", choices = names(data))
-      updateSelectizeInput(session, "optional_param1_1", choices = c("", names(data)))
+
+      # Update column choices, preserving any previous selection that's
+      # still valid in the new file (see preserve_selection()'s own comment
+      # above for why this can't just be left to updateSelectizeInput()'s
+      # default behavior).
+      updateSelectizeInput(session, "element_A1", choices = names(data),
+                            selected = preserve_selection(input$element_A1, names(data)))
+      updateSelectizeInput(session, "element_B1", choices = names(data),
+                            selected = preserve_selection(input$element_B1, names(data)))
+      updateSelectizeInput(session, "element_C1", choices = names(data),
+                            selected = preserve_selection(input$element_C1, names(data)))
+      updateSelectizeInput(session, "optional_param1_1", choices = c("", names(data)),
+                            selected = preserve_selection(input$optional_param1_1, names(data), default = ""))
       # Reset to blank rather than letting Shiny try to preserve the
       # previous selection: server_ternary_plots_groups.R's categorical-
       # group detection only re-runs when optional_param2_1's own VALUE
@@ -74,20 +97,15 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       rv$group_selections_1 <- NULL
       rv$is_categorical_group_1 <- FALSE
 
-      # Update multivariate analysis column choices. Reuses `data` (already
-      # loaded above, inside this same tryCatch) instead of re-reading the
-      # file from disk a second time - the previous version's separate,
-      # unguarded read.xlsx() call here ran unconditionally after this
-      # tryCatch, regardless of whether the first read had already failed:
-      # a malformed/corrupted upload would show the friendly "Error loading
-      # Dataset 1: ..." message from the catch block below, then immediately
-      # hit this same read again, fail again, and this time throw
-      # uncaught (confirmed via direct reproduction - a malformed .xlsx
-      # produced the friendly message followed by a raw, uncaught error
-      # from this exact line). Doing it here instead fixes both the crash
-      # and the redundant file I/O in one change.
-      numeric_cols <- names(data)[sapply(data, is.numeric)]
-      updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
+      # multivariate_columns (the shared "Universal Column Selector") is NOT
+      # updated here even though `data` is already loaded and ready - it's
+      # genuinely owned by server_ternary_plots.R's own rv$df1/rv$df2
+      # observers instead, since it has to reflect the union of both
+      # datasets' numeric columns, not just whichever one was just
+      # (re-)uploaded; rv$df1 above already gives those observers everything
+      # they need to react correctly on their own next flush. See that
+      # file's own comment for the previous-selection-preserving fix parallel
+      # to this one.
 
       show_message("Dataset 1 loaded successfully!", "success")
       log_operation("INFO", "Dataset 1 loaded", paste("File:", input$xlsx_file1$name, "Rows:", nrow(data), "Columns:", ncol(data)))
@@ -104,25 +122,28 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       data <- openxlsx::read.xlsx(input$xlsx_file2$datapath, sheet = 1)
       rv$df2 <- data
       rv$xlsx_file2 <- input$xlsx_file2$datapath  # Store the file path
-      
-      # Update column choices
-      updateSelectizeInput(session, "element_A2", choices = names(data))
-      updateSelectizeInput(session, "element_B2", choices = names(data))
-      updateSelectizeInput(session, "element_C2", choices = names(data))
-      updateSelectizeInput(session, "optional_param1_2", choices = c("", names(data)))
+
+      # Update column choices, preserving any previous selection that's
+      # still valid in the new file - see preserve_selection()'s own comment
+      # above (Dataset 1's identical handler) for why this can't just be
+      # left to updateSelectizeInput()'s default behavior.
+      updateSelectizeInput(session, "element_A2", choices = names(data),
+                            selected = preserve_selection(input$element_A2, names(data)))
+      updateSelectizeInput(session, "element_B2", choices = names(data),
+                            selected = preserve_selection(input$element_B2, names(data)))
+      updateSelectizeInput(session, "element_C2", choices = names(data),
+                            selected = preserve_selection(input$element_C2, names(data)))
+      updateSelectizeInput(session, "optional_param1_2", choices = c("", names(data)),
+                            selected = preserve_selection(input$optional_param1_2, names(data), default = ""))
       # Same reset as Dataset 1's handler above - see that comment.
       updateSelectizeInput(session, "optional_param2_2", choices = c("", names(data)), selected = "")
       rv$group_counts_2 <- NULL
       rv$group_selections_2 <- NULL
       rv$is_categorical_group_2 <- FALSE
 
-      # Update multivariate analysis column choices - reuses `data` instead
-      # of re-reading the file a second time; see Dataset 1's identical fix
-      # above for the full reasoning (a malformed upload used to show the
-      # friendly error below, then crash the observer anyway via this same
-      # read, done a second time, unguarded).
-      numeric_cols <- names(data)[sapply(data, is.numeric)]
-      updateSelectizeInput(session, "multivariate_columns", choices = numeric_cols, selected = character(0))
+      # multivariate_columns is not updated here - see Dataset 1's identical
+      # handler above for why it's genuinely owned by server_ternary_plots.R's
+      # own rv$df1/rv$df2 observers instead.
 
       show_message("Dataset 2 loaded successfully!", "success")
       log_operation("INFO", "Dataset 2 loaded", paste("File:", input$xlsx_file2$name, "Rows:", nrow(data), "Columns:", ncol(data)))

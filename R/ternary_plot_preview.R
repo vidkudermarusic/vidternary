@@ -134,39 +134,26 @@ render_ternary_plot_preview <- function(pd) {
       } else if (length(optional_param2$col) == 1) {
         # Numeric data legend - show color legend with exactly 5 bins
         # Generate 5 colors for the legend using the selected palette
-        if (color_palette == "blue") {
-          legend_colors <- colorRampPalette(c("#357ABD", "#002147"))(5)
-        } else if (color_palette == "red") {
-          legend_colors <- colorRampPalette(c("#FF6666", "#990000"))(5)
-        } else if (color_palette == "viridis") {
-          if (!requireNamespace("viridisLite", quietly = TRUE)) install.packages("viridisLite")
-          legend_colors <- viridisLite::viridis(5)
-        } else if (color_palette == "rainbow") {
-          legend_colors <- rainbow(5)
-        } else {
-          legend_colors <- rep("grey", 5)
-        }
-
-        # Create legend labels based on whether it's Aspect.Ratio or not
+        # Was: a fresh, evenly-spaced min-to-max relabeling next to a
+        # freshly-recomputed, always-length-5 color ramp - neither matches
+        # what compute_point_styling() actually used to color the points
+        # (quantile-binned breaks, and a palette sized to the real bin
+        # count after unique() dedup, which can be under 5). See
+        # ternary_plot_save.R's identical fix (and its longer comment) for
+        # the full writeup - the two files carried byte-identical code
+        # here, so they get the identical fix: reuse param2_colors/
+        # param2_breaks directly instead of re-deriving either one.
         if (optional_param2$col == "Aspect.Ratio") {
-          # Use hardcoded labels for Aspect.Ratio
           legend_labels <- c("1-1.5", "1.5-3", "3-5", "5-10", "10+")
+        } else if (is.numeric(param2_values) && all(is.finite(param2_values), na.rm = TRUE) && length(param2_breaks) >= 2) {
+          legend_labels <- paste0(round(param2_breaks[-length(param2_breaks)], 3), " - ", round(param2_breaks[-1], 3))
         } else {
-          # Use dynamic range labels for other columns
-          # Check if data is actually numeric
-          if (is.numeric(param2_values) && all(is.finite(param2_values), na.rm = TRUE)) {
-            param2_range <- range(param2_values, na.rm = TRUE)
-            param2_breaks_legend <- seq(param2_range[1], param2_range[2], length.out = 6)
-            legend_labels <- paste0(round(param2_breaks_legend[1:5], 3), " - ", round(param2_breaks_legend[2:6], 3))
-          } else {
-            # Fallback for non-numeric data
-            legend_labels <- "All"
-          }
+          legend_labels <- "All"
         }
 
         legend("topleft",
                legend = legend_labels,
-               col = legend_colors,
+               col = param2_colors,
                pch = 16,
                title = paste(optional_param2$col, collapse = "+"),
                cex = 0.7,

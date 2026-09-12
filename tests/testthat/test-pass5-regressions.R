@@ -25,18 +25,53 @@ make_upload <- function(df) {
 # &&, and helpers_filters.R's input$multiple_optional_param1 != "" inside
 # && - both fixed by wrapping in all()/replacing with !any(...== "")).
 
-test_that("prepare_ternary_plot_data() no longer crashes on a multi-column optional parameter", {
+test_that("prepare_ternary_plot_data() rejects a multi-column optional parameter with a clear message, instead of the raw R>=4.3 &&-on-vector crash this test originally guarded against", {
+  # Originally written to lock in pass 5's fix for a raw, incomprehensible
+  # crash ("'length = 2' in coercion to 'logical(1)'") on a 2-column
+  # optional_param1, and at the time asserted the call succeeds - multi-
+  # column Optional Parameter 1/2 was believed to be legitimate, matching
+  # how Elements A/B/C legitimately sum multiple columns. Confirmed
+  # directly by the user (pass 6) that Optional Parameter 1/2 are a
+  # styling dimension, not a composition axis, and were never meant to
+  # support more than one column - so the correct behavior for this exact
+  # scenario is neither "crash raw" nor "silently succeed," but a clear,
+  # actionable validation error (vidternary Structural Audit Sec.03,
+  # "Multiple Ternary Creator: per-column Optional Parameter filters" /
+  # "multi-column color" entries). This test still guards the original
+  # crash class - the error asserted below must be the new clear message,
+  # never the raw R coercion error.
   d <- data.frame(Al = runif(20, 1, 20), Si = runif(20, 1, 20), Mn = runif(20, 1, 20),
                    opt1 = runif(20, 0, 30), opt2 = runif(20, 0, 30))
   tmp_xlsx <- tempfile(fileext = ".xlsx")
   openxlsx::write.xlsx(d, tmp_xlsx)
   out_dir <- tempfile("outdir"); dir.create(out_dir)
 
+  expect_error(
+    prepare_ternary_plot_data(
+      xlsx_file = tmp_xlsx, working_dir = tempdir(), output_dir = out_dir,
+      element_A = list(col = "Al"), element_B = list(col = "Si"), element_C = list(col = "Mn"),
+      optional_param1 = list(col = c("opt1", "opt2"), filter = NULL),  # 2 columns - now rejected
+      optional_param2 = NULL, color_palette = NULL, xlsx_display_name = "test.xlsx",
+      preview = TRUE, use_mahalanobis = FALSE, reference_data = NULL,
+      optional_param1_representation = "point_size", output_format = "png",
+      use_isolation_forest = FALSE, use_iqr_filter = FALSE, use_zscore_filter = FALSE, use_mad_filter = FALSE,
+      lambda = 1, omega = 0, keep_outliers_mahalanobis = FALSE, keep_outliers_isolation = FALSE,
+      keep_outliers_iqr = FALSE, keep_outliers_zscore = FALSE, keep_outliers_mad = FALSE,
+      individual_filters_A = NULL, individual_filters_B = NULL, individual_filters_C = NULL,
+      custom_mdthresh = NULL, mdthresh_mode = "auto", mahalanobis_reference = NULL,
+      selected_columns = NULL, include_plot_notes = FALSE, use_manual_point_size = FALSE,
+      manual_point_size = NULL, selected_groups = NULL, is_categorical_group = FALSE
+    ),
+    "more than one column"
+  )
+
+  # Regression: a single-column optional_param1 (the actual supported
+  # contract) still works without error.
   expect_no_error(
     result <- prepare_ternary_plot_data(
       xlsx_file = tmp_xlsx, working_dir = tempdir(), output_dir = out_dir,
       element_A = list(col = "Al"), element_B = list(col = "Si"), element_C = list(col = "Mn"),
-      optional_param1 = list(col = c("opt1", "opt2"), filter = NULL),  # 2 columns - the crash trigger
+      optional_param1 = list(col = "opt1", filter = NULL),
       optional_param2 = NULL, color_palette = NULL, xlsx_display_name = "test.xlsx",
       preview = TRUE, use_mahalanobis = FALSE, reference_data = NULL,
       optional_param1_representation = "point_size", output_format = "png",
@@ -49,7 +84,7 @@ test_that("prepare_ternary_plot_data() no longer crashes on a multi-column optio
       manual_point_size = NULL, selected_groups = NULL, is_categorical_group = FALSE
     )
   )
-  expect_setequal(result$optional_columns, c("opt1", "opt2"))
+  expect_setequal(result$optional_columns, "opt1")
 })
 
 test_that("extract_ternary_params(multiple_mode = TRUE) no longer crashes on a multi-column optional parameter", {
@@ -327,7 +362,7 @@ test_that("negative Optional Param 1 values no longer produce invisible/oversize
     include_plot_notes = FALSE, use_manual_point_size = FALSE, manual_point_size = NULL,
     selected_groups = NULL, is_categorical_group = FALSE
   )
-  expect_warning(result <- do.call(prepare_ternary_plot_data, args), "negative or out-of-range")
+  expect_warning(result <- do.call(prepare_ternary_plot_data, args), "out-of-range")
   expect_true(all(result$pointSize >= 0.1 - 1e-9))
   expect_true(all(result$pointSize <= 2.5 + 1e-9))
 })
@@ -544,7 +579,12 @@ test_that("a malformed Dataset 2 upload shows the friendly error only - no secon
   expect_true(any(sapply(messages, function(m) m$type == "error" && grepl("^Error loading Dataset 2:", m$message))))
 })
 
-test_that("a genuine Dataset 1 upload still populates rv$df1 and the multivariate column selector correctly", {
+test_that("a genuine Dataset 1 upload still populates rv$df1", {
+  # multivariate_columns is no longer populated by create_server_file_handlers()
+  # itself - see server_ternary_plots.R's own rv$df1/rv$df2 observers (fixed
+  # as part of the Finding 3 re-upload/stale-selection fix, test-pass6-
+  # regressions.R) for that widget's real, dedicated coverage now, since
+  # make_file_handlers_server() here doesn't wire those observers up.
   server <- make_file_handlers_server()
   d <- data.frame(Al = runif(10, 1, 20), Si = runif(10, 1, 20), Mn = runif(10, 1, 20),
                    Label = sample(c("a", "b"), 10, replace = TRUE), stringsAsFactors = FALSE)
@@ -553,16 +593,8 @@ test_that("a genuine Dataset 1 upload still populates rv$df1 and the multivariat
   upload <- data.frame(name = "good.xlsx", size = file.info(path)$size, type = "",
                         datapath = path, stringsAsFactors = FALSE)
   testServer(server$app, {
-    orig <- session$sendInputMessage
-    sent <- list()
-    session$sendInputMessage <- function(inputId, message) { sent[[inputId]] <<- message; orig(inputId, message) }
     session$setInputs(`ternary_plots-xlsx_file1` = upload)
-
     expect_equal(nrow(server$rv$df1), 10)
-    mv_choices <- regmatches(sent[["multivariate_columns"]]$options,
-                              gregexpr('(?<=value=")[^"]+', sent[["multivariate_columns"]]$options, perl = TRUE))[[1]]
-    # Only the numeric columns - the character "Label" column is excluded.
-    expect_setequal(mv_choices, c("Al", "Si", "Mn"))
   })
 })
 

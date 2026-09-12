@@ -37,3 +37,30 @@ save_builder_presets <- function(presets) {
     cat("Warning: Could not save plot builder presets:", e$message, "\n")
   })
 }
+
+#' Apply one preset change against whatever is currently saved on disk
+#'
+#' `PLOT_BUILDER_PRESETS_FILE` is one bare path shared by every Shiny
+#' session in the same R process; each session's own `rv$plot_presets` is
+#' loaded once at server-creation time and never refreshed, so a save or
+#' delete that writes `rv$plot_presets` wholesale (the previous behavior)
+#' silently discarded any preset a *different* session had saved in the
+#' meantime - reachable any time two sessions are open across the same
+#' process, not only under a genuine same-instant write. Re-reading the
+#' file immediately before writing narrows the unsafe window down to an
+#' actual simultaneous write, which a single shared JSON file for a
+#' local-first Shiny app doesn't warrant real file locking to close.
+#'
+#' @param mutate A function taking the freshly-loaded on-disk presets list
+#'   and returning the updated list to save. Called with the real current
+#'   contents, not the caller's own possibly-stale in-memory copy.
+#' @return The updated, already-saved presets list - store this back into
+#'   the caller's own `rv$plot_presets` so its in-memory copy reflects
+#'   what's now really on disk, not just its own one change.
+#' @export
+save_builder_preset_change <- function(mutate) {
+  current <- load_builder_presets()
+  updated <- mutate(current)
+  save_builder_presets(updated)
+  updated
+}

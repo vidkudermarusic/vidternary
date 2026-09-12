@@ -423,7 +423,11 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   # Return parameters list
   list(
     xlsx_file = xlsx_file,
-    xlsx_display_name = if (!is.null(input$xlsx_display_name)) input$xlsx_display_name else NULL,
+    # Not a real UI input anywhere - every real caller (server_ternary_plots.R,
+    # server_ternary_plots_batch.R) overwrites this with the actual uploaded
+    # file's name (input$xlsx_file1$name etc.) right after calling this
+    # function, so this always started out NULL in practice anyway.
+    xlsx_display_name = NULL,
     # working_dir just needs *a* real directory to setwd() into/back from
     # for relative-path resolution - getwd() always works and nothing
     # meaningful depends on it being user-chosen (confirmed by grep before

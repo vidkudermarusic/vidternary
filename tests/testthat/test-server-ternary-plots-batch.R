@@ -159,6 +159,48 @@ test_that("a total-failure batch errors and reports the plain error message, mat
   })
 })
 
+test_that("Create & Save cleans up its temp output directory afterward, on both success and total failure (regression)", {
+  # output_dir <- tempfile("multiple_ternary_save_"); dir.create(...) writes
+  # every generated plot for the batch, then zip::zip()s it for download -
+  # with nothing ever removing that directory afterward, every click
+  # permanently left a populated folder under tempdir(), which on a
+  # long-running Shiny process only clears on process restart. Unlike the
+  # single-plot Save handlers (server_ternary_plots.R, server_hex_ternary.R),
+  # which deliberately leave their one-file temp directory for the OS's own
+  # cleanup (confirmed intentional via those files' own comments, not a bug),
+  # a batch run writes N files per click, so this one genuinely needed
+  # fixing. Checks the real tempdir() listing directly, before and after,
+  # rather than trusting the fix's own on.exit() call is wired up correctly.
+  find_batch_dirs <- function() list.files(tempdir(), pattern = "^multiple_ternary_save_", full.names = TRUE)
+
+  server <- make_batch_server()
+  upload <- make_upload_multi(list(make_ternary_data(seed = 1), make_ternary_data(seed = 2)),
+                               c("one.xlsx", "two.xlsx"))
+  before <- find_batch_dirs()
+  suppressWarnings(testServer(server, {
+    session$setInputs(`multiple_ternary-multiple_xlsx_files` = upload)
+    session$setInputs(`multiple_ternary-multiple_element_A` = "Al", `multiple_ternary-multiple_element_B` = "Si",
+                       `multiple_ternary-multiple_element_C` = "Mn")
+    path <- output[["multiple_ternary-create_save_multiple_ternary"]]
+    expect_true(file.exists(path)) # the zip itself still exists - only the working directory is cleaned up
+  }))
+  after_success <- find_batch_dirs()
+  expect_setequal(after_success, before)
+
+  server2 <- make_batch_server()
+  bad1 <- make_ternary_data(seed = 1, cols = c("Al", "Si"))
+  bad2 <- make_ternary_data(seed = 2, cols = c("Al", "Si"))
+  upload2 <- make_upload_multi(list(bad1, bad2), c("bad1.xlsx", "bad2.xlsx"))
+  testServer(server2, {
+    session$setInputs(`multiple_ternary-multiple_xlsx_files` = upload2)
+    session$setInputs(`multiple_ternary-multiple_element_A` = "Al", `multiple_ternary-multiple_element_B` = "Si",
+                       `multiple_ternary-multiple_element_C` = "Mn")
+    expect_error(output[["multiple_ternary-create_save_multiple_ternary"]], "Failed to save any ternary plots")
+  })
+  after_failure <- find_batch_dirs()
+  expect_setequal(after_failure, before)
+})
+
 test_that("Create & Save's zip filename uses the custom name field, and a sensible default when blank", {
   server <- make_batch_server()
   upload <- make_upload_multi(list(make_ternary_data()), "one.xlsx")

@@ -104,6 +104,52 @@ test_that("re-uploading Dataset 1 resets stale categorical-group state from the 
   })
 })
 
+test_that("re-uploading Dataset 1 preserves a multivariate_columns/Element A selection that's still valid, and drops one that isn't (regression)", {
+  # Both create_server_file_handlers()'s own element/optional-parameter
+  # selects and server_ternary_plots.R's multivariate_columns observers
+  # used to hardcode `selected = character(0)`/`selected = NULL` on every
+  # re-upload, unconditionally wiping the current selection regardless of
+  # whether it was still valid in the new file - confirmed directly against
+  # the real selectize input binding (receiveMessage() destroys and
+  # reinitializes the widget whenever `options` changes, and only restores
+  # a selection if `value` is explicitly given back) that this is a genuine
+  # client-side clear, not something Shiny's default behavior somehow
+  # avoids on its own. Fixed by intersecting the previous selection against
+  # the new file's real columns and passing that back as `selected`.
+  server <- make_ternary_plots_server()
+  d1 <- make_ternary_data(seed = 1)                                     # Al, Si, Mn
+  d2_same <- make_ternary_data(seed = 2, extra_cols = list(Ti = 1:20))  # still has Al, Si, Mn
+  d3_diff <- data.frame(Mn2 = 1:20, Fe = 1:20)                           # no Al/Si at all
+
+  testServer(server$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d1, "d1.xlsx"))
+    session$setInputs(`ternary_plots-multivariate_columns` = c("Al", "Si"))
+    session$setInputs(`ternary_plots-element_A1` = "Al")
+
+    orig <- session$sendInputMessage
+    sent <- list()
+    session$sendInputMessage <- function(inputId, message) { sent[[inputId]] <<- message; orig(inputId, message) }
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d2_same, "d2_same.xlsx"))
+
+    expect_setequal(sent[["multivariate_columns"]]$value, c("Al", "Si"))
+    expect_equal(sent[["element_A1"]]$value, "Al")
+  })
+
+  testServer(server$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d1, "d1.xlsx"))
+    session$setInputs(`ternary_plots-multivariate_columns` = c("Al", "Si"))
+    session$setInputs(`ternary_plots-element_A1` = "Al")
+
+    orig <- session$sendInputMessage
+    sent <- list()
+    session$sendInputMessage <- function(inputId, message) { sent[[inputId]] <<- message; orig(inputId, message) }
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d3_diff, "d3_diff.xlsx"))
+
+    expect_equal(length(sent[["multivariate_columns"]]$value), 0)
+    expect_equal(length(sent[["element_A1"]]$value), 0)
+  })
+})
+
 test_that("a text column is only detected as categorical up to 50 distinct values, not unconditionally", {
   # Before this fix, is.character(column_data) alone granted unconditional
   # categorical status regardless of cardinality - a per-row text
