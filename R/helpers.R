@@ -189,16 +189,20 @@ show_message <- function(message, type = "info") {
 generate_distinct_colors <- function(n_groups) {
   if (n_groups <= 0) return(character(0))
 
-  # Use ColorBrewer palettes for maximum distinction
+  # Use ColorBrewer palettes for maximum distinction. Wrapped in
+  # suppressWarnings(): brewer.pal()'s own "minimal value for n is 3"
+  # warning below is real but permanently benign here (see the comment
+  # after this if/else) - already-correct behavior, not something to fix,
+  # just noise worth quieting.
   if (n_groups <= 12) {
-    colors <- RColorBrewer::brewer.pal(n_groups, "Set3")
+    colors <- suppressWarnings(RColorBrewer::brewer.pal(n_groups, "Set3"))
   } else if (n_groups <= 24) {
     colors <- c(RColorBrewer::brewer.pal(12, "Set3"),
-                RColorBrewer::brewer.pal(min(12, n_groups-12), "Paired"))
+                suppressWarnings(RColorBrewer::brewer.pal(min(12, n_groups-12), "Paired")))
   } else if (n_groups <= 32) {
     colors <- c(RColorBrewer::brewer.pal(12, "Set3"),
                 RColorBrewer::brewer.pal(12, "Paired"),
-                RColorBrewer::brewer.pal(min(8, n_groups-24), "Dark2"))
+                suppressWarnings(RColorBrewer::brewer.pal(min(8, n_groups-24), "Dark2")))
   } else {
     # For >32 groups, use viridis sampling. viridisLite::viridis() (not the
     # full viridis package's own version - the two are not the same

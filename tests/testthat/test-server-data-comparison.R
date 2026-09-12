@@ -46,13 +46,28 @@ make_message_capture <- function() {
   )
 }
 
-# `show_message` is passed in already-built (a closure over the caller's own
-# `messages` list, via `<<-`) rather than reconstructed here from a
-# `messages` argument - building it here would close over *this function's*
-# local parameter, not the caller's variable, silently capturing nothing.
-make_data_comparison_server <- function(show_message = function(message, type = "info") invisible(NULL)) {
+# Same matched-pair shape as make_message_capture() above, for
+# log_operation(level, message, details) instead of show_message(message,
+# type) - kept separate (not folded into one generic capturer) since the
+# two have different argument shapes and are asserted on independently.
+make_log_capture <- function() {
+  logs <- list()
+  list(
+    fn = function(level, message, details = NULL) logs[[length(logs) + 1]] <<- list(level = level, message = message, details = details),
+    get = function() logs
+  )
+}
+
+# `show_message`/`log_operation` are passed in already-built (closures over
+# the caller's own list, via `<<-`) rather than reconstructed here from a
+# `messages`/`logs` argument - building them here would close over *this
+# function's* local parameter, not the caller's variable, silently
+# capturing nothing (the exact mistake make_message_capture()'s own comment
+# already documents once for show_message; log_operation gets the same
+# treatment for the same reason).
+make_data_comparison_server <- function(show_message = function(message, type = "info") invisible(NULL),
+                                         log_operation = function(level, message, details = NULL) invisible(NULL)) {
   rv <- shiny::reactiveValues()
-  log_operation <- function(...) invisible(NULL)
   function(input, output, session) {
     shiny::moduleServer("data_comparison", function(input, output, session) {
       create_server_data_comparison(input, output, session, rv, show_message, log_operation)
@@ -300,6 +315,50 @@ test_that("clearing the trees/contamination fields falls back to the documented 
     out <- output[["data_comparison-isolation_forest_output"]]
     expect_match(out, "Trees: 200")
   })
+})
+
+# output$isolation_forest_output used to be assigned inside a tryCatch as
+# tryCatch({ output$isolation_forest_output <- renderPrint({...}) }, error =
+# ...) - renderPrint({...}) only builds and returns a render closure, it
+# doesn't execute the body at assignment time (Shiny evaluates it later, on
+# flush), so that tryCatch's try-block could never actually fail: "SUCCESS"
+# logged immediately, before compute_isolation_forest() had even run, and a
+# genuine error inside the render body propagated through Shiny's own
+# rendering machinery instead of ever reaching the tryCatch's own error
+# handler (vidternary Structural Audit, "Data Comparison's standalone
+# Isolation Forest panel" finding). Fixed to match the sibling
+# mahalanobis_analysis handler: compute everything and capture it as text
+# INSIDE the tryCatch, assign only a trivial renderPrint() over the
+# already-computed text afterward.
+test_that("a genuine Isolation Forest error surfaces its own specific message (not blank/generic), and SUCCESS is never logged prematurely", {
+  log_cap <- make_log_capture()
+  server <- make_data_comparison_server(log_operation = log_cap$fn)
+  upload <- make_upload(make_comparison_data(n = 30, cols = c("Al", "Si", "Mn")))
+  testServer(server, {
+    session$setInputs(`data_comparison-comparison_files` = upload)
+    session$setInputs(`data_comparison-comparison_mv_target` = "sample")
+    session$setInputs(`data_comparison-comparison_mv_reference` = "__self__")
+    session$setInputs(`data_comparison-comparison_mv_columns` = c("Al", "Si", "Mn"))
+    # Out of compute_isolation_forest()'s required (0, 1) range - a real,
+    # deterministic stop() from inside the computation itself (not the
+    # earlier, always-safe "missing column" validate step).
+    session$setInputs(`data_comparison-comparison_iso_contamination` = 1.5)
+
+    session$setInputs(`data_comparison-isolation_forest_analysis` = 1)
+    out <- output[["data_comparison-isolation_forest_output"]]
+    expect_match(out, "Error in Isolation Forest analysis:", fixed = TRUE)
+    expect_match(out, "contamination must be a single numeric value strictly between 0 and 1", fixed = TRUE)
+  })
+
+  # Scoped to this handler's OWN log entries (by message text) rather than
+  # every log entry in the session - the file upload a few lines above logs
+  # its own unrelated SUCCESS, which a blanket "no SUCCESS anywhere" check
+  # would (and initially did) wrongly trip on.
+  logs <- log_cap$get()
+  iso_logs <- Filter(function(l) grepl("Isolation Forest", l$message, fixed = TRUE), logs)
+  iso_levels <- vapply(iso_logs, function(l) l$level, character(1))
+  expect_true("ERROR" %in% iso_levels)
+  expect_false("SUCCESS" %in% iso_levels)
 })
 
 test_that("Comprehensive Analysis Results panel shows both Mahalanobis and Isolation Forest sections, with the right self/cross-reference interpretation", {

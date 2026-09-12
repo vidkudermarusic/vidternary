@@ -172,6 +172,16 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
 
       output_dir <- tempfile("multiple_ternary_save_")
       dir.create(output_dir, recursive = TRUE)
+      # Unlike the single-plot Save handlers (server_ternary_plots.R,
+      # server_hex_ternary.R), which deliberately leave their one-file temp
+      # directory for the OS's normal temp-file cleanup (see those files'
+      # own comments), a batch run writes N plots per click - on a
+      # long-running Shiny process this accumulates real, unbounded disk
+      # usage rather than the negligible single-file case those comments
+      # describe. on.exit() (not a call at the end of content()) so this
+      # still runs if a later step - the errors.txt write, zip::zip()
+      # itself, or the stop() below on a total failure - raises first.
+      on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
 
       file_paths <- input$multiple_xlsx_files$datapath
       file_names <- input$multiple_xlsx_files$name

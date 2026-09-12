@@ -37,13 +37,12 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/server_data_comparison_stats.R` | Descriptive-statistics and correlation handlers – DT tables, stat cards, correlation heatmap, per-row mini-histograms. |
 | `R/server_data_comparison_multivariate.R` | Mahalanobis distance and Isolation Forest buttons plus the combined comprehensive results panel. |
 | `R/server_data_comparison_preview.R` | Missing-value / outlier summaries and a raw preview of the uploaded Excel files. |
-| `R/server_hex_ternary.R` | **Hexagonal Ternary Diagram** tab logic (generate into preview / save to file). |
+| `R/server_hex_ternary.R` | **Hexagonal Ternary Diagram** tab logic (build the composite and download it in one click). |
 | `R/server_plot_builder.R` | **Plot Builder** tab logic – chart rendering plus save / load / delete of user presets. |
 | `R/server_evs.R` | **Extreme Value Analysis** tab logic – Gumbel fit, probability plot, goodness-of-fit test. |
 | `R/server_spatial.R` | **Spatial Clustering** tab logic – Clark-Evans test, scatter plot, nearest-neighbour distance histogram. |
 | `R/server_coda.R` | **Compositional Analysis** tab logic – CLR / ILR transform, PCA, biplot. |
 | `R/server_analysis_log.R` | Records and renders the activity log; saves / exports the log to file. |
-| `R/server_directory_management.R` | Working-directory and output-directory selection. |
 | `R/server_status_outputs.R` | App-shell status text and user feedback. |
 
 ## Statistics and analysis (no Shiny dependency)

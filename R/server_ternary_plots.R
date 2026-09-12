@@ -304,22 +304,36 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   # header comment).
   register_ternary_plots_group_handlers(input, output, session, rv, show_message, log_operation)
 
-  # Observer to populate multivariate column selector when datasets are loaded
+  # Observers to populate the shared "Universal Column Selector"
+  # (multivariate_columns) whenever either dataset loads or reloads. This is
+  # the one place that actually owns this widget's choices - see
+  # server_file_handlers.R's upload handlers' own comment for why they don't
+  # also try to update it. Choices are restricted to numeric columns (the
+  # UI's own "Select at least 2 numeric columns" requirement -
+  # apply_multivariate_filtering()/the statistical filters all need numeric
+  # input), and the union of both datasets' numeric columns once both are
+  # loaded, matching this being one selector shared across Dataset 1/2
+  # rather than a _1/_2 pair. A previously-selected column still present in
+  # the (possibly narrower, on a re-upload) new choice set is preserved via
+  # intersect() rather than unconditionally wiped by a hardcoded
+  # `selected = NULL` - confirmed directly against the real selectize input
+  # binding that updateSelectizeInput() rebuilds the widget's <option> list
+  # on any choices change and silently clears the selection unless `selected`
+  # is explicitly given back, even when the old value is still valid.
+  numeric_names <- function(df) if (is.null(df)) character(0) else names(df)[sapply(df, is.numeric)]
+
   observe({
     req(rv$df1)
-    choices <- names(rv$df1)
-    updateSelectizeInput(session, "multivariate_columns", choices = choices, selected = NULL)
+    choices <- unique(c(numeric_names(rv$df1), numeric_names(rv$df2)))
+    updateSelectizeInput(session, "multivariate_columns", choices = choices,
+                          selected = intersect(isolate(input$multivariate_columns), choices))
   })
 
-  # Observer to update multivariate column selector when dataset 2 is loaded
   observe({
     req(rv$df2)
-    choices <- names(rv$df2)
-    # Update choices to include both datasets' columns
-    if (!is.null(rv$df1)) {
-      choices <- unique(c(names(rv$df1), names(rv$df2)))
-    }
-    updateSelectizeInput(session, "multivariate_columns", choices = choices, selected = NULL)
+    choices <- unique(c(numeric_names(rv$df1), numeric_names(rv$df2)))
+    updateSelectizeInput(session, "multivariate_columns", choices = choices,
+                          selected = intersect(isolate(input$multivariate_columns), choices))
   })
 
   # Analysis Report Generator

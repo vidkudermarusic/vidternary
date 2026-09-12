@@ -377,10 +377,59 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
           }
         }
 
-        # Apply the filtering
-        common_cols <- if (use_isolation_forest) iso_result$common_cols else mahal_result$common_cols
-        M_numeric <- as.matrix(M[, common_cols, drop=FALSE])
-        original_indices <- which(complete.cases(M_numeric))[keep_indices]
+        # Apply the filtering.
+        #
+        # common_cols: compute_isolation_forest() returns its selected
+        # columns as `columns_used` (see its own roxygen @return), not
+        # `common_cols` - only compute_mahalanobis_distance() uses that
+        # name. Reading iso_result$common_cols here always silently
+        # returned NULL, so every "Columns used: ..." line in the debug
+        # log / Analysis Report / on-plot notes printed blank for every
+        # Isolation Forest run - confirmed directly (unrelated to the
+        # row-selection issue below; fixed here by reading the correct
+        # field name for each method).
+        common_cols <- if (use_isolation_forest) iso_result$columns_used else mahal_result$common_cols
+
+        # Row selection: Isolation Forest's keep_indices (from
+        # compute_isolation_forest()'s outlier_indices, multivariate.R) is
+        # already a full-length, original-row-order logical mask - built
+        # via `scores1 <- rep(NA_real_, nrow(X1)); scores1[cc1] <-
+        # scores1_c`, which maps every target row (including incomplete
+        # ones, marked FALSE/not-outlier) back onto its own original
+        # position - so `M[keep_indices, ]` is the correct, sufficient
+        # reconstruction on its own. Mahalanobis's own keep_indices is a
+        # DIFFERENT shape: mahal_distances is computed directly over
+        # data1_clean (only the complete rows, in complete-row order), so
+        # its keep_indices has to be re-expanded back to M's own original
+        # row numbers via which(complete.cases(...)) first.
+        #
+        # This code previously used the Mahalanobis-only
+        # which(complete.cases(M_numeric))[keep_indices] re-expansion for
+        # BOTH methods, which is a real, general misalignment risk for
+        # Isolation Forest whenever M has an incomplete row in the
+        # selected columns (which(complete.cases(...)) then has fewer
+        # elements than keep_indices, so indexing it by keep_indices can
+        # return NA - spliced into M below as a phantom row - or silently
+        # select the wrong complete row's index; reproduced directly with
+        # a hand-built scenario). In THIS package's actual, currently
+        # shipped code that risk was never live: the common_cols bug just
+        # above always made M_numeric a 0-column matrix for the Isolation
+        # Forest branch, which makes complete.cases() trivially TRUE for
+        # every row regardless of real NAs, so which(complete.cases(...))
+        # always equalled 1:nrow(M) and happened to stay the same length
+        # as keep_indices - confirmed directly by tracing both bugs
+        # together, not assumed. That was a lucky accident of the two bugs
+        # interacting, not a safeguard, and would have broken the moment
+        # either bug was fixed in isolation - using keep_indices directly
+        # removes the dependency on common_cols/M_numeric for row
+        # selection entirely, so this is correct regardless of what
+        # common_cols contains.
+        if (use_isolation_forest) {
+          original_indices <- which(keep_indices)
+        } else {
+          M_numeric <- as.matrix(M[, common_cols, drop = FALSE])
+          original_indices <- which(complete.cases(M_numeric))[keep_indices]
+        }
 
         if (getOption("ternary.debug", FALSE)) {
           cat("DEBUG: Multivariate filtering details:\n")
@@ -542,30 +591,38 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       # Point size representation
       minPointSize <- MIN_POINT_SIZE
       maxSize <- MAX_POINT_SIZE
-      pointSize <- param1_values * (maxSize - minPointSize) / max(param1_values, na.rm = TRUE) + minPointSize
-      # This formula assumes 0 -> minPointSize and max(param1_values) ->
-      # maxSize, which only holds when param1_values is non-negative -
-      # Optional Param 1 accepts any numeric column, not just ones
-      # guaranteed non-negative (e.g. a signed measurement). A single
-      # negative value maps below minPointSize (including zero or negative,
-      # which points()/plot() silently draws as invisible - no warning, no
-      # error, just a point missing from the plot with no indication why);
-      # if every value is negative, max(param1_values) itself goes negative
-      # and inverts the whole scale, so a row close to that (least
-      # negative) maps to maxSize while more-negative rows can map far past
-      # it. Clipped to the intended [minPointSize, maxSize] range either
-      # way, with a warning naming how many points were affected instead of
-      # letting this pass unnoticed.
-      out_of_range <- pointSize < minPointSize | pointSize > maxSize
-      out_of_range[is.na(out_of_range)] <- FALSE
-      if (any(out_of_range)) {
-        warning(sprintf(
-          "%d point(s) have a negative or out-of-range Optional Param 1 value under Point Size representation; clipped to the visible size range [%.2g, %.2g] instead of rendering invisibly or oversized. Point Type representation may suit signed data better.",
-          sum(out_of_range), minPointSize, maxSize
-        ))
+      # Optional Param 1 is a non-negative physical measurement (wt%, ECD,
+      # area, etc.), so this formula's "0 -> minPointSize, max ->
+      # maxSize" scaling only breaks down in one real case: every selected
+      # value is exactly 0, making max(param1_values) 0 and the division
+      # below 0/0 = NaN for every point - which the function's own
+      # end-of-function safety check then silently caught and replaced the
+      # WHOLE pointSize vector with, collapsing point-size styling entirely
+      # with no indication why (confirmed by direct reproduction). Guarded
+      # directly instead: every point legitimately sits at the "0" end of
+      # the scale in that case, so it maps to minPointSize with no division
+      # needed and nothing actually out of range to warn about.
+      max_param1 <- max(param1_values, na.rm = TRUE)
+      if (is.finite(max_param1) && max_param1 <= 0) {
+        pointSize <- rep(minPointSize, length(param1_values))
+      } else {
+        pointSize <- param1_values * (maxSize - minPointSize) / max_param1 + minPointSize
+        # Defense in depth for a value outside [0, max_param1] getting
+        # here at all (e.g. a direct, non-UI caller) - clipped to the
+        # intended range with a warning naming how many points were
+        # affected, instead of letting an out-of-range point render
+        # invisibly (a size below minPointSize) or oversized silently.
+        out_of_range <- pointSize < minPointSize | pointSize > maxSize
+        out_of_range[is.na(out_of_range)] <- FALSE
+        if (any(out_of_range)) {
+          warning(sprintf(
+            "%d point(s) have an out-of-range Optional Param 1 value under Point Size representation; clipped to the visible size range [%.2g, %.2g].",
+            sum(out_of_range), minPointSize, maxSize
+          ))
+        }
+        pointSize <- pmin(pmax(pointSize, minPointSize), maxSize)
       }
-      pointSize <- pmin(pmax(pointSize, minPointSize), maxSize)
-      pointType <- 16  # Default circle
+      pointType <- rep(16, length(param1_values))  # Default circle
     } else if (optional_param1_representation == "point_type") {
       # Point type representation
       pointSize <- 0.7  # Fixed size
@@ -618,12 +675,22 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
     }
 
     param2_values <- matrika[, optional_param2$col, drop = FALSE]
+
+    # Optional Param 2 supports exactly one column (see
+    # apply_element_and_parameter_filters()'s own matching check, and the
+    # vidternary Structural Audit's Sec.03 for the full writeup) - every UI
+    # control that offers it is single-select, but this function is also
+    # exported/directly callable, so a caller that bypasses the UI gets a
+    # clear error here instead of the silent "take the first column, every
+    # other one is ignored, but the legend and title still claim all of
+    # them drove the coloring" behavior this used to fall back to.
     if (ncol(param2_values) > 1) {
-      # For multiple columns, combine them (you might want to adjust this logic)
-      param2_values <- param2_values[, 1]  # Take first column for now
-    } else {
-      param2_values <- param2_values[, 1]
+      stop("Optional Param 2 (", paste(optional_param2$col, collapse = ", "),
+           ") has more than one column selected, but it supports exactly one ",
+           "(it is a styling dimension, not a summed composition axis like Elements A/B/C). ",
+           "Choose a single column.")
     }
+    param2_values <- param2_values[, 1]
 
     if (getOption("ternary.debug", FALSE)) {
       cat("DEBUG: optional_param2$col:", optional_param2$col, "\n")
@@ -798,7 +865,6 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       } else if (color_palette == "red") {
         param2_colors <- colorRampPalette(c("#FF6666", "#990000"))(n_colors)
       } else if (color_palette == "viridis") {
-        if (!requireNamespace("viridisLite", quietly = TRUE)) install.packages("viridisLite")
         param2_colors <- viridisLite::viridis(n_colors)
       } else if (color_palette == "rainbow") {
         param2_colors <- rainbow(n_colors)
@@ -1057,6 +1123,30 @@ resolve_ternary_output_directory <- function(xlsx_file, xlsx_display_name, outpu
 apply_element_and_parameter_filters <- function(M, element_A, element_B, element_C,
                                                  individual_filters_A, individual_filters_B, individual_filters_C,
                                                  optional_param1, optional_param2, preview) {
+  # Optional Parameter 1/2 are a styling dimension (point size/type, or
+  # color) rather than a composition axis - unlike Elements A/B/C, they were
+  # never meant to support more than one column at once, and every UI
+  # control that offers them is now single-select. This function is
+  # exported and directly callable outside the UI, though (see this file's
+  # own recurring note elsewhere about that), so a length > 1 here isn't
+  # merely a UI question - failing clearly at the actual point of the
+  # mismatch replaces what used to be a silent "the filter box already
+  # collapsed to one shared string and got misapplied to every selected
+  # column" bug (vidternary Structural Audit Sec.03) with an explicit,
+  # actionable message.
+  if (!is.null(optional_param1) && length(optional_param1$col) > 1) {
+    stop("Optional Param 1 (", paste(optional_param1$col, collapse = ", "),
+         ") has more than one column selected, but it supports exactly one ",
+         "(it is a styling dimension, not a summed composition axis like Elements A/B/C). ",
+         "Choose a single column.")
+  }
+  if (!is.null(optional_param2) && length(optional_param2$col) > 1) {
+    stop("Optional Param 2 (", paste(optional_param2$col, collapse = ", "),
+         ") has more than one column selected, but it supports exactly one ",
+         "(it is a styling dimension, not a summed composition axis like Elements A/B/C). ",
+         "Choose a single column.")
+  }
+
   # ---- CRITICAL HELPER FUNCTIONS ----
   # These are local/nested on purpose, exactly as in the original single-file
   # version - they are NOT the same functions as the same-named ones in

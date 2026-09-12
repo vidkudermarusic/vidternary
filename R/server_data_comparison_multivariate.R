@@ -152,28 +152,43 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
     contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
 
-    tryCatch({
-      output$isolation_forest_output <- renderPrint({
+    # Was: tryCatch({ output$isolation_forest_output <- renderPrint({ ... }) },
+    # error = ...) - renderPrint({...}) only builds and returns a render
+    # closure; it does NOT execute the body at assignment time (Shiny calls
+    # it later, on flush). So that tryCatch's try-block could never actually
+    # fail (the assignment itself is essentially infallible) - "SUCCESS" was
+    # logged immediately, before compute_isolation_forest() had even run,
+    # and any real error it raised later propagated through Shiny's own
+    # rendering machinery as its generic error box, never reaching the
+    # error = function(e) handler here at all (see the vidternary
+    # Structural Audit's Sec.02/Sec.03 for the full writeup). Fixed to match
+    # the mahalanobis_analysis observer just above (and the comprehensive
+    # panel below): compute everything and capture it as text INSIDE the
+    # tryCatch, then assign only a trivial renderPrint() over the
+    # already-computed text afterward, so the render closure's own body has
+    # nothing left that can fail.
+    result <- tryCatch({
+      iso_result <- compute_isolation_forest(
+        td$target[, selected_cols, drop = FALSE],
+        td$reference[, selected_cols, drop = FALSE],
+        selected_columns = selected_cols,
+        keep_outliers = FALSE,
+        ntrees = ntrees, contamination = contamination
+      )
+
+      report_text <- capture.output({
         cat("=== ISOLATION FOREST ANALYSIS ===\n")
         cat("Target:", td$target_name, "| Reference:", td$reference_name, "\n")
         cat("Columns:", paste(selected_cols, collapse = ", "), "\n")
         cat("Target rows:", nrow(td$target), "| Reference rows:", nrow(td$reference), "\n\n")
 
-        result <- compute_isolation_forest(
-          td$target[, selected_cols, drop = FALSE],
-          td$reference[, selected_cols, drop = FALSE],
-          selected_columns = selected_cols,
-          keep_outliers = FALSE,
-          ntrees = ntrees, contamination = contamination
-        )
-
-        if (!is.null(result)) {
+        if (!is.null(iso_result)) {
           # compute_isolation_forest() returns outlier_indices/threshold/
           # contamination/columns_used - not total_points/outlier_count/
           # threshold_method (those are compute_mahalanobis_distance()
           # fields; this analysis was silently printing blanks for them).
-          total_points <- length(result$outlier_indices)
-          outlier_count <- sum(result$outlier_indices, na.rm = TRUE)
+          total_points <- length(iso_result$outlier_indices)
+          outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
           cat(" Analysis completed successfully!\n\n")
           # Model parameters reported explicitly - ntrees/contamination are
           # now user-adjustable (previously fixed defaults with no way to
@@ -181,10 +196,10 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           # result itself rather than assumed, since it always equals the
           # reference's own complete-row count for the selected columns,
           # not a value chosen here.
-          cat("Trees:", result$ntrees, "| Contamination:", result$contamination,
-              "| Sample size (reference rows used):", result$sample_size, "\n")
-          cat("Threshold method: Quantile of reference scores at (1 - contamination) =", result$contamination, "\n")
-          cat("Threshold value:", round(result$threshold, 3), "\n")
+          cat("Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
+              "| Sample size (reference rows used):", iso_result$sample_size, "\n")
+          cat("Threshold method: Quantile of reference scores at (1 - contamination) =", iso_result$contamination, "\n")
+          cat("Threshold value:", round(iso_result$threshold, 3), "\n")
           cat("Total points analyzed:", total_points, "\n")
           cat("Outliers detected:", outlier_count, "\n")
           cat("Outlier percentage:", round(outlier_count / total_points * 100, 1), "%\n")
@@ -194,11 +209,13 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
       })
 
       log_operation("SUCCESS", "Isolation Forest analysis completed", paste("Target:", td$target_name, "Reference:", td$reference_name, "Columns:", length(selected_cols)))
-
+      paste(report_text, collapse = "\n")
     }, error = function(e) {
-      output$isolation_forest_output <- renderText(paste("Error in Isolation Forest analysis:", e$message))
       log_operation("ERROR", "Isolation Forest analysis failed", e$message)
+      paste("Error in Isolation Forest analysis:", e$message)
     })
+
+    output$isolation_forest_output <- renderPrint(cat(result, "\n"))
   })
 
   # ---- Comprehensive Outlier Detection Display ----

@@ -281,13 +281,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       return()
     }
     y_needed <- input$builder_type %in% BUILDER_TYPES_WITH_Y
-    # Checked before the assignment below overwrites it - saving under a
-    # name that already exists previously replaced the old preset with no
-    # indication that's what happened (the success message read identically
-    # either way), so a typo'd or reused name could silently discard
-    # existing work.
-    is_overwrite <- name %in% names(rv$plot_presets)
-    rv$plot_presets[[name]] <- list(
+    new_preset <- list(
       type = input$builder_type,
       x = input$builder_x,
       y = if (y_needed) input$builder_y else NULL,
@@ -299,7 +293,21 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       rose_bin_width = if (input$builder_type == "rose") input$builder_rose_bin_width else NULL,
       hist_bins = if (input$builder_type == "hist") input$builder_hist_bins else NULL
     )
-    save_builder_presets(rv$plot_presets)
+    # save_builder_preset_change() re-reads the shared presets file fresh
+    # immediately before writing, rather than overwriting it with this
+    # session's own possibly-stale rv$plot_presets wholesale - see that
+    # function's own comment (plot_builder_presets.R) for why a second,
+    # concurrent session's own unrelated preset would otherwise be
+    # silently discarded. is_overwrite is decided against that same fresh
+    # read (whether the name already exists in the real current file), not
+    # this session's own in-memory copy, and the merged result is stored
+    # back so this session's own preset list reflects it too.
+    is_overwrite <- FALSE
+    rv$plot_presets <- save_builder_preset_change(function(current) {
+      is_overwrite <<- name %in% names(current)
+      current[[name]] <- new_preset
+      current
+    })
     update_preset_choices(selected = name)
     show_message(paste0(if (is_overwrite) "Preset overwritten: " else "Preset saved: ", name), "success")
     log_operation("SUCCESS", if (is_overwrite) "Plot builder preset overwritten" else "Plot builder preset saved", name)
@@ -372,8 +380,14 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
 
   observeEvent(input$builder_delete_preset, {
     req(input$builder_preset_select)
-    rv$plot_presets[[input$builder_preset_select]] <- NULL
-    save_builder_presets(rv$plot_presets)
+    # Same re-read-then-merge reasoning as the save handler above - a
+    # wholesale overwrite here would silently discard any preset a
+    # concurrent session saved since this session's own rv$plot_presets
+    # was last refreshed, even though this delete never touched it.
+    rv$plot_presets <- save_builder_preset_change(function(current) {
+      current[[input$builder_preset_select]] <- NULL
+      current
+    })
     update_preset_choices()
     show_message("Preset deleted.", "info")
   })
