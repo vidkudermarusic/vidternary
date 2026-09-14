@@ -20,8 +20,7 @@ create_spatial_ppp_tab <- function(id) {
         h3("Spatial Point Pattern Analysis (K/L/G Functions, CSR Envelope, Kernel Intensity)"),
         helpText("A second way of testing whether inclusion positions are randomly scattered, clustered, or more evenly spread out than chance would predict - built on the standard spatial point process toolkit (spatstat), complementing the Spatial Clustering tab's single nearest-neighbour test."),
 
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
+        info_box(" How it works",
           tags$ul(
             tags$li("The point pattern is converted to a planar point process bounded by the ", strong("convex hull"), " of the data (default) - the smallest polygon containing every point, used as the observation window since no separately-known study-region boundary exists. Switch to ", strong("bounding box"), " below if the analysed region is a rectangular SEM scan."),
             tags$li(strong("Ripley's K(r): "), "the expected number of further points within distance r of a typical point, divided by intensity - compared against the complete-spatial-randomness (CSR) expectation K(r) = pir2. Above the CSR line suggests clustering at that distance; below suggests regularity."),
@@ -38,14 +37,11 @@ create_spatial_ppp_tab <- function(id) {
 
         fluidRow(
           column(6,
-            h4("File Selection"),
-            fileInput(ns("ppp_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
-            helpText("Each file's Sheet 1 is read and combined.")
+            create_file_selection_column(ns("ppp_files"))
           ),
           column(6,
             h4("Coordinates"),
-            selectInput(ns("ppp_x_col"), "X coordinate column:", choices = NULL),
-            selectInput(ns("ppp_y_col"), "Y coordinate column:", choices = NULL),
+            create_xy_coordinate_selectors(ns("ppp_x_col"), ns("ppp_y_col")),
             selectInput(ns("ppp_mark_col"), "Mark column (optional, for point-pattern plot colour):", choices = c("None" = "none"))
           )
         ),
@@ -75,11 +71,7 @@ create_spatial_ppp_tab <- function(id) {
           column(12, create_pre_filter_ui(ns, "ppp"))
         ),
 
-        fluidRow(
-          column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton(ns("ppp_analyze"), "Analyze Point Pattern", class = "btn-primary btn-lg", style = "font-size: 18px;")
-          )
-        ),
+        centered_action_button_row(ns("ppp_analyze"), "Analyze Point Pattern", margin_top = "10px"),
 
         fluidRow(
           column(12,

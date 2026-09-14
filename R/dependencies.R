@@ -2,33 +2,13 @@
 # This module handles all package dependencies, checking, and loading
 
 # Required packages for the application. Kept in sync with DESCRIPTION's
-# Imports: - digest/htmlwidgets/robustbase/moments were removed from both
-# (confirmed zero live callers anywhere in R/); devtools moved to
-# DESCRIPTION's Suggests: (a dev-time tool - installing/running the app
-# itself never calls it) and correspondingly isn't loaded here either;
-# RANN (already correctly in DESCRIPTION's Imports: - Spatial Clustering's
-# exact-nearest-neighbor method) was missing from this list, so a user
-# following this script's own guidance specifically wouldn't have gotten
-# it installed. shinyFiles/fs were removed once the global Working/Output
-# Directory picker (server_directory_management.R) was replaced by
-# per-save browser downloads (see the vidternary Structural Audit's Sec.03) -
-# neither is used anywhere else in R/. zip was previously removed here as
-# dead code, then reinstated for a genuine new use: the batch save handler
-# (server_ternary_plots_batch.R's "Create & Save all ternary plots") zips
-# its outputs into one download instead of writing to a chosen folder.
-# (The Ternary Plots tab's own "Save Both Plots" button used to be a
-# second reason zip was needed - removed since separate "Save Plot 1"/
-# "Save Plot 2" downloads already cover the same need.) spatstat.geom/
-# spatstat.explore were added for the "Point Pattern Analysis" tab
-# (spatial_point_pattern_analysis.R - Ripley's K/L, the G-function, a CSR
-# envelope test, kernel intensity) - only those two sub-packages of the
-# spatstat family are imported, not the full `spatstat` umbrella, which
+# Imports:. Only spatstat.geom/spatstat.explore (for the "Point Pattern
+# Analysis" tab - Ripley's K/L, the G-function, a CSR envelope test,
+# kernel intensity) are imported, not the full `spatstat` umbrella, which
 # also pulls in spatstat.model/spatstat.linnet/etc that nothing here uses.
-# GGally, colourpicker, plotly, shinyBS and shinyjqui were removed once
-# `R CMD check` (and a fresh grep of R/) confirmed zero call sites anywhere
-# - a leftover from an earlier UI design. knitr/rmarkdown are vignette-
-# build tooling only (DESCRIPTION's Suggests + VignetteBuilder), never
-# loaded at app runtime, so they are not listed here either.
+# knitr/rmarkdown are vignette-build tooling only (DESCRIPTION's Suggests +
+# VignetteBuilder), never loaded at app runtime, so they are not listed
+# here either.
 required_packages <- c(
   "openxlsx", "Ternary", "PlotTools", "shiny",
   "ggplot2", "corrplot", "DT",

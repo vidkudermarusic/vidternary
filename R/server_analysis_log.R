@@ -8,12 +8,7 @@
 #' `filtered_log_entries()` helper so the on-screen display and "Export
 #' Log" can never disagree about which entries are shown), the on-screen
 #' log display (`output$analysis_log`), the filtered entry-count summary
-#' (`output$log_stats`), and the "Export Log" download handler. There used
-#' to also be a separate "Save Log to File" button that wrote the same
-#' entries to a pre-chosen server-side folder - removed as a fully
-#' redundant duplicate of "Export Log" (see the vidternary Structural
-#' Audit's Sec.03), not converted to anything, once the global directory
-#' picker it depended on went away.
+#' (`output$log_stats`), and the "Export Log" download handler.
 #'
 #' @param input The Shiny `input` object.
 #' @param output The Shiny `output` object.
@@ -71,11 +66,6 @@ create_server_analysis_log <- function(input, output, session, rv, show_message,
     log_operation("INFO", "Analysis log cleared by user")
     show_message("Analysis log cleared.", "info")
   })
-
-  # "Save Log to File" (an actionButton writing to the old global Output
-  # Directory) used to live here - removed as a fully redundant duplicate
-  # of "Export Log" below, which already does the identical computation
-  # and download via a real downloadHandler (see this function's own doc).
 
   # Search analysis log (filtering itself is already live/reactive via
   # input$log_search - this just records that a search was performed)

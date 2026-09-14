@@ -44,33 +44,24 @@ create_server_logic <- function(input, output, session) {
     ))
   }
   
-  # Import ternary plot functions - moduleServer()-wrapped. Confirmed via a
-  # full cross-tab dependency map (see the vidternary Structural Audit) that
-  # Ternary Plots and Multiple Ternary Creator were, despite being separate
-  # tabs, one entangled server unit sharing state in several places -
-  # Multiple Ternary Creator's handlers were registered from inside this
-  # same function, server_filter_management.R built both tabs' filter UI in
-  # one call, and this tab's Dataset 1 upload pushed choices into Multiple
-  # Ternary Creator's selectors directly. All of that was split apart (see
-  # server_ternary_plots.R/server_ternary_plots_batch.R/server_file_handlers.R
-  # for the specifics) so each tab could get its own real, independent
-  # namespace instead of continuing to share one.
+  # Import ternary plot functions - moduleServer()-wrapped. Ternary Plots and
+  # Multiple Ternary Creator are independent modules, each with its own
+  # namespace (see server_ternary_plots.R/server_ternary_plots_batch.R/
+  # server_file_handlers.R for the specifics).
   moduleServer("ternary_plots", function(input, output, session) {
     create_server_file_handlers(input, output, session, rv, show_message, log_operation)
     create_server_ternary_plots(input, output, session, rv, show_message, log_operation)
   })
 
-  # Import Multiple Ternary Creator's batch handlers - moduleServer()-wrapped
-  # and now a direct sibling call (previously nested inside
-  # create_server_ternary_plots(), see that note above).
+  # Import Multiple Ternary Creator's batch handlers - moduleServer()-wrapped,
+  # registered in its own namespace.
   moduleServer("multiple_ternary", function(input, output, session) {
     register_ternary_plots_batch_handlers(input, output, session, rv, show_message, log_operation)
   })
 
   # Import hexagonal ternary diagram functions
-  # moduleServer()-wrapped: confirmed via a full cross-tab dependency map
-  # that this tab has no reads of another tab's inputs/outputs and nothing
-  # else reads its own - safe to namespace independently. See
+  # moduleServer()-wrapped: this tab's namespace is independent (no reads of
+  # another tab's inputs/outputs, and nothing else reads its own). See
   # ui_hex_ternary_tab.R for the matching NS(id)/ns() wrapping.
   moduleServer("hex_ternary", function(input, output, session) {
     create_server_hex_ternary(input, output, session, rv, show_message, log_operation)
@@ -105,10 +96,7 @@ create_server_logic <- function(input, output, session) {
   # Ternary core functionality now integrated into server_ternary_plots
 
   # Import status output functions - NOT namespaced: project_status is a
-  # genuinely app-shell output (ui_components.R's sidebar, outside any
-  # tab). status/multiple_ternary_status used to live here too but are now
-  # namespaced, tab-owned outputs (see server_ternary_plots.R/
-  # server_ternary_plots_batch.R).
+  # genuinely app-shell output (ui_components.R's sidebar, outside any tab).
   create_server_status_outputs(input, output, session, rv)
 
   # Import analysis log functions (moduleServer()-wrapped, see hex_ternary's note above)
@@ -120,11 +108,6 @@ create_server_logic <- function(input, output, session) {
   moduleServer("data_comparison", function(input, output, session) {
     create_server_data_comparison(input, output, session, rv, show_message, log_operation)
   })
-
-  # ---- Multivariate Analysis Functions ----
-  # Compute_mahalanobis_distance function is now in multivariate.R to avoid duplication
-  # Robust Mahalanobis functions removed
-  # Compute_isolation_forest_outliers function is now in multivariate.R to avoid duplication
 
   # ---- Return reactive values ----
   return(rv)

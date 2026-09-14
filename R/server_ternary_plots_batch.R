@@ -1,25 +1,15 @@
 # ---- Server Ternary Plots Module: Batch ("Multiple Ternary Creator") ----
-# Split out of server_ternary_plots.R: the multi-file batch handlers (as
+# The multi-file batch handlers for the "Multiple Ternary Creator" tab (as
 # opposed to the single-file preview/save logic in server_ternary_plots.R,
 # or the group-selection UI in server_ternary_plots_groups.R).
 #
-# Now its own independent moduleServer()/NS() tab, called directly from
-# server_logic.R rather than nested inside Ternary Plots' server function -
-# see server_ternary_plots.R's header comment for why. Its per-element
-# dynamic filter UI (multiple_filters_A/B/C etc.) used to live in a shared
-# server_filter_management.R that also built Ternary Plots' filter UI in
-# the same call; moved directly into this file below as this tab's half of
-# that split.
-#
-# BEHAVIOR CHANGE from the module split (confirmed intentional - see the
-# vidternary Structural Audit): extract_ternary_params(..., multiple_mode =
-# TRUE) below reads input$use_mahalanobis/use_iqr_filter/lambda/omega/etc. -
-# before the split those silently resolved to whatever was set on the (then
-# shared-namespace) Ternary Plots tab, even though this tab's own UI always
-# claimed "Statistical filtering: Disabled to maintain simplicity". Now that
-# this is a genuinely separate module, those all correctly resolve to NULL
-# here and fall back to their documented disabled/default values - this
-# tab's actual behavior now matches what it already claimed.
+# Its own independent moduleServer()/NS() tab, called directly from
+# server_logic.R, with its own namespace: extract_ternary_params(...,
+# multiple_mode = TRUE) below reads input$use_mahalanobis/use_iqr_filter/
+# lambda/omega/etc. from this tab's own inputs, which resolve to NULL and
+# fall back to their documented disabled/default values, matching this
+# tab's own UI claim of "Statistical filtering: Disabled to maintain
+# simplicity".
 
 #' Wire up the "Multiple Ternary Creator" tab's batch server logic
 #'
@@ -118,12 +108,7 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
   })
 
   # Populate Element A/B/C and Optional Parameter 1/2 choices from the first
-  # uploaded file's columns. This used to only happen as a side effect of
-  # uploading a file to the *main* Ternary Plots tab's Dataset 1 input
-  # (see server_file_handlers.R), so a user going straight to this tab and
-  # uploading files via multiple_xlsx_files found every dropdown empty -
-  # req(input$multiple_element_A, ...) then silently blocked both buttons
-  # below, with no created/saved plots and no error shown.
+  # uploaded file's columns, independently of the main Ternary Plots tab.
   observeEvent(input$multiple_xlsx_files, {
     req(input$multiple_xlsx_files)
     tryCatch({
@@ -146,15 +131,8 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
   })
 
   # Create AND save one ternary plot per uploaded file, all zipped into one
-  # browser download. Previously this was two separate buttons - "Create
-  # All Ternary Plots" rendered to whatever graphics device happened to be
-  # active (not any Shiny output, since there's no plotOutput/renderPlot for
-  # it), which produced no visible result and stray Rplots.pdf files instead
-  # of a real preview - so it's been folded into the one button that always
-  # saves. Writes into a fresh temp directory rather than a subfolder under
-  # a pre-chosen server-side Output Directory, then zips whatever succeeded
-  # - see the vidternary Structural Audit's Sec.03 for why the previous global
-  # directory picker was removed.
+  # browser download. Writes into a fresh temp directory, then zips
+  # whatever succeeded.
   output$create_save_multiple_ternary <- downloadHandler(
     filename = function() {
       folder_name <- if (!is.null(input$multiple_output_folder) && nchar(trimws(input$multiple_output_folder)) > 0) {
@@ -225,9 +203,7 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
           # <<- (not <-) is required: `errors` inside this closure would
           # otherwise be a new local variable in the closure's own
           # environment, never reaching the `errors` in the enclosing
-          # content() function - so every per-file error was silently
-          # discarded and "Errors encountered" never fired, even when
-          # every file failed.
+          # content() function.
           error_msg <- paste(file_name, "-", e$message)
           errors <<- c(errors, error_msg)
           if (getOption("ternary.debug", FALSE)) {
@@ -236,15 +212,9 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
         })
       }
 
-      # One status message reflecting the actual combined outcome - the
-      # errors-block used to run afterward unconditionally, always
-      # overwriting whatever the success branch above had just set - so a
-      # batch of 10 files where 9 succeeded and 1 failed showed only the
-      # error text, with zero indication that 9 real plots had actually
-      # been saved. Now there's exactly one message per outcome - full
-      # success, partial success, or total failure - always including any
-      # errors that actually occurred, never silently dropping the save
-      # count that happened alongside them.
+      # Exactly one status message per outcome - full success, partial
+      # success, or total failure - always including both the save count
+      # and any errors that occurred.
       if (length(errors) == 0 && plots_saved > 0) {
         output$multiple_ternary_status <- renderText(paste("Successfully saved", plots_saved, "ternary plots"))
         log_operation("SUCCESS", "Multiple ternary plots saved", paste("Saved:", plots_saved, "plots"))

@@ -43,9 +43,8 @@ compute_block_maxima <- function(data, area_col, group_col) {
   )
 }
 
-# Fit the Gumbel probability plot: sqrt_area_max ~ reduced variate y.
-# Plotting position F_j = j/(n+1) (Weibull/mean position, the convention
-# used in Murakami's original papers); reduced variate y = -ln(-ln(F)).
+# Plotting position F_j = j/(n+1) uses the Weibull/mean-position
+# convention from Murakami's original papers.
 #' Fit a Gumbel probability plot to block maxima
 #'
 #' Plotting position `F_j = j/(n+1)` (Weibull/mean position), reduced
@@ -122,15 +121,11 @@ gumbel_goodness_of_fit <- function(fit, n_sim = 999, seed = 42) {
   b <- fit$slope
 
   # A degenerate fit - block maxima that are numerically all identical
-  # (duplicate rows, or measurements tied at the same rounded value, both
-  # plausible with coarse SEM resolution or a small/synthetic dataset)
-  # drives the OLS slope to exactly/near zero. compute_A2() below divides
-  # by `b`; with a zero-variance x that silently returns NaN with no R
-  # condition raised, and that NaN would otherwise propagate all the way to
-  # `reject_at_05` as NA, crashing an unguarded `if()` in server_evs.R
-  # instead of failing here where it's cheap to catch. Checked directly on
-  # the data's spread, not just on `b` itself, since floating-point noise
-  # in the regression could nudge `b` slightly off exact zero even when `x`
+  # (duplicate rows, or measurements tied at the same rounded value) -
+  # drives the OLS slope to exactly/near zero, which would make
+  # compute_A2() below divide by a near-zero `b`. Checked directly on the
+  # data's spread, not just on `b` itself, since floating-point noise in
+  # the regression could nudge `b` slightly off exact zero even when `x`
   # is degenerate.
   if (!is.finite(b) || diff(range(x)) < sqrt(.Machine$double.eps) * max(1, mean(abs(x)))) {
     return(NULL)
@@ -240,9 +235,6 @@ predict_evs_max <- function(fit, return_period) {
   )
 }
 
-# Gumbel probability plot: reduced variate y (x-axis, with a secondary
-# probability-scale axis) vs sqrt(area) block maxima (y-axis), fitted
-# line, and the extrapolated prediction when supplied.
 #' Build the Gumbel probability plot
 #'
 #' Reduced variate (x-axis, with a secondary cumulative-probability axis)

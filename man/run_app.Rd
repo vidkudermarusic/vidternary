@@ -18,9 +18,5 @@ is stopped (e.g. by closing the browser tab or interrupting the R session).
 \description{
 Builds the app (via \code{\link[=create_app]{create_app()}}) and launches it with
 \code{shiny::runApp()}. This is the entry point named in the README's Quick
-Start (\verb{library(vidternary); run_app()}) - previously undocumented and
-unexported, so that exact sequence failed with "could not find function
-'run_app'" on any normal install (only \code{devtools::load_all()}'d from
-source, as this package's own dev/test workflow does, happened to make
-it callable, masking the gap).
+Start (\verb{library(vidternary); run_app()}).
 }

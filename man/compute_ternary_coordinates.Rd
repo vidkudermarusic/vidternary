@@ -68,23 +68,7 @@ known. That single mask is computed once and applied identically to
 exact same rows in the exact same order. This matters because
 \code{\link[=compute_point_styling]{compute_point_styling()}} later reads Optional Param 1/2 values out of
 \code{matrika} and applies them \emph{positionally} against \code{ternary_points1} -
-an earlier version computed each object's row-validity independently
-(matrika's own zero-sum-row-removal plus \code{na.omit()}, versus
-\code{ternary_points1}'s own total-based check) and could let their row
-counts silently diverge whenever a needed column had an NA that didn't
-also zero out the element total (almost always an Optional Param 1/2
-value, since SEM/EDS element columns are normally complete) - R then
-recycled the shorter logical mask against the longer data frame with no
-warning surfaced to the UI, confirmed to silently swap in wrong points
-and wrong group colors under a categorical Optional Param 2 grouping.
-Fixed by deciding row validity in exactly one place.
-
-Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own function because
-it's the last and most central of that function's identified
-responsibilities (per the vidternary Structural Audit's Sec.04
-responsibility table) - tackled last of the seven extractions on this
-function, once every other piece it interacts with (filtering,
-multivariate dispatch, point styling, title assembly) had already been
-extracted and verified.
+row validity must be decided in exactly one place so the two objects
+never drift out of alignment.
 }
 

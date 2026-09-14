@@ -165,32 +165,17 @@ for \code{setwd(working_dir)} (with \code{on.exit()} restore) before calling thi
 since that needs to stay in effect across this call and the render call
 that follows it.
 }
-\section{Restructuring (see the vidternary Structural Audit's Sec.04/Sec.08)}{
+\section{Restructuring}{
 
-All seven of this function's identified responsibilities have now been
-extracted into their own top-level, independently testable/documented
-functions: \code{\link[=load_and_validate_ternary_source_data]{load_and_validate_ternary_source_data()}} (the very first
-thing this function does), \code{\link[=apply_element_and_parameter_filters]{apply_element_and_parameter_filters()}}
-(per-element and optional-parameter filtering - moves three of this
-function's five local closures into its own scope, leaving
-\code{preview_title_layout()}/\code{calculate_plot_dimensions()} as the two that
-still live here), \code{\link[=apply_statistical_filtering]{apply_statistical_filtering()}} (IQR/Z-score/MAD
-dispatch), \code{\link[=apply_multivariate_filtering]{apply_multivariate_filtering()}} (the Mahalanobis/Isolation
-Forest outlier dispatch - the most tangled of the seven),
-\code{\link[=resolve_ternary_output_directory]{resolve_ternary_output_directory()}} (output-folder + file-base-name
-resolution - the first to do real filesystem work rather than pure
-in-memory transforms), \code{\link[=compute_ternary_coordinates]{compute_ternary_coordinates()}} (building
-\code{matrika}/\code{ternary_points1} and validating them - the most central of
-the seven, tackled last, once every other piece it interacts with had
-already been extracted and verified), \code{\link[=build_ternary_plot_title]{build_ternary_plot_title()}}
-(called once, right after ternary coordinates are computed), and
-\code{\link[=compute_point_styling]{compute_point_styling()}} (point size/type/color plus categorical-group
-filtering and legend metadata - the largest of the seven). All seven are
-called here, in this order, and their results merged back into this
-function's own local environment via \code{list2env()}, so the final
-\code{as.list(environment())} this function returns is unchanged in every
-field and value across the whole restructuring - a pure internal
-reorganization, not a behavior change, verified via golden-output
-byte-diffing at every step.
+This function's logic is split into seven top-level, independently
+testable/documented functions, called below in this order and merged
+back into this function's own local environment via \code{list2env()}:
+\code{\link[=load_and_validate_ternary_source_data]{load_and_validate_ternary_source_data()}}, \code{\link[=apply_element_and_parameter_filters]{apply_element_and_parameter_filters()}}
+(moves three of this function's five local closures into its own scope,
+leaving \code{preview_title_layout()}/\code{calculate_plot_dimensions()} as the
+two that still live here), \code{\link[=apply_statistical_filtering]{apply_statistical_filtering()}},
+\code{\link[=apply_multivariate_filtering]{apply_multivariate_filtering()}}, \code{\link[=resolve_ternary_output_directory]{resolve_ternary_output_directory()}},
+\code{\link[=compute_ternary_coordinates]{compute_ternary_coordinates()}}, \code{\link[=build_ternary_plot_title]{build_ternary_plot_title()}}, and
+\code{\link[=compute_point_styling]{compute_point_styling()}}.
 }
 

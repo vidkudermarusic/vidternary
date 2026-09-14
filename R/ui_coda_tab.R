@@ -17,8 +17,7 @@ create_coda_tab <- function(id) {
         h3("Compositional Data Analysis (CLR / ILR)"),
         helpText("Wt% chemistry columns are compositional data (constrained to sum to ~100%), so ordinary statistics/PCA on raw percentages can be misleading. Log-ratio transforms fix this before running PCA."),
 
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
+        info_box(" How it works",
           tags$ul(
             tags$li(strong("CLR"), " (centered log-ratio): each element's log-share relative to the geometric mean of all selected elements. Each axis maps directly to one element, so PCA loadings/biplots stay directly interpretable - used for the biplot below. ", cite_link("Aitchison, 1986"), "."),
             tags$li(strong("ILR"), " (isometric log-ratio): an orthonormal-coordinate version with a non-singular covariance matrix - each coordinate is an abstract contrast between groups of elements rather than one single element, but gives identical PCA/distance structure to CLR. Available as a download for use in methods that need non-singular covariance. ", cite_link("Egozcue et al., 2003", "https://doi.org/10.1023/A:1023818214614"), "."),
@@ -29,9 +28,7 @@ create_coda_tab <- function(id) {
 
         fluidRow(
           column(6,
-            h4("File Selection"),
-            fileInput(ns("coda_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
-            helpText("Each file's Sheet 1 is read and combined.")
+            create_file_selection_column(ns("coda_files"))
           ),
           column(6,
             h4("Compositional Parts"),
@@ -40,11 +37,7 @@ create_coda_tab <- function(id) {
           )
         ),
 
-        fluidRow(
-          column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton(ns("coda_run"), "Transform & Run PCA", class = "btn-primary btn-lg", style = "font-size: 18px;")
-          )
-        ),
+        centered_action_button_row(ns("coda_run"), "Transform & Run PCA", margin_top = "10px"),
 
         fluidRow(
           column(12,

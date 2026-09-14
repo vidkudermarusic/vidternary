@@ -2,11 +2,6 @@
 # Split out of server_data_comparison.R: missing-value/outlier summaries and
 # raw Excel previews for whichever loaded dataset the user picks via
 # comparison_preview_target (populated by server_data_comparison_upload.R).
-# data_readiness_status lives in server_data_comparison_upload.R now - the
-# original single file had it duplicated here and in the stats module (the
-# second registration silently winning); that duplication is gone now that
-# both modules read from the same rv$comparison_data instead of each
-# re-reading xlsx_file1/xlsx_file2 independently.
 
 register_data_comparison_preview_handlers <- function(input, output, session, rv, show_message, log_operation) {
 
@@ -53,11 +48,9 @@ register_data_comparison_preview_handlers <- function(input, output, session, rv
       cat("Missing values per column:\n")
       print(missing_summary[missing_summary > 0])
 
-      # All three statistical methods, printed one below another and
-      # clearly labeled, so it's unambiguous which method produced which
-      # counts - each uses the same "positive outliers only" convention and
-      # default threshold as the main Ternary Plots tab's Statistical
-      # Filtering section (IQR: 1.5xIQR, Z-score: 3, MAD: 3xMAD).
+      # Outliers use the same "positive outliers only" convention and
+      # default thresholds as the main Ternary Plots tab's Statistical
+      # Filtering section.
       cat("\n--- Outliers per column: IQR method (> Q3 + 1.5xIQR) ---\n")
       iqr_summary <- per_column_outlier_counts(df, numeric_cols, "iqr")
       print(iqr_summary[iqr_summary > 0])

@@ -2,18 +2,6 @@
 # This module contains file upload/download logic and parameter copying
 # functionality - entirely for the Ternary Plots tab (Dataset 1/2), called
 # from within its moduleServer() wrapper in server_logic.R.
-#
-# This used to also push column choices into Multiple Ternary Creator's
-# selectors (multiple_element_A/B/C etc.) and a since-removed "Multiple
-# Plot Types" tab's (scatter_columns/histogram_columns/boxplot_columns -
-# those IDs don't exist in the current UI at all, a harmless no-op).
-# Removed as part of converting Multiple Ternary Creator to its own
-# moduleServer(): it already has its own independent column-population
-# logic (see server_ternary_plots_batch.R's observeEvent(input$
-# multiple_xlsx_files, ...)) from an earlier fix, so this was always a
-# redundant shortcut, not the only path - and once namespaced, this
-# tab's session can no longer reach into a different module's inputs
-# anyway.
 
 #' Wire up Dataset 1/2 file upload and "Copy Settings" for the "Ternary Plots" tab
 #'
@@ -166,18 +154,16 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       updateSelectInput(session, "element_C2", selected = input$element_C1)
 
       # Copy per-element filters (dynamic_filters_A2/B2/C2, built from the
-      # element selections just above). Previously not copied at all -
-      # despite the button's own label claiming "all settings" - because
-      # doing this correctly needs a real fix, not an oversight: these
-      # textInputs are (re)built by output$dynamic_filters_A2/B2/C2's
-      # renderUI(), which only reacts to element_A2/B2/C2 on the NEXT
-      # reactive flush, so the filter_A2_<element> inputs being copied
-      # into here don't exist yet in this observer's own execution -
-      # copying to them synchronously would silently do nothing, the same
-      # class of timing hazard server_plot_builder.R's preset-load handler
-      # already works around with session$onFlushed(). Reads Dataset 1's
-      # current filter values now (before any UI changes), and writes them
-      # once Dataset 2's matching inputs actually exist.
+      # element selections just above). These textInputs are (re)built by
+      # output$dynamic_filters_A2/B2/C2's renderUI(), which only reacts to
+      # element_A2/B2/C2 on the NEXT reactive flush, so the
+      # filter_A2_<element> inputs being copied into here don't exist yet
+      # in this observer's own execution - copying to them synchronously
+      # would silently do nothing, the same class of timing hazard
+      # server_plot_builder.R's preset-load handler already works around
+      # with session$onFlushed(). Reads Dataset 1's current filter values
+      # now (before any UI changes), and writes them once Dataset 2's
+      # matching inputs actually exist.
       filters_A1 <- collect_main_ternary_filters(input$element_A1, "A", 1, input)
       filters_B1 <- collect_main_ternary_filters(input$element_B1, "B", 1, input)
       filters_C1 <- collect_main_ternary_filters(input$element_C1, "C", 1, input)
@@ -204,9 +190,7 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
       updateTextInput(session, "filter_op1_2", value = input$filter_op1_1)
       updateTextInput(session, "filter_op2_2", value = input$filter_op2_1)
 
-      # Copy the color palette (for Optional Param 2) - previously the one
-      # other setting the button's "all settings" label promised but
-      # didn't deliver.
+      # Copy the color palette (for Optional Param 2).
       updateSelectInput(session, "color_palette2", selected = input$color_palette1)
 
       # Copy multivariate analysis settings
@@ -238,10 +222,5 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
     })
   })
   
-  # Return the file handler functions for integration
-  return(list(
-    # File upload handlers are already set up as observeEvent
-    # Parameter copying is already set up as observeEvent
-    # This function just sets up the event handlers
-  ))
+  return(list())
 }

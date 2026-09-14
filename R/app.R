@@ -4,11 +4,7 @@
 #'
 #' Builds the app (via [create_app()]) and launches it with
 #' `shiny::runApp()`. This is the entry point named in the README's Quick
-#' Start (`library(vidternary); run_app()`) - previously undocumented and
-#' unexported, so that exact sequence failed with "could not find function
-#' 'run_app'" on any normal install (only `devtools::load_all()`'d from
-#' source, as this package's own dev/test workflow does, happened to make
-#' it callable, masking the gap).
+#' Start (`library(vidternary); run_app()`).
 #'
 #' @param port Port to listen on. Default 3838.
 #' @param host Host address to bind to. Default `"127.0.0.1"` (localhost only).

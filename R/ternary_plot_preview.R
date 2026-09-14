@@ -1,27 +1,19 @@
 # ---- Ternary Plot: Preview Render (split out of ternary_plot.R) ----
 # Draws the ternary plot to whatever graphics device is currently active.
-# In the original single-file version this ran unconditionally (regardless
-# of the `preview` flag) as the first of two draws - the second being the
-# save-to-file redraw in ternary_plot_save.R. That's preserved here:
-# general_ternary_plot() always calls this, then separately decides whether
-# to also call save_ternary_plot_to_file().
+# general_ternary_plot() always calls this, then separately decides
+# whether to also call save_ternary_plot_to_file().
 #
 # Takes the list returned by prepare_ternary_plot_data() and renders from
-# its fields via with(pd, {...}), matching the original code nearly verbatim
-# so the drawing logic (and its known asymmetry vs. the save-mode render -
-# see the note on the point-type legend below) isn't accidentally changed.
+# its fields via with(pd, {...}).
 render_ternary_plot_preview <- function(pd) {
   with(pd, {
     # Create the ternary plot
     log_operation("INFO", "Starting to plot", paste(nrow(ternary_points1), "points"))
 
     # Set outer margins to prevent clipping of multi-line titles and notes.
-    # Top margin for titles, bottom margin for plot notes - the bottom
-    # margin now scales with how many lines the tallest plot-notes column
-    # actually needs (notes_bottom_margin, computed in
-    # prepare_ternary_plot_data()) instead of a fixed 4, which used to run
-    # out of room once Mahalanobis/Isolation Forest's own detail lines
-    # made a column taller than that fixed value - see
+    # Top margin for titles; bottom margin scales with how many lines the
+    # tallest plot-notes column actually needs (notes_bottom_margin,
+    # computed in prepare_ternary_plot_data()) - see
     # draw_plot_notes_column()'s own comment for the full explanation.
     op <- par(oma = c(notes_bottom_margin, 0, 3, 0))
     on.exit(par(op))
@@ -133,16 +125,11 @@ render_ternary_plot_preview <- function(pd) {
         create_group_legend(unique_groups, group_colors, group_counts)
       } else if (length(optional_param2$col) == 1) {
         # Numeric data legend - show color legend with exactly 5 bins
-        # Generate 5 colors for the legend using the selected palette
-        # Was: a fresh, evenly-spaced min-to-max relabeling next to a
-        # freshly-recomputed, always-length-5 color ramp - neither matches
-        # what compute_point_styling() actually used to color the points
-        # (quantile-binned breaks, and a palette sized to the real bin
-        # count after unique() dedup, which can be under 5). See
-        # ternary_plot_save.R's identical fix (and its longer comment) for
-        # the full writeup - the two files carried byte-identical code
-        # here, so they get the identical fix: reuse param2_colors/
-        # param2_breaks directly instead of re-deriving either one.
+        # Reuses param2_colors/param2_breaks - the same objects
+        # compute_point_styling() already computed for the points
+        # themselves - so the legend can't drift from the actual point
+        # colors (quantile-binned breaks, palette sized to the real bin
+        # count after unique() dedup, which can be under 5).
         if (optional_param2$col == "Aspect.Ratio") {
           legend_labels <- c("1-1.5", "1.5-3", "3-5", "5-10", "10+")
         } else if (is.numeric(param2_values) && all(is.finite(param2_values), na.rm = TRUE) && length(param2_breaks) >= 2) {

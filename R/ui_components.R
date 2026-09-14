@@ -4,9 +4,7 @@
 # main tabset. There is no shared save-location picker - every tab's own
 # Save/Export button prompts for where to save right when it's clicked,
 # via the browser's native Save dialog (a plain downloadButton/
-# downloadHandler), the same pattern used across every tab (see the
-# vidternary Structural Audit's Sec.03 for the removal of the previous
-# always-visible, pre-selected Working/Output Directory pair). Each tab's
+# downloadHandler), the same pattern used across every tab. Each tab's
 # own UI tree is built by a dedicated function in a
 # sibling module, split out for size:
 #   ui_ternary_plots_tab.R       - create_ternary_plots_tab()
@@ -23,9 +21,7 @@
 # Short inline citation for a method/formula used in one of the "How it
 # works" info boxes - a link to the DOI when one exists, or plain
 # (non-linked) text for sources without one (books, book chapters, and
-# standards bodies that don't expose a resolvable DOI). Citations were
-# verified against CrossRef/publisher records before being added here -
-# see the citation review discussed with the user.
+# standards bodies that don't expose a resolvable DOI).
 cite_link <- function(label, doi_url = NULL) {
   if (is.null(doi_url)) {
     tags$span(style = "color: #0c5460; font-style: italic;", label)
@@ -130,5 +126,80 @@ create_main_ui <- function() {
       align = "center",
       style = "color: #888; background-color: #f9f9f9; padding: 10px 0; font-size: 0.95em;"
     )
+  )
+}
+
+#' Build a styled "how it works" / purpose info callout
+#'
+#' Shared markup for the teal info box repeated across several tabs (e.g.
+#' `create_coda_tab()`, `create_evs_tab()`) to explain a method or note
+#' something important.
+#'
+#' @param title Heading text shown at the top of the box.
+#' @param ... Further UI content (e.g. `tags$ul()`, `tags$p()`, nested
+#'   `div()`s) shown below the heading.
+#' @return A `shiny::div()`.
+#' @export
+info_box <- function(title, ...) {
+  div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
+    h5(title, style = "margin-top: 0; color: #0c5460;"),
+    ...
+  )
+}
+
+#' Build the "File Selection" column content for a tab
+#'
+#' Returns a `tagList()`, not wrapped in `column()` - callers wrap it in
+#' their own `column(6, ...)` alongside a different second column. The
+#' caller is responsible for namespacing `file_input_id` (i.e. it is
+#' already called as `create_file_selection_column(ns("coda_files"))`,
+#' so this function does not apply its own namespace).
+#'
+#' @param file_input_id Already-namespaced input id for the `fileInput()`.
+#' @param label Label shown above the file picker.
+#' @return A `shiny::tagList()`.
+#' @export
+create_file_selection_column <- function(file_input_id, label = "Select Excel File(s)") {
+  tagList(
+    h4("File Selection"),
+    fileInput(file_input_id, label, multiple = TRUE, accept = c(".xlsx", ".xls")),
+    helpText("Each file's Sheet 1 is read and combined.")
+  )
+}
+
+#' Build a centered primary action button row
+#'
+#' The caller is responsible for namespacing `button_id`.
+#'
+#' @param button_id Already-namespaced input id for the `actionButton()`.
+#' @param label Button label.
+#' @param margin_top CSS `margin-top` for the row (default `"10px"`).
+#' @return A `shiny::fluidRow()`.
+#' @export
+centered_action_button_row <- function(button_id, label, margin_top = "10px") {
+  fluidRow(
+    column(12, style = paste0("text-align: center; margin-top: ", margin_top, ";"),
+      actionButton(button_id, label, class = "btn-primary btn-lg", style = "font-size: 18px;")
+    )
+  )
+}
+
+#' Build X/Y coordinate column selectors
+#'
+#' Returns only the X/Y pair - tabs that need a third selector (e.g. a
+#' grouping or size column) append it separately, since its id/label
+#' differ per tab. The caller is responsible for namespacing `x_id` and
+#' `y_id`.
+#'
+#' @param x_id Already-namespaced input id for the X `selectInput()`.
+#' @param y_id Already-namespaced input id for the Y `selectInput()`.
+#' @param x_label Label for the X selector.
+#' @param y_label Label for the Y selector.
+#' @return A `shiny::tagList()`.
+#' @export
+create_xy_coordinate_selectors <- function(x_id, y_id, x_label = "X coordinate column:", y_label = "Y coordinate column:") {
+  tagList(
+    selectInput(x_id, x_label, choices = NULL),
+    selectInput(y_id, y_label, choices = NULL)
   )
 }

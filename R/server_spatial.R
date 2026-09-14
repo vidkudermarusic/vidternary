@@ -10,10 +10,7 @@
 # library() calls), not via NAMESPACE import()/importFrom() - so an
 # unqualified validate()/need() resolves to whichever of shiny/jsonlite
 # was library()'d most recently (attach order), not necessarily shiny.
-# jsonlite is library()'d after shiny there, so it wins - confirmed
-# empirically while building the Plot Builder tab. (An earlier version of
-# this comment blamed a NAMESPACE `import(jsonlite)` for the masking -
-# NAMESPACE has no blanket import() at all; this is the real mechanism.)
+# jsonlite is library()'d after shiny there, so it wins.
 
 #' Wire up the Spatial Clustering tab's server logic
 #'
@@ -31,27 +28,7 @@
 #' @export
 create_server_spatial <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- reactive({
-    req(input$spatial_files)
-    n_files <- nrow(input$spatial_files)
-    dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input$spatial_files$datapath[i], sheet = 1), error = function(e) NULL)
-      if (is.null(d)) return(NULL)
-      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input$spatial_files$name[i])
-      d
-    })
-    dfs <- Filter(Negate(is.null), dfs)
-    shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
-    if (length(dfs) == 1) return(dfs[[1]])
-    common_cols <- Reduce(intersect, lapply(dfs, names))
-    shiny::validate(shiny::need(length(common_cols) > 0, "The selected files have no columns in common."))
-    do.call(rbind, lapply(dfs, function(d) d[, common_cols, drop = FALSE]))
-  })
-
-  first_match_or_null <- function(x, pattern) {
-    hit <- x[grepl(pattern, x, ignore.case = TRUE)]
-    if (length(hit) == 0) NULL else hit[1]
-  }
+  combined_data <- make_combined_upload_reactive(input, "spatial_files")
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)
@@ -111,24 +88,11 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   spatial_placeholder_msg <- "Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\"."
 
   output$spatial_status <- renderText({
-    # Same fix as server_evs.R's output$evs_status - see that comment for
-    # the full explanation. In short: a plain tryCatch(..., error =
-    # function(e) NULL) catches shiny::validate()'s condition the same way
-    # it catches req()'s, so every validate() failure (bad X/Y column,
-    # etc.) showed this same generic placeholder instead of the specific
-    # message telling the user what to fix. req()'s condition has the same
-    # class but an empty message, which is how the two are told apart below.
-    if (is.null(input$spatial_analyze) || input$spatial_analyze == 0) {
-      return(spatial_placeholder_msg)
-    }
-    tryCatch({
+    render_gated_status(input, "spatial_analyze", spatial_placeholder_msg, function() {
       res <- result()
       ce <- res$ce
       sprintf("n = %d points | R = %.3f | Asymptotic p = %.4f | Monte Carlo p = %.4f (n_sim = %d, %s method)\n%s",
               ce$n, ce$R, ce$p_value_asymptotic, ce$p_value_monte_carlo, ce$n_sim, ce$nn_method, ce$verdict)
-    }, shiny.silent.error = function(e) {
-      if (!nzchar(conditionMessage(e))) return(spatial_placeholder_msg)
-      stop(e)
     })
   })
 
@@ -147,19 +111,14 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   # browser as the <img> width/height attributes, i.e. they ALSO set the
   # literal on-screen CSS display size (confirmed by reading shiny's own
   # drawPlot()/resizeSavedPlot() source: `img$width <- width`, unscaled).
-  # An earlier version of this fix used width=8*150=1200/height=7*150=1050
-  # to get 8x7in at a "nice" 150 DPI - correct for the inches ratio, but
-  # it also told the browser to display the plot at literal 1200x1050 CSS
-  # pixels, wildly oversized next to the ~600px-wide column it sits in.
-  # Fix: anchor on plotOutput's height (must match ui_spatial_tab.R's
+  # Anchor on plotOutput's height (must match ui_spatial_tab.R's
   # plotOutput(..., height=) exactly), derive a width in the *same* 8:7
   # ratio as the download, and set res so width_px/res and height_px/res
   # both equal the download's inches - same physical aspect ratio, at a
-  # sane on-screen pixel size. (517px, up from the original 450px, per a
-  # user request to size these plots up slightly - capped by the actual
-  # rendered width of its column(6) container at a typical desktop
-  # viewport, ~632px measured, minus a safety margin, so the plot doesn't
-  # overflow its column.)
+  # sane on-screen pixel size. (517px, capped by the actual rendered width
+  # of its column(6) container at a typical desktop viewport, ~632px
+  # measured, minus a safety margin, so the plot doesn't overflow its
+  # column.)
   spatial_plot_height_px <- 517
   spatial_plot_dim <- list(
     width = round(spatial_plot_height_px * 8 / 7),
@@ -203,26 +162,15 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   # downloadButtons sit inside a conditionalPanel, so all are clickable
   # before "Analyze Spatial Pattern" is ever pressed). Before that click,
   # result() throws a shiny::validate()/req() condition whose $message is
-  # always "" by design - the same blank-error gap found and fixed in
-  # server_plot_builder.R's output$builder_download (see the vidternary
-  # Structural Audit's Sec.03 for that writeup); confirmed reachable here the
-  # same way, via direct testServer() reproduction against the unmodified
-  # handler. safe_result() gives every handler below a clear, actionable
-  # message for that case, while still surfacing a genuine error's own
-  # text.
-  safe_result <- function() {
-    tryCatch(result(), error = function(e) {
-      if (nzchar(e$message)) {
-        stop("Could not generate this download: ", e$message)
-      }
-      stop("Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\" before downloading.")
-    })
-  }
+  # always "" by design. safe_reactive_result() gives every handler below a
+  # clear, actionable message for that case, while still surfacing a genuine
+  # error's own text.
+  spatial_download_placeholder_msg <- "Upload data, choose X/Y coordinate columns, and click \"Analyze Spatial Pattern\" before downloading."
 
   output$spatial_download_scatter <- downloadHandler(
     filename = function() paste0("spatial_scatter_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      res <- safe_result()
+      res <- safe_reactive_result(function() result(), spatial_download_placeholder_msg)
       ggplot2::ggsave(file, plot = create_spatial_scatter_plot(res$x, res$y, res$color_by, res$color_label), width = 8, height = 7, dpi = 300)
     }
   )
@@ -230,14 +178,14 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   output$spatial_download_histogram <- downloadHandler(
     filename = function() paste0("spatial_nnd_histogram_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_nnd_histogram(safe_result()$ce), width = 8, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_nnd_histogram(safe_reactive_result(function() result(), spatial_download_placeholder_msg)$ce), width = 8, height = 7, dpi = 300)
     }
   )
 
   output$spatial_download_table <- downloadHandler(
     filename = function() paste0("spatial_nnd_values_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
-      res <- safe_result()
+      res <- safe_reactive_result(function() result(), spatial_download_placeholder_msg)
       df <- data.frame(x = res$x, y = res$y, nearest_neighbor_distance = res$ce$nnd)
       writexl::write_xlsx(df, file)
     }

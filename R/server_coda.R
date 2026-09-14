@@ -4,17 +4,9 @@
 # (combined-data reactive, column-choice observer, eventReactive for the
 # transform+PCA).
 #
-# NOTE: shiny::validate()/shiny::need() must be fully qualified in this
-# package - jsonlite also exports its own validate() (a JSON schema
-# validator), and this package attaches its dependencies at app-launch
-# time via dependencies.R's initialize_packages() (a sequence of
-# library() calls), not via NAMESPACE import()/importFrom() - so an
-# unqualified validate()/need() resolves to whichever of shiny/jsonlite
-# was library()'d most recently (attach order), not necessarily shiny.
-# jsonlite is library()'d after shiny there, so it wins - confirmed
-# empirically while building the Plot Builder tab. (An earlier version of
-# this comment blamed a NAMESPACE `import(jsonlite)` for the masking -
-# NAMESPACE has no blanket import() at all; this is the real mechanism.)
+# NOTE: shiny::validate()/need() must stay fully qualified here - see
+# server_spatial.R header comment for why (jsonlite also exports
+# validate(), and it wins by library() attach order).
 
 #' Wire up the Compositional Analysis tab's server logic
 #'
@@ -33,22 +25,7 @@
 #' @export
 create_server_coda <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- reactive({
-    req(input$coda_files)
-    n_files <- nrow(input$coda_files)
-    dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input$coda_files$datapath[i], sheet = 1), error = function(e) NULL)
-      if (is.null(d)) return(NULL)
-      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input$coda_files$name[i])
-      d
-    })
-    dfs <- Filter(Negate(is.null), dfs)
-    shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
-    if (length(dfs) == 1) return(dfs[[1]])
-    common_cols <- Reduce(intersect, lapply(dfs, names))
-    shiny::validate(shiny::need(length(common_cols) > 0, "The selected files have no columns in common."))
-    do.call(rbind, lapply(dfs, function(d) d[, common_cols, drop = FALSE]))
-  })
+  combined_data <- make_combined_upload_reactive(input, "coda_files")
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)
@@ -86,25 +63,19 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
 
   coda_placeholder_msg <- "Upload data, select 3 or more compositional (Wt%) columns, and click \"Transform & Run PCA\"."
 
+  # Same fix as server_evs.R's output$evs_status - see that comment for the
+  # full explanation. In short: a plain tryCatch(..., error = function(e)
+  # NULL) catches shiny::validate()'s condition the same way it catches
+  # req()'s, so every validate() failure (too few parts, missing columns,
+  # not enough complete rows, etc.) showed this same generic placeholder
+  # instead of the specific message telling the user what to fix. req()'s
+  # condition has the same class but an empty message, which is how the two
+  # are told apart inside render_gated_status().
   output$coda_status <- renderText({
-    # Same fix as server_evs.R's output$evs_status - see that comment for
-    # the full explanation. In short: a plain tryCatch(..., error =
-    # function(e) NULL) catches shiny::validate()'s condition the same way
-    # it catches req()'s, so every validate() failure (too few parts,
-    # missing columns, not enough complete rows, etc.) showed this same
-    # generic placeholder instead of the specific message telling the user
-    # what to fix. req()'s condition has the same class but an empty
-    # message, which is how the two are told apart below.
-    if (is.null(input$coda_run) || input$coda_run == 0) {
-      return(coda_placeholder_msg)
-    }
-    tryCatch({
+    render_gated_status(input, "coda_run", coda_placeholder_msg, function() {
       res <- result()
       sprintf("PCA complete: n = %d complete rows, %d parts. PC1+PC2 explain %.1f%% of the (Aitchison) variance.",
               res$n, length(res$parts), sum(res$pca$var_explained[1:2]))
-    }, shiny.silent.error = function(e) {
-      if (!nzchar(conditionMessage(e))) return(coda_placeholder_msg)
-      stop(e)
     })
   })
 
@@ -116,12 +87,11 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
   # on-screen size (they also set the browser's literal display size, not
   # just the internal device resolution) - height must match
   # ui_coda_tab.R's plotOutput(..., height=) exactly; width is derived
-  # from the same 9:7 ratio as the download. (480px, up from the
-  # original 450px, per a user request to size these plots up slightly -
-  # capped by the actual rendered width of its column(6) container at a
-  # typical desktop viewport, ~632px measured, minus a safety margin; the
-  # 9:7 ratio in a half-width column leaves less headroom than the other
-  # 3 tabs, so this one grows less.)
+  # from the same 9:7 ratio as the download. (480px - capped by the
+  # actual rendered width of its column(6) container at a typical desktop
+  # viewport, ~632px measured, minus a safety margin; the 9:7 ratio in a
+  # half-width column leaves less headroom than the other 3 tabs, so this
+  # one grows less.)
   coda_plot_height_px <- 480
   coda_plot_width_px <- round(coda_plot_height_px * 9 / 7)
   coda_plot_res <- coda_plot_height_px / 7
@@ -161,42 +131,32 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
   # conditionalPanel, so all are clickable before "Transform & Run PCA" is
   # ever pressed). Before that click, result() throws a
   # shiny::validate()/req() condition whose $message is always "" by
-  # design - the same blank-error gap found and fixed in
-  # server_plot_builder.R's output$builder_download (see the vidternary
-  # Structural Audit's Sec.03 for that writeup); confirmed reachable here the
-  # same way, via direct testServer() reproduction against the unmodified
-  # handler. safe_result() gives every handler below a clear, actionable
-  # message for that case, while still surfacing a genuine error's own text.
-  safe_result <- function() {
-    tryCatch(result(), error = function(e) {
-      if (nzchar(e$message)) {
-        stop("Could not generate this download: ", e$message)
-      }
-      stop("Select at least 3 compositional parts and click \"Transform & Run PCA\" before downloading.")
-    })
-  }
+  # design. safe_reactive_result() gives every handler below a clear,
+  # actionable message for that case, while still surfacing a genuine
+  # error's own text.
+  coda_download_placeholder_msg <- "Select at least 3 compositional parts and click \"Transform & Run PCA\" before downloading."
 
   output$coda_download_clr <- downloadHandler(
     filename = function() paste0("coda_clr_transformed_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
-    content = function(file) writexl::write_xlsx(safe_result()$clr, file)
+    content = function(file) writexl::write_xlsx(safe_reactive_result(function() result(), coda_download_placeholder_msg)$clr, file)
   )
 
   output$coda_download_ilr <- downloadHandler(
     filename = function() paste0("coda_ilr_transformed_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
-    content = function(file) writexl::write_xlsx(safe_result()$ilr, file)
+    content = function(file) writexl::write_xlsx(safe_reactive_result(function() result(), coda_download_placeholder_msg)$ilr, file)
   )
 
   output$coda_download_biplot <- downloadHandler(
     filename = function() paste0("coda_biplot_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_coda_biplot(safe_result()$pca), width = 9, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_coda_biplot(safe_reactive_result(function() result(), coda_download_placeholder_msg)$pca), width = 9, height = 7, dpi = 300)
     }
   )
 
   output$coda_download_biplot_ilr <- downloadHandler(
     filename = function() paste0("coda_biplot_ilr_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      ggplot2::ggsave(file, plot = create_coda_biplot(safe_result()$pca_ilr), width = 9, height = 7, dpi = 300)
+      ggplot2::ggsave(file, plot = create_coda_biplot(safe_reactive_result(function() result(), coda_download_placeholder_msg)$pca_ilr), width = 9, height = 7, dpi = 300)
     }
   )
 

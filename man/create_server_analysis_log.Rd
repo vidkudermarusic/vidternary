@@ -38,10 +38,5 @@ Registers the "Clear Log" handler, the level/search filtering
 \code{filtered_log_entries()} helper so the on-screen display and "Export
 Log" can never disagree about which entries are shown), the on-screen
 log display (\code{output$analysis_log}), the filtered entry-count summary
-(\code{output$log_stats}), and the "Export Log" download handler. There used
-to also be a separate "Save Log to File" button that wrote the same
-entries to a pre-chosen server-side folder - removed as a fully
-redundant duplicate of "Export Log" (see the vidternary Structural
-Audit's Sec.03), not converted to anything, once the global directory
-picker it depended on went away.
+(\code{output$log_stats}), and the "Export Log" download handler.
 }
