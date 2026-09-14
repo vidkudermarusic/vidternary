@@ -75,9 +75,5 @@ is active, and re-filters \code{M} to the kept rows. Skips silently (leaving
 computation error (e.g. too few usable rows/columns) is also caught and
 left as an unfiltered \code{M}, with a console message - only the two
 mandatory-column-selection checks below raise a real, propagating error.
-Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own function because
-it's the most self-contained of that function's remaining
-responsibilities (per the vidternary Structural Audit's Sec.04
-responsibility table) - its only real outputs are \code{M}, \code{mahal_result},
-and \code{iso_result}.
+Its only real outputs are \code{M}, \code{mahal_result}, and \code{iso_result}.
 }

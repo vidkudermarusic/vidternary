@@ -250,9 +250,8 @@ general_ternary_plot <- function(
     is_categorical_group = is_categorical_group
   )
 
-  # Always draw to whatever device is currently active - this matches the
-  # original code, which drew once unconditionally before separately opening
-  # a file device for save mode.
+  # Always draw to whatever device is currently active, regardless of
+  # preview/save mode.
   render_ternary_plot_preview(pd)
 
   if (!preview && !is.null(output_dir)) {

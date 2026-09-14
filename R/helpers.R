@@ -22,12 +22,8 @@
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 # Debug Mode Control
-# Set this to TRUE to enable debug output. Programmatic only - there used to
-# be an "Enable Debug Mode" UI checkbox, but it never actually flipped this
-# option (input$debug_mode was never read anywhere), so it was removed
-# rather than wired up; toggle this by calling
-# options(ternary.debug = TRUE) directly in an R console before launching
-# the app.
+# Programmatic only: toggle by calling options(ternary.debug = TRUE)
+# directly in an R console before launching the app.
 options(ternary.debug = FALSE)
 
 #' Print a debug message when debug mode is enabled
@@ -51,29 +47,21 @@ debug_log <- function(message, ...) {
 # log_operation() is defined at package top level but is called from deep
 # inside every create_server_*() factory function, where `rv` is a local
 # parameter - and sometimes from plain helper functions that those
-# observers/renderers call synchronously (e.g. safe_execute()).
-# `rv` is never reachable via plain `exists("rv")` (that resolves through
+# observers/renderers call synchronously (e.g. safe_execute()). `rv` is
+# never reachable via plain `exists("rv")` (that resolves through
 # log_operation's own *lexical* scope - the package namespace - not the
 # caller's). Instead, walk the live call stack: for each active frame,
 # look up `rv` via ordinary (lexical) scoping starting from that frame.
-# A direct call from an observer/renderer finds `rv` immediately (the
-# handler expression is lexically nested inside its create_server_*()
-# closure); a call via an intermediate helper function finds it once the
-# walk reaches that still-executing observer's own frame further up the
-# stack. Every access is wrapped in shiny::isolate() - reading a
-# reactiveValues field from an *active* reactive context (e.g. the
-# observer that ends up calling log_operation()) registers a read
-# dependency for that context; the subsequent write to the same field
-# would then invalidate that same context, which re-runs, calls
-# log_operation() again, and so on - a self-sustaining infinite reactive
-# loop (this was hit and confirmed during development: a call site that
-# errors on every invocation produced 10000+ log_operation() calls in
-# seconds). isolate() suppresses dependency registration for whichever
-# context happens to be calling log_operation(), while the write still
-# correctly invalidates unrelated, already-subscribed consumers (e.g. the
-# Analysis Log tab's own display). Also guarded with tryCatch since
-# log_operation() is sometimes called from non-reactive contexts, where
-# reactiveValues access throws outright.
+# Every access is wrapped in shiny::isolate() - reading a reactiveValues
+# field from an *active* reactive context registers a read dependency for
+# that context, and the subsequent write to the same field would then
+# invalidate that same context, re-running it and calling log_operation()
+# again in a self-sustaining infinite reactive loop. isolate() suppresses
+# dependency registration for whichever context happens to be calling
+# log_operation(), while the write still correctly invalidates unrelated,
+# already-subscribed consumers (e.g. the Analysis Log tab's own display).
+# Also guarded with tryCatch since log_operation() is sometimes called
+# from non-reactive contexts, where reactiveValues access throws outright.
 #' Record a structured log entry, and print it to the console
 #'
 #' Appends to the calling Shiny session's `rv$analysis_log` (found by
@@ -166,25 +154,6 @@ show_message <- function(message, type = "info") {
   cat(sprintf("[%s] %s: %s\n", timestamp, toupper(type), message))
 }
 
-# create_multi_line_title()/preview_title_layout()/calculate_plot_dimensions()
-# used to live here too - all three dead code, none exported, confirmed via
-# a full-tree grep to have zero real callers anywhere. Each shared its name
-# with a completely different, actually-used implementation: ternary_plot_
-# data_prep.R's prepare_ternary_plot_data() defines its own local
-# preview_title_layout() (deliberately kept separate and passed as
-# build_ternary_plot_title()'s title_layout_fn callback - see that
-# function's own roxygen for why) and its own local calculate_plot_
-# dimensions() (base 1200x1400px, grows *height* per extra title line -
-# genuinely used, passed through as pd$calculate_plot_dimensions() and
-# called for real by ternary_plot_save.R) - both bearing no resemblance to
-# these top-level versions (base 10x8in, grows *width* past 50 characters).
-# create_multi_line_title() itself had no independent caller of its own -
-# only these other two dead functions ever called it - so it cascaded into
-# the same removal once they were gone, rather than being left behind as
-# an orphan of an orphan. Same class of leftover-from-an-incomplete-
-# refactor as the dead apply_individual_filters() found and removed
-# elsewhere in this audit.
-
 # Function to generate distinct colors for categorical groups
 generate_distinct_colors <- function(n_groups) {
   if (n_groups <= 0) return(character(0))
@@ -248,6 +217,95 @@ create_group_legend <- function(groups, colors, counts) {
          cex = 0.6,
          ncol = 2, # 2 columns
          y.intersp = 0.8)
+}
+
+#' Build a combined-upload reactive for a multi-file `fileInput`
+#'
+#' Reads every row of `input[[file_input_id]]` via
+#' `openxlsx::read.xlsx(sheet = 1)`, drops files that failed to read, tags a
+#' `source_file` column (from each file's own name, via
+#' `tools::file_path_sans_ext()`) when more than one file was read, and - if
+#' more than one data frame remains - row-binds them on their common columns.
+#'
+#' @param input The Shiny `input` object.
+#' @param file_input_id Character; the `fileInput` id to read from.
+#' @return A `shiny::reactive({...})` yielding the combined data frame.
+#' @export
+make_combined_upload_reactive <- function(input, file_input_id) {
+  shiny::reactive({
+    req(input[[file_input_id]])
+    n_files <- nrow(input[[file_input_id]])
+    dfs <- lapply(seq_len(n_files), function(i) {
+      d <- tryCatch(openxlsx::read.xlsx(input[[file_input_id]]$datapath[i], sheet = 1), error = function(e) NULL)
+      if (is.null(d)) return(NULL)
+      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input[[file_input_id]]$name[i])
+      d
+    })
+    dfs <- Filter(Negate(is.null), dfs)
+    shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
+    if (length(dfs) == 1) return(dfs[[1]])
+    common_cols <- Reduce(intersect, lapply(dfs, names))
+    shiny::validate(shiny::need(length(common_cols) > 0, "The selected files have no columns in common."))
+    do.call(rbind, lapply(dfs, function(d) d[, common_cols, drop = FALSE]))
+  })
+}
+
+#' Safely invoke a reactive for a download handler
+#'
+#' Calls `reactive_thunk()` fresh (so callers pass a zero-arg closure like
+#' `function() result()` rather than an already-evaluated value), converting
+#' any error into a download-friendly message: a non-empty error message is
+#' prefixed with "Could not generate this download: "; an empty one (e.g.
+#' from `req()`/`shiny::validate()`) is replaced with `placeholder_msg`.
+#'
+#' @param reactive_thunk Zero-arg function that invokes the underlying reactive.
+#' @param placeholder_msg Message to use when the underlying error has no text.
+#' @return Whatever `reactive_thunk()` returns, on success.
+#' @export
+safe_reactive_result <- function(reactive_thunk, placeholder_msg) {
+  tryCatch(reactive_thunk(), error = function(e) {
+    if (nzchar(e$message)) {
+      stop("Could not generate this download: ", e$message)
+    }
+    stop(placeholder_msg)
+  })
+}
+
+#' Render a gated status message from inside a `renderText()` block
+#'
+#' Returns `placeholder_msg` until `input[[button_id]]` has been clicked;
+#' after that, calls `build_message_fn()` and returns its result, mapping an
+#' empty-message `shiny.silent.error` (from `req()`/`shiny::validate()`) back
+#' to `placeholder_msg` while re-throwing any other error so Shiny's own
+#' output machinery can display it.
+#'
+#' @param input The Shiny `input` object.
+#' @param button_id Character; id of the gating `actionButton`.
+#' @param placeholder_msg Message to show before the button is clicked, or on an empty-message error.
+#' @param build_message_fn Zero-arg function that computes and returns the real status message string.
+#' @return Character status message.
+#' @export
+render_gated_status <- function(input, button_id, placeholder_msg, build_message_fn) {
+  if (is.null(input[[button_id]]) || input[[button_id]] == 0) {
+    return(placeholder_msg)
+  }
+  tryCatch({
+    build_message_fn()
+  }, shiny.silent.error = function(e) {
+    if (!nzchar(conditionMessage(e))) return(placeholder_msg)
+    stop(e)
+  })
+}
+
+#' Return the first element matching a pattern, or `NULL`
+#'
+#' @param x Character vector to search.
+#' @param pattern Regex pattern, matched case-insensitively.
+#' @return The first matching element of `x`, or `NULL` if none match.
+#' @export
+first_match_or_null <- function(x, pattern) {
+  hit <- x[grepl(pattern, x, ignore.case = TRUE)]
+  if (length(hit) == 0) NULL else hit[1]
 }
 
 # Note: Functions are exported via NAMESPACE file

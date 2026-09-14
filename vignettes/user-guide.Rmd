@@ -124,7 +124,7 @@ multivariate outlier method.
 4. Optionally set Param 1 (point size or shape) and Param 2 (point color +
    palette). If Param 2 is a categorical column, a checklist of its
    categories appears with sample counts, letting you show/hide groups.
-5. Under "🔧 Multivariate Analysis", pick **two or more numeric columns** in
+5. Under "Multivariate Analysis", pick **two or more numeric columns** in
    the Universal Column Selector. This selection feeds both the
    multivariate methods and the statistical filters below it.
 6. Tick **at most one** of Mahalanobis / Isolation Forest / IQR / Z-score /
@@ -141,7 +141,7 @@ filters - no button needed for previewing, only for saving.
 - IQR/Z-score/MAD are *not* per-element: they run on the Universal Column
   Selector set and flag a row if **any** of those columns is an outlier
   (positive/high-value side only).
-- "📋 Copy Settings from Dataset 1" copies every element/filter/palette/
+- "Copy Settings from Dataset 1" copies every element/filter/palette/
   filter-method choice to Dataset 2 in one click - handy once you've tuned
   Dataset 1 and want a matching Dataset 2 plot.
 - Changing which columns are selected for an element rebuilds that

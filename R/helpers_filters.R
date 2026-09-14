@@ -101,19 +101,9 @@ apply_filter <- function(df, col, filter) {
   stop("Invalid filter format. Use operators: >, <, >=, <=, ==, !=")
 }
 
-# An apply_individual_filters() used to live here too, but it was dead code:
-# prepare_ternary_plot_data() (ternary_plot_data_prep.R) defines its own
-# apply_individual_filters() as a *local* function, which - by ordinary R
-# lexical scoping - always shadowed this top-level one for the only real
-# call sites in the app (the element A/B/C filtering calls in that same
-# function). The two had drifted into completely different implementations
-# (this one treated `individual_filters` as a flat list of filter strings
-# keyed by column name and never read `element` at all; the local one reads
-# `element$col`/`element$filter`, handles single- vs. multi-column elements,
-# and calls parse_filter_condition() instead of apply_filter()) - a leftover
-# from an incomplete attempt to centralize the function here, confirmed to
-# have zero real callers anywhere in the package, and removed. See
-# prepare_ternary_plot_data()'s own comment for the real implementation.
+# The real apply_individual_filters() implementation is a local function
+# inside prepare_ternary_plot_data() (ternary_plot_data_prep.R) - see that
+# function's own comment.
 
 #' Build the full parameter list for `general_ternary_plot()` from Shiny inputs
 #'
@@ -379,25 +369,17 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   # length(optional_param2$col) == 1 is required here, not optional: in
   # multiple_mode, optional_param2$col is input$multiple_optional_param2, a
   # selectizeInput(multiple = TRUE) (ui_multiple_ternary_tab.R), so it can
-  # be a length->1 character vector whenever 2+ columns are picked. Without
-  # this guard, a multi-column selection hits two separate crashes below:
-  # `optional_param2$col %in% names(data)` returns a same-length vector,
-  # and `&&` on a vector is a hard error on R >= 4.3.0 (see the identical
-  # multiple_optional_param1/2 fix above in this same function); even past
-  # that, `data[[optional_param2$col]]` itself requires a length-1 index
-  # and errors on a vector regardless of R version. This exact reachable-
-  # in-principle case is currently dormant rather than live - the only
-  # multiple_mode = TRUE caller (server_ternary_plots_batch.R) always
-  # passes a temp_rv with no df<n> set, so `!is.null(data)` below is always
-  # FALSE and short-circuits before either crash could fire - but a future
-  # refactor that populates rv$df<n> in that path (exactly the kind of
-  # change that already happened once when batch mode was split out) would
-  # make it live. A multi-column Optional Parameter 2 was never meant to
-  # drive categorical detection anyway (ternary_plot_preview.R/
-  # ternary_plot_save.R's own "Aspect.Ratio" numeric-legend check uses the
-  # identical length-1 guard for the same reason), so skipping this
-  # safety check entirely for a multi-column selection is correct, not
-  # just crash-avoidant.
+  # be a length > 1 character vector whenever 2+ columns are picked.
+  # Without this guard, a multi-column selection would crash two ways
+  # below: `optional_param2$col %in% names(data)` returns a same-length
+  # vector, and `&&` on a vector is a hard error on R >= 4.3.0; even past
+  # that, `data[[optional_param2$col]]` requires a length-1 index and
+  # errors on a vector regardless of R version. A multi-column Optional
+  # Parameter 2 was never meant to drive categorical detection anyway
+  # (ternary_plot_preview.R/ternary_plot_save.R's own "Aspect.Ratio"
+  # numeric-legend check uses the identical length-1 guard for the same
+  # reason), so skipping this safety check entirely for a multi-column
+  # selection is intentional, not just crash-avoidant.
   if (!is_categorical_group && !is.null(optional_param2) &&
       length(optional_param2$col) == 1 && !is.null(xlsx_file)) {
     # Check if the data is actually categorical even if not detected as such
@@ -430,11 +412,10 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     xlsx_display_name = NULL,
     # working_dir just needs *a* real directory to setwd() into/back from
     # for relative-path resolution - getwd() always works and nothing
-    # meaningful depends on it being user-chosen (confirmed by grep before
-    # removing the old Working Directory picker - see the vidternary
-    # Structural Audit's Sec.03). output_dir stays NULL (no save) until a
-    # real save path overrides it with a fresh temp directory right before
-    # calling general_ternary_plot() - see this function's own @return doc.
+    # meaningful depends on it being user-chosen. output_dir stays NULL
+    # (no save) until a real save path overrides it with a fresh temp
+    # directory right before calling general_ternary_plot() - see this
+    # function's own @return doc.
     working_dir = getwd(),
     output_dir = NULL,
     element_A = element_A,

@@ -31,8 +31,6 @@ A data frame: Sheet 1 of \code{xlsx_file}, unfiltered.
 \description{
 The very first thing \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} does: reads Sheet 1
 of \code{xlsx_file}, then validates the element/output-format inputs before
-any filtering or coordinate computation is attempted. Extracted as its
-own function because it carries no shared mutable state with the rest
-of \code{prepare_ternary_plot_data()} (per the vidternary Structural Audit's
-Sec.04 responsibility table) - its only output is the loaded data frame.
+any filtering or coordinate computation is attempted. Its only output
+is the loaded data frame.
 }

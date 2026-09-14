@@ -19,12 +19,9 @@ what's now really on disk, not just its own one change.
 \description{
 \code{PLOT_BUILDER_PRESETS_FILE} is one bare path shared by every Shiny
 session in the same R process; each session's own \code{rv$plot_presets} is
-loaded once at server-creation time and never refreshed, so a save or
-delete that writes \code{rv$plot_presets} wholesale (the previous behavior)
-silently discarded any preset a \emph{different} session had saved in the
-meantime - reachable any time two sessions are open across the same
-process, not only under a genuine same-instant write. Re-reading the
-file immediately before writing narrows the unsafe window down to an
-actual simultaneous write, which a single shared JSON file for a
-local-first Shiny app doesn't warrant real file locking to close.
+loaded once at server-creation time and never refreshed. Re-reading the
+file immediately before writing keeps a save from clobbering a preset a
+\emph{different} session wrote in the meantime - narrow enough that a single
+shared JSON file for a local-first Shiny app doesn't warrant real file
+locking on top of it.
 }

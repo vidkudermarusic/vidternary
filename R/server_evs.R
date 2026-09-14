@@ -4,17 +4,9 @@
 # multi-file read/combine; column-choice observer mirrors the pattern in
 # server_plot_types.R.
 #
-# NOTE: shiny::validate()/shiny::need() must be fully qualified in this
-# package - jsonlite also exports its own validate() (a JSON schema
-# validator), and this package attaches its dependencies at app-launch
-# time via dependencies.R's initialize_packages() (a sequence of
-# library() calls), not via NAMESPACE import()/importFrom() - so an
-# unqualified validate()/need() resolves to whichever of shiny/jsonlite
-# was library()'d most recently (attach order), not necessarily shiny.
-# jsonlite is library()'d after shiny there, so it wins - confirmed
-# empirically while building the Plot Builder tab. (An earlier version of
-# this comment blamed a NAMESPACE `import(jsonlite)` for the masking -
-# NAMESPACE has no blanket import() at all; this is the real mechanism.)
+# NOTE: shiny::validate()/need() must stay fully qualified here - see
+# server_spatial.R header comment for why (jsonlite also exports
+# validate(), and it wins by library() attach order).
 
 #' Wire up the Extreme Value Analysis tab's server logic
 #'
@@ -33,27 +25,7 @@
 #' @export
 create_server_evs <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- reactive({
-    req(input$evs_files)
-    n_files <- nrow(input$evs_files)
-    dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input$evs_files$datapath[i], sheet = 1), error = function(e) NULL)
-      if (is.null(d)) return(NULL)
-      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input$evs_files$name[i])
-      d
-    })
-    dfs <- Filter(Negate(is.null), dfs)
-    shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
-    if (length(dfs) == 1) return(dfs[[1]])
-    common_cols <- Reduce(intersect, lapply(dfs, names))
-    shiny::validate(shiny::need(length(common_cols) > 0, "The selected files have no columns in common."))
-    do.call(rbind, lapply(dfs, function(d) d[, common_cols, drop = FALSE]))
-  })
-
-  first_match_or_null <- function(x, pattern) {
-    hit <- x[grepl(pattern, x, ignore.case = TRUE)]
-    if (length(hit) == 0) NULL else hit[1]
-  }
+  combined_data <- make_combined_upload_reactive(input, "evs_files")
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)
@@ -91,15 +63,12 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     req(input$evs_area_col)
     shiny::validate(shiny::need(input$evs_area_col %in% names(d), "Select a valid area column."))
 
-    # A genuine per-field / per-frame ID column is mandatory. The former
-    # "split into N equal groups" fallback (cut(seq_len(nrow(d)), ...)) was
-    # removed: chunking a flat row list by position is not a set of ASTM
-    # control areas - it depends on the sheet's sort order, and it forces
-    # equal inclusion COUNTS when control areas are defined by equal
-    # inspected AREA (a field with more inclusions legitimately has a larger
-    # block maximum). With no valid grouping there is no valid EVS fit, so
-    # this now hard-stops with an actionable message instead of silently
-    # producing a sort-order-dependent number.
+    # A genuine per-field / per-frame ID column is mandatory: ASTM control
+    # areas are defined by equal inspected AREA, not equal inclusion COUNTS
+    # (a field with more inclusions legitimately has a larger block
+    # maximum), so grouping by row position is not valid. With no valid
+    # grouping there is no valid EVS fit, so this hard-stops with an
+    # actionable message.
     shiny::validate(shiny::need(!is.null(input$evs_group_col) && input$evs_group_col %in% names(d),
                                  "Select the field / frame ID column that identifies which SEM field each inclusion came from. EVS needs genuine per-field grouping and cannot run without it."))
     group_col <- input$evs_group_col
@@ -130,11 +99,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     # condition that Shiny's own output-rendering machinery is specially
     # built to catch and display as a distinct "please fix this input"
     # message - but only if this render function doesn't itself catch and
-    # discard the error first. The old code caught every error the same
-    # way (as NULL), so every validate() failure - wrong area column,
-    # missing field/frame ID column, etc. - showed this same generic
-    # "Upload data..." text instead of the specific message telling the
-    # user what to fix.
+    # discard the error first.
     #
     # The "not yet fitted" case is handled up front by checking whether
     # the button has been clicked, rather than by catching fit_result()'s
@@ -144,18 +109,14 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     # column. That path fails via req() rather than validate() - req()
     # throws this exact same condition class, by design, as a *silent*
     # stop with an EMPTY message (there's nothing to tell the user beyond
-    # "you're not ready yet"). tryCatch()ing specifically for that class
-    # lets us tell the two apart: an empty message falls back to the
-    # placeholder, while a real validate() message is re-thrown unchanged
-    # so Shiny's own machinery still gets to display it (preserving its
-    # distinct validation-error styling) - only its handling for that one
-    # empty-message case is short-circuited. A genuine (non-validation)
-    # error is a different condition class entirely and is untouched by
-    # this handler, so it still propagates and displays as a real error.
-    if (is.null(input$evs_fit) || input$evs_fit == 0) {
-      return(evs_placeholder_msg)
-    }
-    tryCatch({
+    # "you're not ready yet"). render_gated_status() (R/helpers.R) tells
+    # the two apart: an empty message falls back to the placeholder, while
+    # a real validate() message is re-thrown unchanged so Shiny's own
+    # machinery still gets to display it (preserving its distinct
+    # validation-error styling). A genuine (non-validation) error is a
+    # different condition class entirely and is untouched by that
+    # handling, so it still propagates and displays as a real error.
+    render_gated_status(input, "evs_fit", evs_placeholder_msg, function() {
       fit <- fit_result()
       base_msg <- sprintf("Fit successful: n = %d control areas, R2 = %.3f, intercept a = %.3f, slope b = %.3f",
                            fit$n, fit$r_squared, fit$intercept, fit$slope)
@@ -168,9 +129,6 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
                 fit$gof$statistic, fit$gof$p_value_bracket)
       }
       paste(base_msg, gof_msg, sep = "\n")
-    }, shiny.silent.error = function(e) {
-      if (!nzchar(conditionMessage(e))) return(evs_placeholder_msg)
-      stop(e)
     })
   })
 
@@ -200,10 +158,9 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
   # on-screen size (they also set the browser's literal display size, not
   # just the internal device resolution) - height must match
   # ui_evs_tab.R's plotOutput(..., height=) exactly; width is derived
-  # from the same 10:7 ratio as the download. (575px, up from the
-  # original 500px, per a user request to size these plots up slightly -
-  # capped by the actual rendered width of its column(8) container at a
-  # typical desktop viewport, ~843px measured, minus a safety margin.)
+  # from the same 10:7 ratio as the download. (575px, capped by the actual
+  # rendered width of its column(8) container at a typical desktop
+  # viewport, ~843px measured, minus a safety margin.)
   evs_plot_height_px <- 575
   output$evs_plot <- renderPlot({
     fit <- fit_result()
@@ -246,26 +203,15 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
   # conditionalPanel, so both are clickable before "Fit Extreme Value
   # Model" is ever pressed). Before that click, fit_result() throws a
   # shiny::validate()/req() condition whose $message is always "" by
-  # design - the same blank-error gap found and fixed in
-  # server_plot_builder.R's output$builder_download (see the vidternary
-  # Structural Audit's Sec.03 for that writeup); confirmed reachable here the
-  # same way, via direct testServer() reproduction against the unmodified
-  # handler. safe_fit_result() gives both handlers below a clear,
-  # actionable message for that case, while still surfacing a genuine
-  # error's own text.
-  safe_fit_result <- function() {
-    tryCatch(fit_result(), error = function(e) {
-      if (nzchar(e$message)) {
-        stop("Could not generate this download: ", e$message)
-      }
-      stop("Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\" before downloading.")
-    })
-  }
+  # design. safe_reactive_result() (R/helpers.R) gives both handlers below
+  # a clear, actionable message for that case, while still surfacing a
+  # genuine error's own text.
+  evs_download_placeholder_msg <- "Upload data, choose the area and grouping columns, and click \"Fit Extreme Value Model\" before downloading."
 
   output$evs_download_plot <- downloadHandler(
     filename = function() paste0("evs_gumbel_plot_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      fit <- safe_fit_result()
+      fit <- safe_reactive_result(function() fit_result(), evs_download_placeholder_msg)
       ggplot2::ggsave(file, plot = create_gumbel_plot(fit, prediction()), width = 10, height = 7, dpi = 300)
     }
   )
@@ -273,7 +219,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
   output$evs_download_table <- downloadHandler(
     filename = function() paste0("evs_block_maxima_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
-      writexl::write_xlsx(safe_fit_result()$block_maxima, file)
+      writexl::write_xlsx(safe_reactive_result(function() fit_result(), evs_download_placeholder_msg)$block_maxima, file)
     }
   )
 

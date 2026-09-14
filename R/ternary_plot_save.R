@@ -46,10 +46,9 @@ save_ternary_plot_to_file <- function(pd) {
       tiff(filename, width = plot_dims$width, height = plot_dims$height, res = 200, compression = "lzw")
     }
     # Guarantee the device is closed even if an error occurs anywhere below
-    # (a bad legend call, non-finite data, etc.) - previously only the
-    # dev.off() at the very end of this function closed it, so any error in
-    # between left the device open for the lifetime of the R process, and
-    # R has a hard cap on simultaneously open devices.
+    # (a bad legend call, non-finite data, etc.) - R has a hard cap on
+    # simultaneously open devices, so a device left open on error would
+    # eventually exhaust it.
     on.exit(dev.off(), add = TRUE)
 
     # Set outer margins to prevent clipping of multi-line titles and notes -
@@ -183,22 +182,10 @@ save_ternary_plot_to_file <- function(pd) {
         # Categorical group legend for file save
         create_group_legend(unique_groups, group_colors, group_counts)
       } else if (length(optional_param2$col) == 1) {
-        # Numeric data legend. Was: a fresh, evenly-spaced min-to-max
-        # relabeling (seq(range[1], range[2], length.out = 6)) drawn next
-        # to a freshly-recomputed, always-length-5 color ramp - neither
-        # matches what compute_point_styling() actually used to color the
-        # points (quantile-binned breaks, and a palette sized to the real
-        # bin count after unique() dedup, which can be under 5). On the
-        # right-skewed wt%/ECD/area data this app filters the two binnings
-        # diverge substantially, so a swatch's printed range didn't
-        # correspond to the values that actually received that color - and
-        # in the degenerate case (too little variation for 5 unique
-        # breaks), 5 swatches were still shown for what was really 1 color
-        # (vidternary Structural Audit, "Optional Parameter 2's numeric
-        # color legend..." finding). Fixed by reusing param2_colors/
-        # param2_breaks directly - the exact objects compute_point_styling()
-        # already computed and used for the real points - instead of
-        # re-deriving either one here.
+        # Numeric data legend: reuses param2_colors/param2_breaks directly -
+        # the exact objects compute_point_styling() already computed and
+        # used to color the real points - instead of re-deriving either one
+        # here, so the legend can never diverge from the actual point colors.
         if (optional_param2$col == "Aspect.Ratio") {
           # Aspect.Ratio's bins are the fixed, hardcoded breaks in
           # compute_point_styling() itself (1/1.5/3/5/10/100000), not a

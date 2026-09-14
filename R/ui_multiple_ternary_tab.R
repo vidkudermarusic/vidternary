@@ -18,8 +18,7 @@ create_multiple_ternary_tab <- function(id) {
         helpText("This tool allows you to create ternary plots for multiple Excel files using the same parameters."),
 
         # Purpose and limitations note
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5(" Purpose & Limitations", style = "margin-top: 0; color: #0c5460;"),
+        info_box(" Purpose & Limitations",
           p("This tool is designed for batch processing of ternary plots with consistent parameters:", style = "margin: 5px 0; color: #0c5460;"),
           tags$ul(
             tags$li("Focus: Element selection, optional parameters, and individual element filters"),
@@ -75,16 +74,9 @@ create_multiple_ternary_tab <- function(id) {
                   # Single-select (matching the main Ternary Plots tab's own
                   # optional_param1_1/_2, which use plain selectInput()) -
                   # Optional Parameter 1/2 are a styling dimension (point
-                  # size/type, or color), not a composition axis, and were
-                  # never meant to support the "sum several columns" pattern
-                  # Elements A/B/C legitimately use. This was previously
-                  # `multiple = TRUE`, which let the per-column filter UI
-                  # below silently collapse to one filter misapplied to
-                  # every selected column, and let Optional Parameter 2
-                  # silently color by only its first selected column while
-                  # the legend and title both claimed otherwise - see the
-                  # vidternary Structural Audit's Sec.03 for the full
-                  # writeup of both symptoms and this fix.
+                  # size/type, or color), not a composition axis, and are
+                  # not meant to support the "sum several columns" pattern
+                  # Elements A/B/C legitimately use.
                   selectizeInput(ns("multiple_optional_param1"), "Optional Parameter 1 (Point Size/Type):", choices = NULL, multiple = FALSE),
                   radioButtons(ns("multiple_optional_param1_representation"), "Representation:",
                     choices = c("Point Size" = "point_size", "Point Type" = "point_type"),

@@ -2,14 +2,6 @@
 # Split out of server_ternary_plots.R: detects when Optional Parameter 2
 # holds categorical data and manages the group-selection checklist UI, for
 # both Dataset 1 and Dataset 2.
-#
-# NOTE: prior to this split, generate_analysis_report() (in
-# server_ternary_plots.R) was missing its closing brace, which meant this
-# entire file's worth of code - the group-selection observers/outputs below -
-# was accidentally nested inside that function's body and never executed
-# (create_server_ternary_plots() never reached it). That's fixed as part of
-# this refactor: register_ternary_plots_group_handlers() is now a real,
-# reachable function called from create_server_ternary_plots().
 
 #' Wire up categorical group-selection handling for the "Ternary Plots" tab
 #'
@@ -44,39 +36,18 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
       data <- rv$df1
 
       if (group_column %in% names(data)) {
-        # Check if column is categorical - more robust detection.
-        # !is.numeric(column_data) alone already covers character AND
-        # factor (neither is ever is.numeric() in R), so the previous
-        # is.character(...) || is.factor(...) || (!is.numeric(...) && ...)
-        # form granted UNCAPPED categorical status to any character/factor
-        # column, while only a non-numeric non-character/factor column
-        # (rare in practice) got the <=50-unique-values cap. A text column
-        # that happens to be a per-row identifier (e.g. a Sample_ID/
-        # Batch_Name column with as many distinct values as there are
-        # rows) was unconditionally treated as categorical either way -
-        # not a crash on its own (confirmed directly: a 30-group case
-        # renders correctly), but a 100+-entry group-selection checklist
-        # and color legend is genuinely unwieldy well before then. The
-        # single condition below applies the same 50-unique-values cap
-        # uniformly to every non-numeric type, character/factor included -
-        # matching the identical cap already used for the "other non-
-        # numeric" case, and matching helpers_filters.R's independent
-        # is_categorical_group re-check (see that file's own comment) and
-        # this file's own Dataset 2 handler below, both updated the same
-        # way. A text column that exceeds the cap now falls through to
-        # compute_point_styling()'s numeric-color branch - guarded there
-        # (see that function's own comment) to fail with a clear message
-        # naming the actual problem, rather than crash on quantile() of
-        # text data the way it did before today's earlier fix.
+        # Check if column is categorical: non-numeric with at most 50
+        # unique values. Keep this cap in sync with helpers_filters.R's
+        # independent is_categorical_group check and this file's Dataset 2
+        # handler below. A non-numeric column above the cap falls through
+        # to compute_point_styling()'s numeric-color branch, which fails
+        # with a clear message rather than crashing on non-numeric data.
         column_data <- data[[group_column]]
         is_categorical <- !is.numeric(column_data) && length(unique(column_data)) <= 50
 
         # Debug output - gated the same way as every other DEBUG cat() in
         # this codebase (see e.g. server_ternary_plots.R's preview
-        # renderers); this block and the one below were the sole
-        # exception, printing unconditionally on every optional_param2_1
-        # change, including actual uploaded data values - Dataset 2's
-        # otherwise-identical handler below never had this.
+        # renderers).
         if (getOption("ternary.debug", FALSE)) {
           cat("DEBUG: Group column:", group_column, "\n")
           cat("DEBUG: Column data type:", class(column_data), "\n")
@@ -215,9 +186,8 @@ register_ternary_plots_group_handlers <- function(input, output, session, rv, sh
       data <- rv$df2
 
       if (group_column %in% names(data)) {
-        # Check if column is categorical - more robust detection. Same
-        # uncapped-character/factor fix as Dataset 1's identical handler
-        # above - see that comment for the full reasoning.
+        # Categorical if non-numeric with <=50 unique values - see Dataset
+        # 1's identical handler above for the full reasoning.
         column_data <- data[[group_column]]
         is_categorical <- !is.numeric(column_data) && length(unique(column_data)) <= 50
         rv$is_categorical_group_2 <- is_categorical

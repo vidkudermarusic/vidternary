@@ -46,10 +46,6 @@ validate_mahalanobis_inputs <- function(lambda, omega, custom_mdthresh, mdthresh
     # The automatic threshold formula divides by (100 + lambda - omega) inside
     # a sqrt() - at or below this boundary that denominator is non-positive,
     # so sqrt() silently returns NaN (no R warning) instead of a threshold.
-    # A NaN threshold used to flow through uncaught into `mahal_distances >
-    # MDthresh` as NA for every row, silently splicing phantom all-NA rows
-    # into the plotted/analyzed dataset instead of erroring. Stopped here,
-    # before that can happen, rather than only guarded after the fact.
     if (lambda - omega <= -100) {
       stop("Omega is too large relative to lambda (lambda - omega = ", lambda - omega,
            "). This combination makes the automatic threshold formula undefined - ",
@@ -410,13 +406,9 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     lambda = lambda,
     omega = omega,
     # na.rm = TRUE matches the NA-coercion outlier_indices already gets a
-    # few lines up: an Inf value anywhere in the selected columns (see
-    # validate_multivariate_data(), which now warns rather than crashing
-    # on this - Sec.03) makes mahal_distances contain NA/NaN entries, and a
-    # plain sum() over a logical vector containing NA returns NA itself -
-    # silently turning a real count into a missing value with no error or
-    # warning, unlike outlier_custom right below, which was already
-    # NA-safe via the outlier_indices coercion above.
+    # few lines up: an Inf value anywhere in the selected columns can make
+    # mahal_distances contain NA/NaN entries, and a plain sum() over a
+    # logical vector containing NA returns NA itself instead of a count.
     outlier_95 = sum(mahal_distances > threshold_95, na.rm = TRUE),
     outlier_99 = sum(mahal_distances > threshold_99, na.rm = TRUE),
     outlier_custom = sum(outlier_indices),
@@ -532,14 +524,9 @@ compute_isolation_forest <- function(
   X1 <- data1[, common_cols, drop = FALSE]
   X2 <- data2[, common_cols, drop = FALSE]
 
-  # Selected columns that aren't numeric in either dataset used to be
-  # silently dropped by the "keep only numeric columns" filter below
-  # rather than reported - inconsistent with the Mahalanobis path
-  # (validate_multivariate_data()), which hard-stops with a clear message
-  # naming exactly which selected columns are non-numeric. Matched here so
-  # a user who accidentally selects e.g. a group-label column gets the
-  # same kind of clear error from either multivariate method, instead of a
-  # silent partial computation from one and a hard stop from the other.
+  # Non-numeric selected columns produce a clear stop() here, matching the
+  # Mahalanobis path (validate_multivariate_data()), which hard-stops with
+  # a message naming exactly which selected columns are non-numeric.
   non_numeric <- common_cols[!vapply(X1, is.numeric, logical(1)) | !vapply(X2, is.numeric, logical(1))]
   if (length(non_numeric) > 0) {
     stop("Selected columns are not numeric: ", paste(non_numeric, collapse = ", "))
@@ -556,31 +543,24 @@ compute_isolation_forest <- function(
   nzv <- vapply(X2, function(v) length(unique(na.omit(v))) > 1L, logical(1))
   X1 <- X1[, nzv, drop = FALSE]
   X2 <- X2[, nzv, drop = FALSE]
-  # The column-count check above (line 457) runs before this near-zero-
-  # variance filter, so it can't catch the filter itself dropping columns
-  # below 2 - re-checked here with the same friendly-error convention as
-  # the rest of this function, instead of surfacing a raw isotree error.
+  # The column-count check above runs before this near-zero-variance
+  # filter, so it can't catch the filter itself dropping columns below 2 -
+  # re-checked here with the same friendly-error convention as the rest
+  # of this function, instead of surfacing a raw isotree error.
   if (ncol(X2) < 2L) stop("Too few variables remain after dropping zero-variance columns.")
 
   cc1 <- complete.cases(X1); cc2 <- complete.cases(X2)
   X1c <- X1[cc1, , drop = FALSE]
   X2c <- X2[cc2, , drop = FALSE]
   # Unlike the Mahalanobis path (validate_multivariate_data(), which
-  # enforces a minimum observation count before ever reaching this point),
-  # nothing here checked that any reference rows actually survived the
-  # complete-cases filter - if X2c has 0 rows, sample_size below would
-  # silently become 0 and isotree::isolation.forest() would still be
-  # called, rather than failing with a clear message.
+  # enforces a minimum observation count before reaching this point), the
+  # reference dataset here needs its own explicit check for at least 2
+  # complete rows before isotree::isolation.forest() is called.
   if (nrow(X2c) < 2L) stop("The reference dataset has too few complete rows for the isolation forest (at least 2 are required).")
-  # Mirrors the reference-dataset guard just above: nothing checked that
-  # the TARGET dataset (data1) had any complete rows to actually score -
-  # if X1c has 0 rows, predict(iso_model, X1c, ...) doesn't quietly return
-  # an empty result, it throws a raw, confusing isotree/predict error
-  # ("'newdata' must be a data.frame, matrix, or sparse matrix.") instead
-  # of the clear, friendly message every other invalid-input case in this
-  # function already gets. Unlike the reference (which needs >= 2 rows to
-  # fit a meaningful model), scoring a single complete row against an
-  # already-fitted model is perfectly well-defined, so the floor here is 1.
+  # Mirrors the reference-dataset guard just above, but for the TARGET
+  # dataset (data1): unlike the reference (which needs >= 2 rows to fit a
+  # meaningful model), scoring a single complete row against an
+  # already-fitted model is well-defined, so the floor here is 1 row.
   if (nrow(X1c) < 1L) stop("The target dataset has no complete rows for the isolation forest (the selected columns are missing in every row).")
 
   # 2) Treniranje na referenci
@@ -594,12 +574,7 @@ compute_isolation_forest <- function(
   # isotree::isolation.forest()'s randomness is governed entirely by its
   # OWN internal `seed` argument (own default 1) - confirmed empirically,
   # not assumed: R's set.seed() has zero effect on its output regardless
-  # of what it's set to. An earlier version of this function called
-  # set.seed(seed) here and never passed `seed` through to
-  # isolation.forest() at all, so this function's own `seed` parameter
-  # (documented as controlling reproducibility) was silently dead code -
-  # every real call always ran on isotree's internal default (seed=1)
-  # instead of whatever was actually passed in.
+  # of what it's set to.
   ss <- if (is.null(sample_size)) nrow(X2c) else min(as.integer(sample_size), nrow(X2c))
   iso_model <- isotree::isolation.forest(
     X2c,

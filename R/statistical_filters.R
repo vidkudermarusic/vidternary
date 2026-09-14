@@ -293,28 +293,17 @@ apply_mad_filter <- function(data, cols, threshold = 3, keep_outliers = FALSE, l
   return(filtered_data)
 }
 
-# Note: check_data_quality function is now in helpers.R to avoid duplication
-# Use the version from helpers.R for comprehensive data quality checking
-# Note: calculate_quality_score function is now in helpers.R to avoid duplication
-# Use the version from helpers.R for comprehensive quality scoring
+# Note: check_data_quality() and calculate_quality_score() are in helpers.R.
 
 # Basic statistical functions
 # Note: validate_data function is now in helpers.R as validate_data_enhanced to avoid duplication
 # Use the enhanced version from helpers.R for comprehensive data validation
 
-# generate_stats()/compute_correlation() used to live here too - both
-# @export'ed, but confirmed dead: a full cross-reference of every call site
-# in R/, tests/, and vignettes/ found zero real callers anywhere in the
-# current app. Their only actual callers were in legacy/App6.0.1.R (the
-# pre-modularization script - not sourced by anything, see this package's
-# own "Repository hygiene" audit history for why that's healthy archival
-# practice rather than live code). The app's own current, more specialized
-# machinery has since grown past what these did: build_descriptive_stats_
-# table() (stats_display_utils.R) covers generate_stats()'s mean/median/SD,
-# and the Data Comparison tab's own correlation handlers
-# (server_data_comparison_stats.R) call stats::cor() directly rather than
-# through this wrapper. Confirmed via the user before removing, since both
-# were real, documented public API (exported, with their own man/ pages)
-# even though nothing internal used them.
+# generate_stats() and compute_correlation() were removed as confirmed
+# dead code (no real callers anywhere in R/, tests/, or vignettes/).
+# build_descriptive_stats_table() (stats_display_utils.R) covers
+# generate_stats()'s mean/median/SD, and the Data Comparison tab's own
+# correlation handlers (server_data_comparison_stats.R) call stats::cor()
+# directly rather than through this wrapper.
 
 # Note: Functions are exported via NAMESPACE file

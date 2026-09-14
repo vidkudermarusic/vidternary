@@ -28,15 +28,14 @@
 # package for CoDA zero-replacement - multRepl()/multLN() and similar all
 # derive each part's own replacement from that part's own observed values
 # or detection limit, never from the smallest value across unrelated
-# parts). A single earlier version of this app used one dataset-wide
-# minimum instead - simpler, but miscalibrated for data like this app's
-# own Wt% columns, which span very different natural scales (a major
-# element like Fe at ~60% next to a trace element at well under 1%): the
-# dataset-wide minimum is set by whichever trace element happens to have
-# the smallest measured value, and using that same tiny number to fill a
-# zero in a major element (which never gets anywhere near that low) is a
-# far worse approximation than filling that element's own zeros with half
-# its own smallest observed value. This is still a simplified version of
+# parts). Per-column matters for this app's own Wt% columns, which span
+# very different natural scales (a major element like Fe at ~60% next to
+# a trace element at well under 1%): a dataset-wide minimum would be set
+# by whichever trace element happens to have the smallest measured value,
+# and using that same tiny number to fill a zero in a major element (which
+# never gets anywhere near that low) is a far worse approximation than
+# filling that element's own zeros with half its own smallest observed
+# value. This is still a simplified version of
 # the full multiplicative zero-replacement approach in the CoDA literature
 # (e.g. Martin-Fernandez et al.) - documented here rather than implemented
 # in full, since the full method needs a true detection limit per element
@@ -46,17 +45,12 @@
 # Replace zeros/NA/non-finite values with a small pseudo-count so logs are
 # always defined. Non-finite (Inf/-Inf) values are handled the same way as
 # zero/NA here, matching the guard server_spatial.R's combined_data() and
-# extreme_value_analysis.R's compute_block_maxima() already apply to their
-# own numeric inputs - this function was the one sibling missing it. A
-# single Inf slipping through (e.g. from an upstream divide-by-zero in a
-# real EDS export, the same scenario already documented for multivariate.R)
-# doesn't just corrupt its own cell: log(Inf) feeds into this transform's
-# per-row mean, so rowMeans() picks up that Inf and the ENTIRE row goes
-# non-finite (NaN for the Inf column itself, -Inf for every other column in
-# that row) - confirmed empirically, not assumed. That silently poisoned
-# data used to reach stats::prcomp() downstream and fail with a raw,
-# unfriendly "infinite or missing values in 'x'" instead of ever being
-# caught here, at the actual source.
+# extreme_value_analysis.R's compute_block_maxima() apply to their own
+# numeric inputs. A single Inf (e.g. from an upstream divide-by-zero in a
+# real EDS export) doesn't just corrupt its own cell: log(Inf) feeds into
+# this transform's per-row mean, so rowMeans() turns the ENTIRE row
+# non-finite (NaN for the Inf column itself, -Inf for every other column
+# in that row).
 #
 # zero_replacement, if supplied explicitly by a caller, is still honored
 # as a single shared value (e.g. a genuinely known, shared detection
@@ -80,9 +74,7 @@
     # uniformly, the original (pre-per-column) behavior.
     mat[bad] <- zero_replacement
   } else {
-    # Per-column: each column's own bad entries get that column's own
-    # replacement value (auto-derived above, or an explicit per-column
-    # vector a caller supplied directly).
+    # Auto-derived above, or an explicit per-column vector from the caller.
     for (j in seq_len(ncol(mat))) {
       mat[bad[, j], j] <- zero_replacement[j]
     }

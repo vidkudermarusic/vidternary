@@ -67,8 +67,7 @@ create_hex_ternary_tab <- function(id) {
         h3("Create a Hexagonal Joint Ternary Diagram"),
         helpText("Combines 6 triangular ternary plots that share a central axis into one composite image."),
 
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5("\U0001F3AF Purpose", style = "margin-top: 0; color: #0c5460;"),
+        info_box("Purpose",
           tags$ul(
             tags$li("Select one or more columns for each of the 7 positions (A-G) - multiple selections are summed."),
             tags$li("Element/position 3 (C) is the shared central axis and appears in all 6 triangles."),

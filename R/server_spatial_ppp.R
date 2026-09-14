@@ -26,27 +26,7 @@
 #' @export
 create_server_spatial_ppp <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- reactive({
-    req(input$ppp_files)
-    n_files <- nrow(input$ppp_files)
-    dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input$ppp_files$datapath[i], sheet = 1), error = function(e) NULL)
-      if (is.null(d)) return(NULL)
-      if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input$ppp_files$name[i])
-      d
-    })
-    dfs <- Filter(Negate(is.null), dfs)
-    shiny::validate(shiny::need(length(dfs) > 0, "None of the selected files could be read."))
-    if (length(dfs) == 1) return(dfs[[1]])
-    common_cols <- Reduce(intersect, lapply(dfs, names))
-    shiny::validate(shiny::need(length(common_cols) > 0, "The selected files have no columns in common."))
-    do.call(rbind, lapply(dfs, function(d) d[, common_cols, drop = FALSE]))
-  })
-
-  first_match_or_null <- function(x, pattern) {
-    hit <- x[grepl(pattern, x, ignore.case = TRUE)]
-    if (length(hit) == 0) NULL else hit[1]
-  }
+  combined_data <- make_combined_upload_reactive(input, "ppp_files")
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)
@@ -108,13 +88,11 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     global_env <- !isFALSE(input$ppp_global_envelope)
     edge_correct <- !isFALSE(input$ppp_edge_correct)
 
-    # Progress bar, not a speedup: profiled directly (see the vidternary
-    # Structural Audit for the numbers) that the CSR envelope test alone -
-    # nsim separate simulations, each rebuilding a random pattern AND
-    # re-running the L-function on it - is 20-50x more expensive than
+    # Progress bar, not a speedup: the CSR envelope test alone - nsim
+    # separate simulations, each rebuilding a random pattern AND
+    # re-running the L-function on it - is far more expensive than
     # building the pattern and computing K/L/G/intensity combined, and
-    # gets slower still as the dataset grows (confirmed: ~7.5s for 99
-    # simulations at just 500 points). Nothing here makes that
+    # gets slower still as the dataset grows. Nothing here makes that
     # computation itself faster - `spatstat.explore::envelope()` has no
     # progress-callback hook to report real per-simulation completion
     # without reimplementing the Monte Carlo loop by hand (a real
@@ -177,28 +155,17 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
   ppp_placeholder_msg <- "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\"."
 
   output$ppp_status <- renderText({
-    # Same fix as server_spatial.R's/server_evs.R's own output$*_status -
-    # see those comments for the full explanation of why a plain tryCatch
-    # here would show this same generic placeholder for every validate()
-    # failure instead of the specific message telling the user what to fix.
-    if (is.null(input$ppp_analyze) || input$ppp_analyze == 0) {
-      return(ppp_placeholder_msg)
-    }
-    tryCatch({
+    render_gated_status(input, "ppp_analyze", ppp_placeholder_msg, function() {
       res <- result()
       sprintf("n = %d points | window area = %.4g | mean intensity = %.6g points/area | peak (hotspot) intensity = %.6g points/area | CSR envelope simulations = %d",
               res$n, res$area, res$intensity, res$peak_intensity, res$nsim)
-    }, shiny.silent.error = function(e) {
-      if (!nzchar(conditionMessage(e))) return(ppp_placeholder_msg)
-      stop(e)
     })
   })
 
-  # Matches server_spatial.R's own spatial_plot_dim exactly (same 8:7
-  # download aspect ratio, same 517px on-screen height, same reasoning for
-  # why renderPlot()'s width/height must be set explicitly rather than
-  # relying on the plot's internal device size alone) - see that file's own
-  # comment for the full explanation.
+  # Matches server_spatial.R's own spatial_plot_dim (8:7 download aspect
+  # ratio, 517px on-screen height); renderPlot()'s width/height are set
+  # explicitly here rather than relying on the plot's internal device size
+  # alone, to avoid an oversized preview.
   ppp_plot_height_px <- 517
   ppp_plot_dim <- list(
     width = round(ppp_plot_height_px * 8 / 7),
@@ -250,50 +217,40 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     )
   })
 
-  # Same blank-error-on-unclicked-download gap fixed for server_spatial.R's
-  # own downloads (see that file's comment) - confirmed reachable here the
-  # same way, via direct testServer() reproduction against the unguarded
-  # handler, before adding this same fix rather than assuming it applied.
-  safe_result <- function() {
-    tryCatch(result(), error = function(e) {
-      if (nzchar(e$message)) {
-        stop("Could not generate this download: ", e$message)
-      }
-      stop("Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")
-    })
-  }
-
+  # safe_reactive_result() turns result()'s blank validate()/req() error
+  # (before "Analyze Point Pattern" has been clicked) into a clear,
+  # actionable message for the download handlers below.
   output$ppp_download_pattern <- downloadHandler(
     filename = function() paste0("ppp_pattern_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
     content = function(file) {
-      res <- safe_result()
+      res <- safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")
       ggplot2::ggsave(file, plot = create_point_pattern_plot(res$x, res$y, res$mark_by, res$mark_label), width = 8, height = 7, dpi = 300)
     }
   )
   output$ppp_download_intensity <- downloadHandler(
     filename = function() paste0("ppp_intensity_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
-    content = function(file) ggplot2::ggsave(file, plot = create_kernel_intensity_plot(safe_result()$dens), width = 8, height = 7, dpi = 300)
+    content = function(file) ggplot2::ggsave(file, plot = create_kernel_intensity_plot(safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")$dens), width = 8, height = 7, dpi = 300)
   )
   output$ppp_download_k <- downloadHandler(
     filename = function() paste0("ppp_k_function_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
-    content = function(file) ggplot2::ggsave(file, plot = create_ripley_k_plot(safe_result()$k), width = 8, height = 7, dpi = 300)
+    content = function(file) ggplot2::ggsave(file, plot = create_ripley_k_plot(safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")$k), width = 8, height = 7, dpi = 300)
   )
   output$ppp_download_l <- downloadHandler(
     filename = function() paste0("ppp_l_function_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
-    content = function(file) ggplot2::ggsave(file, plot = create_l_function_plot(safe_result()$l), width = 8, height = 7, dpi = 300)
+    content = function(file) ggplot2::ggsave(file, plot = create_l_function_plot(safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")$l), width = 8, height = 7, dpi = 300)
   )
   output$ppp_download_g <- downloadHandler(
     filename = function() paste0("ppp_g_function_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
-    content = function(file) ggplot2::ggsave(file, plot = create_g_function_plot(safe_result()$g), width = 8, height = 7, dpi = 300)
+    content = function(file) ggplot2::ggsave(file, plot = create_g_function_plot(safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")$g), width = 8, height = 7, dpi = 300)
   )
   output$ppp_download_envelope <- downloadHandler(
     filename = function() paste0("ppp_csr_envelope_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
-    content = function(file) ggplot2::ggsave(file, plot = create_csr_envelope_plot(safe_result()$env), width = 8, height = 7, dpi = 300)
+    content = function(file) ggplot2::ggsave(file, plot = create_csr_envelope_plot(safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")$env), width = 8, height = 7, dpi = 300)
   )
   output$ppp_download_data <- downloadHandler(
     filename = function() paste0("ppp_values_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
-      res <- safe_result()
+      res <- safe_reactive_result(function() result(), "Upload data, choose X/Y coordinate columns, and click \"Analyze Point Pattern\" before downloading.")
       writexl::write_xlsx(list(K_function = res$k, L_function = res$l, G_function = res$g, CSR_envelope = res$env), file)
     }
   )

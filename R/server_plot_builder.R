@@ -85,14 +85,10 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     req(input$builder_type)
     num_cols <- numeric_cols()
     cat_cols <- categorical_cols()
-    # X axis (group/category) used to only offer categorical_cols(),
-    # excluding every numeric column (e.g. an element's Wt%) from ever being
-    # usable as the grouping axis - Y axis already offers every numeric
-    # column with no such restriction. all_cols gives X axis the same
-    # freedom: any column, numeric or categorical, can define the groups.
-    # build_custom_plot() wraps whatever's chosen in factor() so a numeric
-    # column still produces one discrete violin/box/bar per distinct value
-    # instead of being treated as a continuous axis.
+    # X axis (group/category) accepts any column, numeric or categorical
+    # (all_cols); build_custom_plot() wraps whatever's chosen in factor() so
+    # a numeric column still produces one discrete violin/box/bar per
+    # distinct value instead of being treated as a continuous axis.
     all_cols <- union(cat_cols, num_cols)
     switch(input$builder_type,
       "violin" = tagList(
@@ -139,17 +135,13 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     )
   })
 
-  # Which distinct values of the relevant category column to plot as bars -
-  # counting every distinct value unconditionally (the previous behavior)
-  # wasn't useful for a high-cardinality column, and silently included
-  # everything with no way to focus on just the categories that matter.
+  # Which distinct values of the relevant category column to plot as bars.
   # When a Color / group by breakdown is chosen, that column is what the
   # user actually wants to narrow down ("which categories to show, per
   # file") - the X axis is normally the file/group being compared, not the
   # thing being filtered - so choices are sourced from color_by instead of
   # X in that case. Rebuilt whenever the X column or color_by changes;
-  # defaults to all values selected so existing behavior is unchanged until
-  # the user deliberately narrows it down.
+  # defaults to all values selected.
   output$builder_bar_value_selector <- renderUI({
     req(input$builder_type == "bar", input$builder_x)
     d <- combined_data()
@@ -192,13 +184,10 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
   # on-screen size (they also set the browser's literal display size, not
   # just the internal device resolution) - height must match
   # ui_plot_builder_tab.R's plotOutput(..., height=) exactly; width is
-  # derived from the same 10:7 ratio as the download. (580px - actually
-  # slightly BELOW the original 600px: at a 10:7 aspect ratio, the
+  # derived from the same 10:7 ratio as the download. 580px is the largest
+  # height that fits without overflow: at a 10:7 aspect ratio, the
   # mainPanel(width=8) container only measures ~843px wide at a typical
-  # desktop viewport, which caps height at ~590px before overflowing:
-  # the original 600px/857px pairing was already marginally overflowing
-  # its column before this change, just not enough to have been
-  # noticed. 580px is the largest height that fits without overflow.)
+  # desktop viewport, which caps height at ~590px.
   builder_plot_height_px <- 580
   output$builder_plot <- renderPlot({
     tryCatch({
@@ -208,27 +197,13 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
         # A shiny::validate()/req() condition bubbling up from
         # combined_data() (no dataset selected, files unreadable, no common
         # columns) or from current_plot()'s own req() gates (no plot
-        # type/axis chosen yet) - the same class of bug already fixed for
-        # EVS/Spatial/CoDA (see server_evs.R's output$evs_status). This
-        # handler used to catch it unconditionally too (its class includes
-        # "error"), discard its real message (a validate()/req() condition's
-        # $message is always "" by design - the actual text lives
-        # elsewhere), and re-show it as a blank "Error rendering plot: " -
-        # regardless of whether it was a genuine validate() message like
-        # "Select at least one dataset above." or just the ordinary
-        # not-ready-yet state before any file is even uploaded. Re-thrown
-        # unchanged instead: an empty-message req() condition makes Shiny
-        # show nothing (its normal, correct "not ready yet" behavior for a
-        # plot output), while a real validate() message is displayed with
-        # Shiny's own distinct validation styling - either way, untouched by
-        # this handler. Confirmed via temporary debug tracing that
-        # renderPlot() re-evaluates this expression a second time after a
-        # validation condition escapes it (not just on the first throw), so
-        # this check has to hold no matter how many times this handler
-        # actually runs - an earlier version that used a separate
-        # `shiny.silent.error =` handler to build a friendly placeholder
-        # string had that placeholder itself re-caught and re-wrapped by
-        # this very handler on that second pass, for exactly this reason.
+        # type/axis chosen yet). A validate()/req() condition's `$message`
+        # is always "" by design - the actual text lives elsewhere - so it
+        # is re-thrown unchanged rather than wrapped: an empty-message
+        # req() condition makes Shiny show nothing (its normal, correct
+        # "not ready yet" behavior for a plot output), while a real
+        # validate() message is displayed with Shiny's own distinct
+        # validation styling - either way, untouched by this handler.
         stop(e)
       }
       shiny::validate(paste("Error rendering plot:", e$message))
@@ -247,9 +222,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       # can't just "show nothing" on an incomplete state - it has to succeed
       # or fail with some message - so every failure here gets a clear,
       # actionable one instead of letting a blank-message validation
-      # condition (or any other error) propagate uncaught, which is what
-      # happened before this fix: clicking Download with nothing uploaded
-      # produced an uncaught `Error: ""`, confirmed via direct reproduction.
+      # condition (or any other error) propagate uncaught.
       plot_obj <- tryCatch(current_plot(), error = function(e) {
         if (nzchar(e$message)) {
           stop("Could not generate plot to download: ", e$message)

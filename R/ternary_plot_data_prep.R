@@ -24,10 +24,8 @@
 #'
 #' The very first thing [prepare_ternary_plot_data()] does: reads Sheet 1
 #' of `xlsx_file`, then validates the element/output-format inputs before
-#' any filtering or coordinate computation is attempted. Extracted as its
-#' own function because it carries no shared mutable state with the rest
-#' of `prepare_ternary_plot_data()` (per the vidternary Structural Audit's
-#' Sec.04 responsibility table) - its only output is the loaded data frame.
+#' any filtering or coordinate computation is attempted. Its only output
+#' is the loaded data frame.
 #'
 #' @param xlsx_file Path to the uploaded `.xlsx` file (temp upload path).
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
@@ -74,9 +72,8 @@ load_and_validate_ternary_source_data <- function(xlsx_file, element_A, element_
 #' filter/method annotations, source-file "charge" line) and the ternary
 #' diagram's corner/axis labels. Called once by
 #' [prepare_ternary_plot_data()], right after ternary coordinates are
-#' computed - extracted as its own function because it's purely cosmetic
-#' (per the vidternary Structural Audit's Sec.04 responsibility table):
-#' builds display text only, and touches none of the actual filtered data.
+#' computed. Builds display text only, and touches none of the actual
+#' filtered data.
 #'
 #' @param element_A,element_B,element_C Ternary-axis element specs, each a
 #'   `list(col = <one or more column names>)`.
@@ -102,9 +99,7 @@ load_and_validate_ternary_source_data <- function(xlsx_file, element_A, element_
 #'   (`as.list(environment())`), mirroring
 #'   [prepare_ternary_plot_data()]'s own return convention - includes
 #'   `clean_labels_A`/`B`/`C`, `axis_labels_A`/`B`/`C`, `title_parts`, and
-#'   `plot_title`, which is exactly what the original inline code (before
-#'   this was split out) left behind in `prepare_ternary_plot_data()`'s
-#'   own environment for `as.list(environment())` to capture there.
+#'   `plot_title`.
 #' @export
 build_ternary_plot_title <- function(element_A, element_B, element_C,
                                       optional_param1, optional_param1_representation,
@@ -184,14 +179,9 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
     title_parts <- c(title_parts, paste("Statistical Filtering:", paste(stat_methods, collapse = "+")))
   }
 
-  # Add charge information to title. The original code guarded this with
-  # exists("file_base") (defensive against a code path where it was never
-  # assigned) - always TRUE in practice by the time this ran inside
-  # prepare_ternary_plot_data() (both of its branches set file_base before
-  # reaching here), and moot now regardless: file_base is a required
-  # parameter of this function, so the caller always supplies *something*
-  # (possibly NULL), making the plain !is.null(file_base) check below
-  # exactly equivalent to the original's, without needing exists().
+  # Add charge information to title. file_base is a required parameter of
+  # this function, so the caller always supplies *something* (possibly
+  # NULL), making the plain !is.null(file_base) check below sufficient.
   if (!is.null(file_base) && nzchar(file_base)) {
     title_parts <- c(title_parts, paste("charge", file_base))
     if (getOption("ternary.debug", FALSE)) {
@@ -222,11 +212,7 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
 #' computation error (e.g. too few usable rows/columns) is also caught and
 #' left as an unfiltered `M`, with a console message - only the two
 #' mandatory-column-selection checks below raise a real, propagating error.
-#' Extracted from [prepare_ternary_plot_data()] as its own function because
-#' it's the most self-contained of that function's remaining
-#' responsibilities (per the vidternary Structural Audit's Sec.04
-#' responsibility table) - its only real outputs are `M`, `mahal_result`,
-#' and `iso_result`.
+#' Its only real outputs are `M`, `mahal_result`, and `iso_result`.
 #'
 #' @param M The data frame to filter (already loaded/individually filtered).
 #' @param use_mahalanobis,use_isolation_forest Which method, if either, is active.
@@ -382,12 +368,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
         # common_cols: compute_isolation_forest() returns its selected
         # columns as `columns_used` (see its own roxygen @return), not
         # `common_cols` - only compute_mahalanobis_distance() uses that
-        # name. Reading iso_result$common_cols here always silently
-        # returned NULL, so every "Columns used: ..." line in the debug
-        # log / Analysis Report / on-plot notes printed blank for every
-        # Isolation Forest run - confirmed directly (unrelated to the
-        # row-selection issue below; fixed here by reading the correct
-        # field name for each method).
+        # name.
         common_cols <- if (use_isolation_forest) iso_result$columns_used else mahal_result$common_cols
 
         # Row selection: Isolation Forest's keep_indices (from
@@ -402,28 +383,6 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
         # data1_clean (only the complete rows, in complete-row order), so
         # its keep_indices has to be re-expanded back to M's own original
         # row numbers via which(complete.cases(...)) first.
-        #
-        # This code previously used the Mahalanobis-only
-        # which(complete.cases(M_numeric))[keep_indices] re-expansion for
-        # BOTH methods, which is a real, general misalignment risk for
-        # Isolation Forest whenever M has an incomplete row in the
-        # selected columns (which(complete.cases(...)) then has fewer
-        # elements than keep_indices, so indexing it by keep_indices can
-        # return NA - spliced into M below as a phantom row - or silently
-        # select the wrong complete row's index; reproduced directly with
-        # a hand-built scenario). In THIS package's actual, currently
-        # shipped code that risk was never live: the common_cols bug just
-        # above always made M_numeric a 0-column matrix for the Isolation
-        # Forest branch, which makes complete.cases() trivially TRUE for
-        # every row regardless of real NAs, so which(complete.cases(...))
-        # always equalled 1:nrow(M) and happened to stay the same length
-        # as keep_indices - confirmed directly by tracing both bugs
-        # together, not assumed. That was a lucky accident of the two bugs
-        # interacting, not a safeguard, and would have broken the moment
-        # either bug was fixed in isolation - using keep_indices directly
-        # removes the dependency on common_cols/M_numeric for row
-        # selection entirely, so this is correct regardless of what
-        # common_cols contains.
         if (use_isolation_forest) {
           original_indices <- which(keep_indices)
         } else {
@@ -494,10 +453,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
 #' `ternary_points1` itself (with the point size/type vectors kept in sync) -
 #' the reason this function takes and can return a modified
 #' `ternary_points1` and `selected_groups`, unlike a pure "compute some
-#' columns" helper. Extracted from [prepare_ternary_plot_data()] as its own
-#' function because it's the largest of that function's remaining inline
-#' responsibilities (per the vidternary Structural Audit's Sec.04
-#' responsibility table) - everything here is genuinely self-contained once
+#' columns" helper. Everything here is genuinely self-contained once
 #' `ternary_points1`/`matrika` exist, with no interaction with the
 #' filtering or multivariate-analysis steps that ran earlier.
 #'
@@ -644,16 +600,7 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
   # No else branch needed here: pointSize/pointType are already correctly
   # set to the full-length rep(MIN_POINT_SIZE/16, nrow(ternary_points1))
   # defaults a few lines up, for exactly this "neither manual size nor
-  # optional_param1" case. A previous version of this branch reset them to
-  # bare scalars (pointSize <- MIN_POINT_SIZE; pointType <- 16, length 1,
-  # not length nrow(ternary_points1)) - which did nothing useful (the
-  # values were identical, just wrongly shaped) and unconditionally tripped
-  # the "Final safety check" further down into reinitializing both vectors
-  # back to the very same values it had just overwritten - on every single
-  # render/save that doesn't use Optional Param 1 (confirmed the single
-  # most common case in practice), printing "Point size/type vector has
-  # issues. Reinitializing." to the console/log every time even though
-  # nothing was ever actually wrong.
+  # optional_param1" case.
 
   # Optional param 2: color (enhanced to handle categorical groups)
   if (!is.null(optional_param2)) {
@@ -677,13 +624,11 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
     param2_values <- matrika[, optional_param2$col, drop = FALSE]
 
     # Optional Param 2 supports exactly one column (see
-    # apply_element_and_parameter_filters()'s own matching check, and the
-    # vidternary Structural Audit's Sec.03 for the full writeup) - every UI
-    # control that offers it is single-select, but this function is also
-    # exported/directly callable, so a caller that bypasses the UI gets a
-    # clear error here instead of the silent "take the first column, every
-    # other one is ignored, but the legend and title still claim all of
-    # them drove the coloring" behavior this used to fall back to.
+    # apply_element_and_parameter_filters()'s own matching check) - every
+    # UI control that offers it is single-select, but this function is
+    # also exported/directly callable, so a caller that bypasses the UI
+    # gets a clear error here instead of silently using only the first
+    # column.
     if (ncol(param2_values) > 1) {
       stop("Optional Param 2 (", paste(optional_param2$col, collapse = ", "),
            ") has more than one column selected, but it supports exactly one ",
@@ -716,21 +661,12 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
     # immediately (server_ternary_plots_groups.R's detection observer) -
     # but rv$group_selections_1/_2 (and so selected_groups here) stays
     # NULL/empty until the user actually checks a box in the group
-    # checklist that appears below it. Generating a plot/preview in that
-    # gap (upload -> pick A/B/C -> pick a categorical color column -> hit
-    # Save without first checking any group) used to fall through to the
-    # ELSE branch below - the NUMERIC color-legend path - which calls
-    # quantile() on param2_values; for a character/factor column that's an
-    # immediate, uncaught "non-numeric argument to binary operator" crash,
-    # confirmed via direct reproduction through the real reactive server
-    # (not just this function in isolation). Requiring only
-    # is_categorical_group here routes that state into the categorical
-    # branch instead, where an empty selected_groups already resolves
-    # correctly with no further changes needed: gsub() on a NULL
-    # selected_groups returns character(0), matching nothing in
-    # param2_values, which lands on the "no groups matched" fallback
-    # immediately below and shows every group - exactly the graceful
-    # "nothing chosen yet" behavior this state should have had all along.
+    # checklist that appears below it. Routing on is_categorical_group
+    # alone handles that gap correctly with no further changes needed:
+    # gsub() on a NULL selected_groups returns character(0), matching
+    # nothing in param2_values, which lands on the "no groups matched"
+    # fallback immediately below and shows every group - the graceful
+    # "nothing chosen yet" behavior for that case.
     if (is_categorical_group) {
       # Handle categorical groups
       # Extract group names from selected_groups (remove sample counts in parentheses)
@@ -877,12 +813,7 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
   }
   # No else branch needed here either - same reasoning as the matching
   # pointSize/pointType case above: pointCol is already correctly
-  # rep("black", nrow(ternary_points1)) from its initial declaration. This
-  # branch used to reset it to the bare scalar "black" (length 1), which
-  # the "Final safety check" below then silently reinitialized back to the
-  # exact same value, correctly shaped - on every render/save with no
-  # Optional Param 2 set, printing its own "Point color vector has issues.
-  # Reinitializing." for no real reason.
+  # rep("black", nrow(ternary_points1)) from its initial declaration.
 
   # Final safety check: ensure all vectors are properly initialized
   n_points <- nrow(ternary_points1)
@@ -928,13 +859,9 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 #' `1.5`, Z-score/MAD: `3`). Only one method is meant to be active per plot
 #' - enforced upstream in `general_ternary_plot()`, not here - but this
 #' function has no mutual-exclusion guard of its own and will run all
-#' three in sequence if somehow more than one flag is set, matching the
-#' original inline code's own behavior exactly (a pure lift, not a
-#' rewrite). Extracted from [prepare_ternary_plot_data()] as its own
-#' function because it's the most self-contained of that function's
-#' remaining responsibilities (per the vidternary Structural Audit's Sec.04
-#' responsibility table) - it only reads `M` and the filter flags/
-#' parameters below, and its only real output is `M`.
+#' three in sequence if somehow more than one flag is set. It only reads
+#' `M` and the filter flags/parameters below, and its only real output is
+#' `M`.
 #'
 #' Every active method is run over *all* of `selected_columns` and a row is
 #' dropped (or kept, if `keep_outliers_*`) when it crosses the fence in
@@ -1016,14 +943,11 @@ apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, us
 #' outside `output_dir`; otherwise delegates to
 #' [create_ternary_output_dir()] (`file_management.R`), which creates a
 #' per-charge subfolder (with a timestamp suffix if one already exists) or
-#' returns `custom_folder = NULL` in preview mode. Extracted from
-#' [prepare_ternary_plot_data()] as its own function because it's fully
-#' self-contained (per the vidternary Structural Audit's Sec.04 responsibility
-#' table) - of its three outputs, only `file_base` is read again by this
-#' function's caller (passed to [build_ternary_plot_title()] for the
-#' title's "charge" line); `custom_folder`/`plot_folder_name` are computed
-#' but not read by any downstream consumer today, exactly as before this
-#' extraction - a pure reorganization, not a cleanup of that.
+#' returns `custom_folder = NULL` in preview mode. Of its three outputs,
+#' only `file_base` is read again by this function's caller (passed to
+#' [build_ternary_plot_title()] for the title's "charge" line);
+#' `custom_folder`/`plot_folder_name` are computed but not read by any
+#' downstream consumer today.
 #'
 #' @param xlsx_file Path to the uploaded `.xlsx` file (temp upload path).
 #' @param xlsx_display_name Optional original filename, preferred over
@@ -1083,15 +1007,12 @@ resolve_ternary_output_directory <- function(xlsx_file, xlsx_display_name, outpu
 #' `individual_filters_A`/`B`/`C` is supplied), then `optional_param1`'s and
 #' `optional_param2`'s own single filter string, if either has one. Defines
 #' `parse_filter_condition()`, `apply_filter()`, and `apply_individual_filters()`
-#' as its own *local* closures, exactly as in the original single-function
-#' version of this code - they are NOT the same functions as the
+#' as its own *local* closures - they are NOT the same functions as the
 #' same-named ones in `helpers.R`/`helpers_filters.R` (different,
 #' ternary-plot-specific behavior), so they must stay local rather than
 #' becoming top-level functions, to avoid silently shadowing those
-#' unrelated global functions package-wide (a real instance of exactly
-#' this bug class, unrelated to these, was found and fixed three times
-#' elsewhere in this package - see the vidternary Structural Audit's
-#' Sec.03/Sec.08). [prepare_ternary_plot_data()] keeps its own two sibling local
+#' unrelated global functions package-wide.
+#' [prepare_ternary_plot_data()] keeps its own two sibling local
 #' closures (`preview_title_layout()`, `calculate_plot_dimensions()`)
 #' untouched in its own body - neither is used by filtering, and both are
 #' still needed there (as `build_ternary_plot_title()`'s `title_layout_fn`
@@ -1124,16 +1045,11 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
                                                  individual_filters_A, individual_filters_B, individual_filters_C,
                                                  optional_param1, optional_param2, preview) {
   # Optional Parameter 1/2 are a styling dimension (point size/type, or
-  # color) rather than a composition axis - unlike Elements A/B/C, they were
-  # never meant to support more than one column at once, and every UI
-  # control that offers them is now single-select. This function is
-  # exported and directly callable outside the UI, though (see this file's
-  # own recurring note elsewhere about that), so a length > 1 here isn't
-  # merely a UI question - failing clearly at the actual point of the
-  # mismatch replaces what used to be a silent "the filter box already
-  # collapsed to one shared string and got misapplied to every selected
-  # column" bug (vidternary Structural Audit Sec.03) with an explicit,
-  # actionable message.
+  # color) rather than a composition axis - unlike Elements A/B/C, they
+  # support exactly one column each; every UI control that offers them is
+  # single-select. This function is exported and directly callable outside
+  # the UI, though, so a length > 1 here needs an explicit, actionable
+  # error message rather than being silently misapplied.
   if (!is.null(optional_param1) && length(optional_param1$col) > 1) {
     stop("Optional Param 1 (", paste(optional_param1$col, collapse = ", "),
          ") has more than one column selected, but it supports exactly one ",
@@ -1159,12 +1075,9 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
   # in this function - apply_filter() below, and the two per-column loops
   # inside apply_individual_filters() further down (one for "same filter
   # applied to every selected column", one for genuinely independent
-  # per-column filters) - which used to each parse this string with their
-  # own copy-pasted logic. Only one of the three stripped stray non-numeric
-  # characters from a malformed value (e.g. a trailing unit) before giving
-  # up, so the exact same malformed filter string was a hard error via one
-  # path and silently cleaned up via another; all three now agree, using
-  # the more forgiving behavior.
+  # per-column filters). All three now agree on the same forgiving
+  # behavior: stray non-numeric characters (e.g. a trailing unit) are
+  # stripped from a malformed value before giving up.
   parse_filter_condition <- function(col_values, filter) {
     if (!grepl("^[><=!]+", filter)) {
       stop("Invalid filter format. Use operators: >, <, >=, <=, ==, !=")
@@ -1263,13 +1176,7 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 
   # Apply individual element filtering (A, B, C) with individual filters.
   # apply_individual_filters() is the *local* function defined just above,
-  # not a shared one from helpers.R/helpers_filters.R - an earlier version
-  # of this comment claimed otherwise, but a same-named top-level function
-  # in helpers_filters.R had already drifted into a completely different
-  # (and, since local scoping always wins here, entirely unused)
-  # implementation; that orphaned copy has been removed rather than the
-  # claim corrected, since this local one is - and was always meant to be -
-  # the one real implementation.
+  # not a shared one from helpers.R/helpers_filters.R.
 
   # Apply individual element filters
   M <- apply_individual_filters(M, element_A, individual_filters_A, "A", preview)
@@ -1280,21 +1187,8 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
     cat("DEBUG: After individual element filtering, data dimensions:", dim(M), "\n")
   }
 
-  # Apply optional parameter 1 filtering. Used to parse optional_param1$filter
-  # with its own copy-pasted operator/value logic instead of going through
-  # parse_filter_condition()/apply_filter() above - the two inline copies
-  # missed by pass 4's filter-parser consolidation (which unified
-  # apply_filter() and both apply_individual_filters() loops, but not
-  # these). Two concrete inconsistencies that fell out of that: (1) this
-  # copy had no fallback to strip stray non-numeric characters from a
-  # malformed value (e.g. a trailing unit) before giving up, so the exact
-  # same malformed filter string was a hard error via one path and
-  # silently cleaned up via another; (2) an unrecognized operator (or a
-  # filter string not starting with one at all) was silently ignored here
-  # - no filter applied, no error - where parse_filter_condition() already
-  # raises a clear "Invalid filter format" message for the same input via
-  # every other filter path in this function. Now consolidated onto
-  # apply_filter() like every other filter path here, so a malformed or
+  # Apply optional parameter 1 filtering, consolidated onto apply_filter()
+  # like every other filter path in this function, so a malformed or
   # unrecognized filter behaves identically no matter which of this
   # function's filter inputs it came from.
   if (!is.null(optional_param1) && !is.null(optional_param1$filter) && nzchar(optional_param1$filter)) {
@@ -1369,24 +1263,8 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
 #' exact same rows in the exact same order. This matters because
 #' [compute_point_styling()] later reads Optional Param 1/2 values out of
 #' `matrika` and applies them *positionally* against `ternary_points1` -
-#' an earlier version computed each object's row-validity independently
-#' (matrika's own zero-sum-row-removal plus `na.omit()`, versus
-#' `ternary_points1`'s own total-based check) and could let their row
-#' counts silently diverge whenever a needed column had an NA that didn't
-#' also zero out the element total (almost always an Optional Param 1/2
-#' value, since SEM/EDS element columns are normally complete) - R then
-#' recycled the shorter logical mask against the longer data frame with no
-#' warning surfaced to the UI, confirmed to silently swap in wrong points
-#' and wrong group colors under a categorical Optional Param 2 grouping.
-#' Fixed by deciding row validity in exactly one place.
-#'
-#' Extracted from [prepare_ternary_plot_data()] as its own function because
-#' it's the last and most central of that function's identified
-#' responsibilities (per the vidternary Structural Audit's Sec.04
-#' responsibility table) - tackled last of the seven extractions on this
-#' function, once every other piece it interacts with (filtering,
-#' multivariate dispatch, point styling, title assembly) had already been
-#' extracted and verified.
+#' row validity must be decided in exactly one place so the two objects
+#' never drift out of alignment.
 #'
 #' @param M The data frame to compute coordinates from (already
 #'   loaded/filtered by the earlier pipeline stages).
@@ -1424,10 +1302,8 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
   # PARTIAL overlap (e.g. A: Fe+O, B: Al+O, C: Ti - a real, intentional
   # pattern in oxide chemistry where O legitimately contributes to more
   # than one vertex), which stays fully supported below. Nothing in the UI
-  # (three independent selectInputs, ui_ternary_plots_tab.R) prevented this
-  # before - reachable simply by picking the same element twice - and it
-  # used to reach the raw, uncaught indexing crashes fixed just below
-  # instead of a clear message.
+  # (three independent selectInputs, ui_ternary_plots_tab.R) prevents this,
+  # so it's checked explicitly here.
   if (setequal(element_A$col, element_B$col) || setequal(element_A$col, element_C$col) ||
       setequal(element_B$col, element_C$col)) {
     stop("Elements A, B, and C must each use a different set of columns - two of them currently select the exact same column(s). Sharing SOME columns between elements is fine (e.g. A: Fe+O, B: Al+O, C: Ti), but using the identical complete set for two axes is not, since every point would then collapse onto a single line or point instead of forming a real ternary diagram.")
@@ -1669,32 +1545,17 @@ compute_ternary_coordinates <- function(M, all_selected_elements, element_A, ele
 #'   narrower return list risked silently dropping one.
 #' @export
 #'
-#' @section Restructuring (see the vidternary Structural Audit's Sec.04/Sec.08):
-#' All seven of this function's identified responsibilities have now been
-#' extracted into their own top-level, independently testable/documented
-#' functions: [load_and_validate_ternary_source_data()] (the very first
-#' thing this function does), [apply_element_and_parameter_filters()]
-#' (per-element and optional-parameter filtering - moves three of this
-#' function's five local closures into its own scope, leaving
-#' `preview_title_layout()`/`calculate_plot_dimensions()` as the two that
-#' still live here), [apply_statistical_filtering()] (IQR/Z-score/MAD
-#' dispatch), [apply_multivariate_filtering()] (the Mahalanobis/Isolation
-#' Forest outlier dispatch - the most tangled of the seven),
-#' [resolve_ternary_output_directory()] (output-folder + file-base-name
-#' resolution - the first to do real filesystem work rather than pure
-#' in-memory transforms), [compute_ternary_coordinates()] (building
-#' `matrika`/`ternary_points1` and validating them - the most central of
-#' the seven, tackled last, once every other piece it interacts with had
-#' already been extracted and verified), [build_ternary_plot_title()]
-#' (called once, right after ternary coordinates are computed), and
-#' [compute_point_styling()] (point size/type/color plus categorical-group
-#' filtering and legend metadata - the largest of the seven). All seven are
-#' called here, in this order, and their results merged back into this
-#' function's own local environment via `list2env()`, so the final
-#' `as.list(environment())` this function returns is unchanged in every
-#' field and value across the whole restructuring - a pure internal
-#' reorganization, not a behavior change, verified via golden-output
-#' byte-diffing at every step.
+#' @section Restructuring:
+#' This function's logic is split into seven top-level, independently
+#' testable/documented functions, called below in this order and merged
+#' back into this function's own local environment via `list2env()`:
+#' [load_and_validate_ternary_source_data()], [apply_element_and_parameter_filters()]
+#' (moves three of this function's five local closures into its own scope,
+#' leaving `preview_title_layout()`/`calculate_plot_dimensions()` as the
+#' two that still live here), [apply_statistical_filtering()],
+#' [apply_multivariate_filtering()], [resolve_ternary_output_directory()],
+#' [compute_ternary_coordinates()], [build_ternary_plot_title()], and
+#' [compute_point_styling()].
 prepare_ternary_plot_data <- function(
     xlsx_file,
     working_dir,
@@ -1761,19 +1622,10 @@ prepare_ternary_plot_data <- function(
 
   # ---- CRITICAL HELPER FUNCTIONS (title/dimension formatting) ----
   # preview_title_layout()/calculate_plot_dimensions() are local/nested on
-  # purpose, exactly as in the original single-file version - they are NOT
-  # the same functions as similarly-named ones elsewhere in the package
-  # (different, ternary-plot-specific behavior), so they must stay local
-  # rather than becoming top-level functions, to avoid silently shadowing
-  # unrelated global utilities package-wide (a real instance of exactly
-  # this bug class, unrelated to these, was found and fixed three times
-  # elsewhere in this package - see the vidternary Structural Audit's
-  # Sec.03/Sec.08). This function's other three local closures -
-  # parse_filter_condition()/apply_filter()/apply_individual_filters() -
-  # moved into apply_element_and_parameter_filters() (see this function's
-  # own "Restructuring" doc section above) along with the filtering logic
-  # that uses them; unrelated to title/dimension formatting, so they don't
-  # need to stay in this function's own scope.
+  # purpose - they are NOT the same functions as similarly-named ones
+  # elsewhere in the package (different, ternary-plot-specific behavior),
+  # so they must stay local rather than becoming top-level functions, to
+  # avoid silently shadowing unrelated global utilities package-wide.
 
   # Function to preview title layout for debugging
   preview_title_layout <- function(title_parts) {
@@ -1906,15 +1758,11 @@ prepare_ternary_plot_data <- function(
   )
   list2env(coord_result, environment())
 
-  # Title + axis-label assembly: extracted into build_ternary_plot_title()
-  # (see this function's own "Restructuring" doc section above) - identical
-  # behavior; list2env() merges every local that function's own
-  # as.list(environment()) return produced (clean_labels_A/B/C,
-  # axis_labels_A/B/C, title_parts, plot_title, and the transient
-  # opt1_label/opt2_label/mv_methods/stat_methods/indicator/fallback_name
-  # locals along the way) back into this function's own environment, so
-  # this function's final as.list(environment()) return is byte-for-byte
-  # what it would have been with the inline version.
+  # list2env() merges every local build_ternary_plot_title() computed
+  # (clean_labels_A/B/C, axis_labels_A/B/C, title_parts, plot_title, and
+  # the transient opt1_label/opt2_label/mv_methods/stat_methods/indicator/
+  # fallback_name locals along the way) back into this function's own
+  # environment.
   list2env(
     build_ternary_plot_title(
       element_A = element_A, element_B = element_B, element_C = element_C,
@@ -1931,8 +1779,6 @@ prepare_ternary_plot_data <- function(
     environment()
   )
 
-  # Point styling: extracted into compute_point_styling() (see this
-  # function's own "Restructuring" doc section above) - identical behavior;
   # list2env() merges pointSize/pointType/pointCol, the possibly-filtered
   # ternary_points1, the possibly-reassigned selected_groups, and every
   # legend-metadata field (param1_values/param1_bins,
@@ -2064,13 +1910,9 @@ prepare_ternary_plot_data <- function(
       # comma-joined line easily runs to 100+ characters. mtext() draws an
       # embedded "\n" as a real line break, but only WITHIN one string - a
       # single element of analysis_summary with no "\n" of its own never
-      # wraps at all, so that one long line was drawn as-is and (at
-      # adj=1, right-aligned) extended far enough left to visually overlap
-      # the center/left plot-notes columns - confirmed directly to be the
-      # cause of the "text overlaps when using Isolation Forest or
-      # Mahalanobis" report, not a rendering quirk of mtext() itself
-      # (elements_summary/optional_summary never had this bug - they
-      # already appended each line as its own element).
+      # wraps at all, so a long line would be drawn as-is and (at adj=1,
+      # right-aligned) extend far enough left to overlap the center/left
+      # plot-notes columns.
       analysis_summary <- c(analysis_summary, "Outlier Detection:", mv_info)
     }
 
@@ -2091,10 +1933,8 @@ prepare_ternary_plot_data <- function(
       }
       # Same fix as "Outlier Detection:" just above - each active filter's
       # own line stays a separate element instead of being comma-joined
-      # into one long line. stat_info's own entries are short enough that
-      # this rarely showed as visible overlap in practice, but the same
-      # underlying bug was there and is fixed the same way for
-      # consistency (and in case a future filter's label grows).
+      # into one long line, for consistency (and in case a future
+      # filter's label grows).
       analysis_summary <- c(analysis_summary, "Statistical:", stat_info)
     }
 
@@ -2149,22 +1989,17 @@ prepare_ternary_plot_data <- function(
 # prepare_ternary_plot_data(), each a "\n"-joined block of lines) as a
 # stack of individual mtext() calls, one per line, each with its OWN
 # explicit `line=` position - not a single mtext() call on the whole
-# "\n"-joined string. Confirmed empirically (not assumed) that mtext()
-# anchors a multi-line "\n" string by its LAST line at the given `line=`
-# value, with earlier lines extending TOWARD the plot, not away from it -
-# so three columns of different lengths (e.g. a short "Elements" column
-# next to a long "Outlier Detection: Mahalanobis..." column once
-# Mahalanobis/Isolation Forest are active) had their LAST lines converge
-# on the same outer position and overlap, regardless of how many lines
-# each column actually needed above that shared bottom anchor. This was
-# the real cause of the "text overlaps when using Isolation Forest or
-# Mahalanobis" report - the col3_text join-fix in
-# prepare_ternary_plot_data() (see that function's own comments) fixed the
-# other half of the same report (one giant unwrapped line instead of
-# several short ones), but not this part on its own. Anchoring every
-# column's FIRST line at the same `start_line` instead, and stepping each
-# subsequent line further outward, keeps columns of any length from ever
-# colliding based on how many lines their neighbors happen to have.
+# "\n"-joined string. mtext() anchors a multi-line "\n" string by its LAST
+# line at the given `line=` value, with earlier lines extending TOWARD the
+# plot, not away from it - so three columns of different lengths (e.g. a
+# short "Elements" column next to a long "Outlier Detection:
+# Mahalanobis..." column once Mahalanobis/Isolation Forest are active)
+# would have their LAST lines converge on the same outer position and
+# overlap, regardless of how many lines each column actually needed above
+# that shared bottom anchor. Anchoring every column's FIRST line at the
+# same `start_line` instead, and stepping each subsequent line further
+# outward, keeps columns of any length from ever colliding based on how
+# many lines their neighbors happen to have.
 #
 # The `cex * 1.1` per-line step (not `cex` alone) was tuned empirically
 # against a real 7-line Mahalanobis column: mtext()'s `line=` units are a

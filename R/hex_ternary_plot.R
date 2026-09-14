@@ -1,15 +1,10 @@
 # ---- Hexagonal Joint Ternary Diagram ----
 # Composites 6 triangular ternary plots (sharing a common central element/
-# combination) into one hexagonal image. Ported from the sibling
-# "Kode za objavo/hexagonal_ternary_plot/create_joint_ternary_diagram.R"
-# script, with two bugs fixed there already carried over here:
-#   1. `working_dir` must always be matched by name in the call - R's
-#      positional-argument matching otherwise silently binds the first
-#      element string to it instead of `...`, since it precedes `...` in
-#      the signature.
-#   2. `file_base` is computed unconditionally up front (it used to only
-#      exist when `output_dir` was NULL, so passing an explicit output_dir
-#      crashed the composite-title step every time).
+# combination) into one hexagonal image.
+#
+# `working_dir` must always be matched by name in the call - R's
+# positional-argument matching otherwise silently binds the first element
+# string to it instead of `...`, since it precedes `...` in the signature.
 #
 # Reuses the same Ternary::TernaryPlot/TernaryPoints call pattern already
 # used elsewhere in this app (see ternary_plot_preview.R), just without the
@@ -146,13 +141,7 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
 
   # Collect each triangle's own file path directly from plot_ternary()'s
   # return value (which is cut_triangle()'s own return value - the exact
-  # file it just wrote), in generation order. This used to instead re-scan
-  # custom_folder for *.png and sort by file ctime, which - since ctime has
-  # only whole-second resolution and custom_folder can be reused across
-  # calls (server_hex_ternary.R builds it from tempdir()/Sys.time() at
-  # second resolution) - could silently pick up stale files from an
-  # earlier generation if a user re-clicked "Generate" within the same
-  # wall-clock second, with no error or warning.
+  # file it just wrote), in generation order.
   png_files_sorted <- vapply(seq_along(element_configs), function(i) {
     config <- element_configs[[i]]
     plot_ternary(M, elements_A = config$A, elements_B = config$B, elements_C = config$C,
@@ -167,9 +156,7 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
   composite_path <- file.path(custom_folder, paste0("Hexagonal_Ternary_of_", elements_labels_safe, ".png"))
   grDevices::png(composite_path, width = 1400, height = 1400, bg = "white")
   # Guarantee the device is closed even if an error occurs anywhere below
-  # (a bad rasterImage()/text() call, etc.) - previously only the dev.off()
-  # at the very end of this function closed it, so any error in between
-  # left the device open for the lifetime of the R process.
+  # (a bad rasterImage()/text() call, etc.).
   on.exit(grDevices::dev.off(), add = TRUE)
   graphics::plot(NA, xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5), asp = 1, axes = FALSE, xlab = "", ylab = "")
 

@@ -60,16 +60,13 @@ This function's entire local environment as a list
 (\code{as.list(environment())}), mirroring
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}}'s own return convention - includes
 \code{clean_labels_A}/\code{B}/\code{C}, \code{axis_labels_A}/\code{B}/\code{C}, \code{title_parts}, and
-\code{plot_title}, which is exactly what the original inline code (before
-this was split out) left behind in \code{prepare_ternary_plot_data()}'s
-own environment for \code{as.list(environment())} to capture there.
+\code{plot_title}.
 }
 \description{
 Assembles the plot title (element summary, optional-parameter and
 filter/method annotations, source-file "charge" line) and the ternary
 diagram's corner/axis labels. Called once by
 \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}}, right after ternary coordinates are
-computed - extracted as its own function because it's purely cosmetic
-(per the vidternary Structural Audit's Sec.04 responsibility table):
-builds display text only, and touches none of the actual filtered data.
+computed. Builds display text only, and touches none of the actual
+filtered data.
 }

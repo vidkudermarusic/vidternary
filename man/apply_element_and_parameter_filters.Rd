@@ -49,15 +49,12 @@ or genuinely independent per-column filters, depending on whether
 \code{individual_filters_A}/\code{B}/\code{C} is supplied), then \code{optional_param1}'s and
 \code{optional_param2}'s own single filter string, if either has one. Defines
 \code{parse_filter_condition()}, \code{apply_filter()}, and \code{apply_individual_filters()}
-as its own \emph{local} closures, exactly as in the original single-function
-version of this code - they are NOT the same functions as the
+as its own \emph{local} closures - they are NOT the same functions as the
 same-named ones in \code{helpers.R}/\code{helpers_filters.R} (different,
 ternary-plot-specific behavior), so they must stay local rather than
 becoming top-level functions, to avoid silently shadowing those
-unrelated global functions package-wide (a real instance of exactly
-this bug class, unrelated to these, was found and fixed three times
-elsewhere in this package - see the vidternary Structural Audit's
-Sec.03/Sec.08). \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} keeps its own two sibling local
+unrelated global functions package-wide.
+\code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} keeps its own two sibling local
 closures (\code{preview_title_layout()}, \code{calculate_plot_dimensions()})
 untouched in its own body - neither is used by filtering, and both are
 still needed there (as \code{build_ternary_plot_title()}'s \code{title_layout_fn}

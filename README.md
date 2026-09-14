@@ -2,7 +2,7 @@
 
 A comprehensive R package/Shiny app for creating ternary plots with advanced filtering and multivariate analysis capabilities. Built with a modular architecture for maintainability and extensibility.
 
-## 🖥️ Application Tabs
+## Application Tabs
 
 - **Ternary Plots** — main dual-dataset (primary + reference) ternary plotting with element/optional-parameter selection, per-element filters, statistical filters (IQR, Z-score, MAD), and multivariate filters (Mahalanobis distance, Isolation Forest)
 - **Data Comparison** — descriptive-statistics tables, correlation heatmaps, missing-value/outlier summaries, raw Excel previews, and Mahalanobis / Isolation Forest comparison across an arbitrary set of uploaded files (independent of the Ternary Plots uploads, not limited to two)
@@ -14,7 +14,7 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 - **Compositional Analysis** — CLR / ILR log-ratio transforms plus PCA for Wt% chemistry data, avoiding the closure-problem artifacts of running ordinary statistics on raw percentages
 - **Analysis Log** — a running, filterable/searchable log of operations performed during the session
 
-## 🏗️ Modular Architecture
+## Modular Architecture
 
 The package is organized into logical modules, each handling specific functionality:
 
@@ -62,7 +62,7 @@ The package is organized into logical modules, each handling specific functional
 ### Application Entry
 - **`R/app.R`** — `run_app()` / `create_app()`
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -95,7 +95,7 @@ app <- create_app()
 shiny::runApp(app)
 ```
 
-## 📊 Features
+## Features
 
 ### Ternary Plot Generation
 - Support for multiple element columns per axis (summed)
@@ -121,20 +121,20 @@ shiny::runApp(app)
 - Multiple plot formats (PNG, PDF, JPEG, TIFF)
 - Data export (Excel, CSV, RDS, JSON)
 
-## 🧪 Testing
+## Testing
 
 ```r
 library(testthat)
 devtools::test()
 ```
 
-## 📚 Documentation
+## Documentation
 
 - **Vignette**: `vignettes/vidternary-intro.Rmd`
 - **Function help**: `?function_name` once the package is loaded
 - **Sample data**: `testdata/test_data.xlsx` (see `testdata/README.md`)
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -142,10 +142,10 @@ devtools::test()
 4. Add tests in `tests/testthat/`
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## Support
 
 For issues and questions, open an issue on the [GitHub repository](https://github.com/vidkudermarusic/vidternary).

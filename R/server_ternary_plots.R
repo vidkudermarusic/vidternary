@@ -8,27 +8,13 @@
 #   server_ternary_plots_groups.R - categorical group-selection UI
 #   server_file_handlers.R        - Dataset 1/2 upload + copy-settings
 #
-# "Multiple Ternary Creator" used to be registered from inside this same
-# function (register_ternary_plots_batch_handlers(), called below) - it's
-# now a fully independent sibling tab/module (server_ternary_plots_batch.R,
-# wired directly from server_logic.R's own moduleServer("multiple_ternary",
-# ...) call), not nested here, since the two turned out to be one entangled
-# server unit rather than genuinely separate tabs (see the vidternary
-# Structural Audit for the full cross-tab dependency map that found this).
+# "Multiple Ternary Creator" is a fully independent sibling tab/module
+# (server_ternary_plots_batch.R, wired directly from server_logic.R's own
+# moduleServer("multiple_ternary", ...) call), not nested here.
 #
 # The per-element dynamic filter UI (dynamic_filters_A1/B1/C1/A2/B2/C2) and
-# the "only one filter method active at a time" enforcement used to live in
-# a shared server_filter_management.R that also built Multiple Ternary
-# Creator's filter UI in the same registration call - split apart for the
-# same reason, with this tab's half moved directly into this file below.
-#
-# BUGFIX (as part of an earlier split): generate_analysis_report() below was
-# previously missing its closing brace, so everything that followed it in
-# the original single file - the analysis report renderer, the Save Plot
-# buttons, and the group-selection UI - was accidentally nested inside its
-# body and never executed. That's fixed here: the function now closes right
-# after its return(), and the code that used to trail it is registered
-# properly (below, and in server_ternary_plots_groups.R).
+# the "only one filter method active at a time" enforcement for this tab
+# live in this file below.
 
 #' Wire up the "Ternary Plots" tab's single-file server logic
 #'
@@ -299,9 +285,6 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   }, width = safe_plot_dim("ternary_preview2", "width", 450), height = safe_plot_dim("ternary_preview2", "height", 500))
 
   # ---- Group-selection handlers (sibling file, same tab/module) ----
-  # Multiple Ternary Creator's batch handlers used to also be registered
-  # here - now wired independently from server_logic.R (see this file's
-  # header comment).
   register_ternary_plots_group_handlers(input, output, session, rv, show_message, log_operation)
 
   # Observers to populate the shared "Universal Column Selector"
@@ -338,13 +321,9 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
   # Analysis Report Generator
   generate_analysis_report <- function(input, rv) {
-    # Ensure at least one filter method is active. Passing these as separate
-    # req() arguments (the previous form) requires every single one to be
-    # TRUE at once to proceed - but this tab enforces "only one filter
-    # active at a time" (see the mutual-exclusivity observers above), so
-    # that older form could never actually pass in normal use and the
-    # report body below never ran. Matches the `||` gate already used by
-    # this function's one caller, output$analysis_report, below.
+    # Ensure at least one filter method is active. Matches the `||` gate
+    # already used by this function's one caller, output$analysis_report,
+    # below.
     req(input$use_mahalanobis || input$use_isolation_forest ||
         input$use_iqr_filter || input$use_zscore_filter || input$use_mad_filter)
 
@@ -362,10 +341,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       # Add individual filters for Element A. Reads the same dynamically-
       # named filter_A1_<element> inputs (built by the dynamic_filters_A1
       # renderUI above) that the actual plot filtering already reads via
-      # collect_main_ternary_filters() inside extract_ternary_params() -
-      # this used to look up a single "filter_A1" input that never existed
-      # (the real ones are per-element), so no filter ever showed up here
-      # even though it was genuinely being applied to the plot.
+      # collect_main_ternary_filters() inside extract_ternary_params().
       filters_A1 <- collect_main_ternary_filters(input$element_A1, "A", 1, input)
       for (filter_name in names(filters_A1)) {
         report_lines <- c(report_lines, paste("  - Filter", filter_name, ":", filters_A1[[filter_name]]))
@@ -414,10 +390,8 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
     # Outlier Detection Section (Mahalanobis distance - a multivariate
     # statistical method - and Isolation Forest - a machine-learning
-    # algorithm; the multivariate_methods variable name below is kept for
-    # both since it also names the "Multivariate Methods:" summary line's
-    # underlying data, now relabeled "Outlier Detection Methods:" since it
-    # lists both kinds of method, not just multivariate statistics)
+    # algorithm; multivariate_methods below feeds the "Outlier Detection
+    # Methods:" summary line further down)
     multivariate_methods <- c()
     if (input$use_mahalanobis) {
       multivariate_methods <- c(multivariate_methods, "Mahalanobis Distance")
@@ -441,9 +415,8 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       report_lines <- c(report_lines, " ISOLATION FOREST:")
       report_lines <- c(report_lines, "  - Method: Machine learning anomaly detection")
       # Trees/contamination/sample size shown explicitly - all three are
-      # user-adjustable (previously fixed internal defaults with no way to
-      # see what was actually used), matching how Mahalanobis's own
-      # lambda/omega are already shown above.
+      # user-adjustable, matching how Mahalanobis's own lambda/omega are
+      # already shown above.
       report_lines <- c(report_lines, paste("  - Number of trees:", input$isolation_ntrees))
       report_lines <- c(report_lines, paste("  - Contamination:", input$isolation_contamination))
       report_lines <- c(report_lines, paste("  - Training sample size per tree:",
@@ -522,14 +495,10 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       first_ten_data <- rv$df1[seq_len(first_ten_rows), , drop = FALSE]
 
       # Determine which columns to show - selected columns if available, otherwise first 5.
-      # seq_len()/seq_along() throughout this block (not 1:...) - see this
-      # function's own comment further down for the exact reachable case
-      # (input$multivariate_columns can transiently name a JUST-REPLACED
-      # file's columns during the async round-trip after a new Dataset 1
-      # upload) that made columns_to_show possibly empty here: 1:0 = c(1,
-      # 0), not an empty sequence, which silently spliced a bogus " = "
-      # line into the report below instead of producing an empty, harmless
-      # loop.
+      # seq_len()/seq_along() throughout this block (not 1:...): columns_to_show
+      # can be empty (input$multivariate_columns can transiently name a
+      # just-replaced file's columns during the async round-trip after a
+      # new Dataset 1 upload), and 1:0 = c(1, 0), not an empty sequence.
       columns_to_show <- if (!is.null(input$multivariate_columns) && length(input$multivariate_columns) > 0) {
         intersect(input$multivariate_columns, names(first_ten_data))
       } else {
@@ -543,10 +512,8 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         row_data <- first_ten_data[i, columns_to_show, drop = FALSE]
         col_values <- as.numeric(row_data[1, ])
 
-        # seq_along(), not 1:length() - see this block's own comment above:
-        # columns_to_show can be empty (a stale input$multivariate_columns
-        # selection naming a just-replaced file's columns), and
-        # 1:length(character(0)) is 1:0 = c(1, 0), not an empty sequence.
+        # seq_along(), not 1:length() - columns_to_show can be empty; see
+        # this block's own comment above.
         row_summary <- paste(sapply(seq_along(columns_to_show), function(j) {
           paste(columns_to_show[j], "=", round(col_values[j], 3))
         }), collapse = ", ")
@@ -690,8 +657,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   # ---- Save Plot Buttons for Main Ternary Plots ----
   # Each hands the saved file straight to the browser's own Save dialog
   # (downloadButton/downloadHandler) instead of writing to a pre-chosen
-  # server-side folder - see the vidternary Structural Audit's Sec.03 for why
-  # the previous global Working/Output Directory picker was removed.
+  # server-side folder.
   # general_ternary_plot() still needs a real output_dir to actually save
   # (preview = FALSE, output_dir = NULL would just draw and return NULL,
   # same as a live preview) - a fresh, single-use temp directory supplies

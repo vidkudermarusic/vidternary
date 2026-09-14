@@ -17,8 +17,7 @@ create_spatial_tab <- function(id) {
         h3("Spatial Clustering / Spacing Analysis (Clark-Evans Test)"),
         helpText("Tests whether inclusion positions are randomly scattered, clustered together, or more evenly spread out than chance would predict."),
 
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
+        info_box(" How it works",
           tags$ul(
             tags$li("For every point, the distance to its nearest neighbour is measured (nearest-neighbour distance, NND)."),
             tags$li("The observed mean NND is compared to what would be expected if the points were completely randomly scattered (CSR) in the same area."),
@@ -37,14 +36,11 @@ create_spatial_tab <- function(id) {
 
         fluidRow(
           column(6,
-            h4("File Selection"),
-            fileInput(ns("spatial_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
-            helpText("Each file's Sheet 1 is read and combined.")
+            create_file_selection_column(ns("spatial_files"))
           ),
           column(6,
             h4("Coordinates"),
-            selectInput(ns("spatial_x_col"), "X coordinate column:", choices = NULL),
-            selectInput(ns("spatial_y_col"), "Y coordinate column:", choices = NULL),
+            create_xy_coordinate_selectors(ns("spatial_x_col"), ns("spatial_y_col")),
             selectInput(ns("spatial_color_col"), "Colour points by (optional):", choices = c("None" = "none"))
           )
         ),
@@ -81,11 +77,7 @@ create_spatial_tab <- function(id) {
           column(12, create_pre_filter_ui(ns, "spatial"))
         ),
 
-        fluidRow(
-          column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton(ns("spatial_analyze"), "Analyze Spatial Pattern", class = "btn-primary btn-lg", style = "font-size: 18px;")
-          )
-        ),
+        centered_action_button_row(ns("spatial_analyze"), "Analyze Spatial Pattern", margin_top = "10px"),
 
         fluidRow(
           column(12,

@@ -91,13 +91,9 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
       # auto-print semantics (via withVisible()) - a plain return() yields
       # a VISIBLE NULL, which renderPrint() then explicitly prints as a
       # literal trailing "NULL" line right under the cat() message above.
-      # Confirmed directly against the real shiny::renderPrint() (not just
-      # inferred): the unfixed version produced exactly
-      # "\U0001F4CB Please upload one or more Excel files to begin.\nNULL"
-      # - visible on this tab's very first load, before any file is ever
-      # uploaded. The populated-data branch below doesn't have this problem
-      # - every one of its own branches ends in a cat() call, whose own
-      # return value is already invisible.
+      # The populated-data branch below doesn't have this problem - every
+      # one of its own branches ends in a cat() call, whose own return
+      # value is already invisible.
       return(invisible())
     }
 

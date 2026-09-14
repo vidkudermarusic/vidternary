@@ -11,15 +11,12 @@
 # underlying compute_mahalanobis_distance()/compute_isolation_forest() call
 # handles both, since self-reference is just target==reference.
 #
-# NOTE: the previous version of the "Comprehensive Analysis Results" panel
-# called multivariate_analysis() (helpers_multivariate.R) and read fields
-# like result$method/result$total_points directly off its return value -
-# but multivariate_analysis() actually returns a list with nested
-# $mahalanobis_results/$isolation_forest_results, not those fields at the
-# top level, so that panel was reading undefined fields (silently NULL)
-# even before this rewrite. Fixed here by calling
-# compute_mahalanobis_distance()/compute_isolation_forest() directly, the
-# same way the two single-method buttons already did.
+# NOTE: multivariate_analysis() (helpers_multivariate.R) returns a list
+# with nested $mahalanobis_results/$isolation_forest_results, not fields
+# like $method/$total_points at the top level - so the "Comprehensive
+# Analysis Results" panel below calls
+# compute_mahalanobis_distance()/compute_isolation_forest() directly
+# instead, the same way the two single-method buttons already do.
 
 register_data_comparison_multivariate_handlers <- function(input, output, session, rv, show_message, log_operation) {
 
@@ -62,18 +59,13 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     NULL
   }
 
-  # This single-method panel had the same silent-recompute-on-every-keystroke
-  # bug the comprehensive panel below was fixed for: output$mahalanobis_output
-  # used to be assigned a renderPrint() whose OWN body read
-  # input$comparison_mv_lambda/omega/mdthresh_mode/custom_mdthresh directly -
-  # assigning that renderPrint() inside this observeEvent() only controls
-  # when a NEW render function gets installed, not when the installed render
-  # function itself re-fires. Once installed, any reactive value its own body
-  # reads (lambda, omega, ...) is a live dependency, so it recomputed and
-  # redrew on every parameter tweak with no click required, exactly like the
-  # comprehensive panel used to. Fixed the same way: everything below runs
-  # once, now, inside this observeEvent - not inside the renderPrint() at the
-  # end - so that renderPrint()'s body has no reactive reads of its own.
+  # Everything below runs once, now, inside this observeEvent - not inside
+  # the renderPrint() at the end, whose body must have no reactive reads of
+  # its own. Assigning a renderPrint() inside an observeEvent only controls
+  # when a new render function is installed, not when it re-fires; if its
+  # body read inputs like lambda/omega directly, those become live
+  # dependencies and it would recompute on every parameter tweak with no
+  # click required.
   observeEvent(input$mahalanobis_analysis, {
     req(rv$comparison_data, input$comparison_mv_target, input$comparison_mv_columns)
     td <- resolve_target_reference()
@@ -152,18 +144,12 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
     contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
 
-    # Was: tryCatch({ output$isolation_forest_output <- renderPrint({ ... }) },
-    # error = ...) - renderPrint({...}) only builds and returns a render
-    # closure; it does NOT execute the body at assignment time (Shiny calls
-    # it later, on flush). So that tryCatch's try-block could never actually
-    # fail (the assignment itself is essentially infallible) - "SUCCESS" was
-    # logged immediately, before compute_isolation_forest() had even run,
-    # and any real error it raised later propagated through Shiny's own
-    # rendering machinery as its generic error box, never reaching the
-    # error = function(e) handler here at all (see the vidternary
-    # Structural Audit's Sec.02/Sec.03 for the full writeup). Fixed to match
-    # the mahalanobis_analysis observer just above (and the comprehensive
-    # panel below): compute everything and capture it as text INSIDE the
+    # renderPrint({...}) only builds and returns a render closure; it does
+    # NOT execute the body at assignment time (Shiny calls it later, on
+    # flush). So a tryCatch wrapping only the assignment can never catch an
+    # error raised from inside the render body. Matching the
+    # mahalanobis_analysis observer just above (and the comprehensive panel
+    # below): compute everything and capture it as text INSIDE the
     # tryCatch, then assign only a trivial renderPrint() over the
     # already-computed text afterward, so the render closure's own body has
     # nothing left that can fail.
@@ -191,9 +177,8 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
           cat(" Analysis completed successfully!\n\n")
           # Model parameters reported explicitly - ntrees/contamination are
-          # now user-adjustable (previously fixed defaults with no way to
-          # see what was actually used); sample_size is read back from the
-          # result itself rather than assumed, since it always equals the
+          # user-adjustable; sample_size is read back from the result
+          # itself rather than assumed, since it always equals the
           # reference's own complete-row count for the selected columns,
           # not a value chosen here.
           cat("Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
@@ -220,13 +205,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
   # ---- Comprehensive Outlier Detection Display ----
   # Gated behind its own "Run Comprehensive Analysis" button, matching the
-  # two single-method panels above - it used to be a plain renderPrint()
-  # with no button, so it silently recomputed both a fresh Mahalanobis fit
-  # and a fresh 200-tree Isolation Forest fit on every change to target/
-  # columns/lambda/omega/threshold-mode, including changes that only affect
-  # one of the two methods, with no click required and no indication that
-  # the two "Run" buttons above weren't doing anything this panel didn't
-  # already do automatically.
+  # two single-method panels above.
 
   observeEvent(input$comparison_mv_run_comprehensive, {
     req(rv$comparison_data, input$comparison_mv_target, input$comparison_mv_columns)
@@ -241,11 +220,8 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     }
 
     # Everything from here down runs once, now, inside this observeEvent -
-    # not inside the renderPrint() below. Computing the results here and
-    # handing renderPrint() only the already-computed values (report_text)
-    # means that renderPrint() body has no reactive reads of its own, so it
-    # won't silently re-run itself on the next lambda/omega/etc. tweak the
-    # way it used to when this whole block lived directly inside it.
+    # not inside the renderPrint() below (see the comment above the
+    # mahalanobis_analysis observeEvent for why).
     result <- tryCatch({
       lambda <- if (!is.null(input$comparison_mv_lambda)) input$comparison_mv_lambda else 1
       omega <- if (!is.null(input$comparison_mv_omega)) input$comparison_mv_omega else 0

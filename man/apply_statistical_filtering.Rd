@@ -47,13 +47,9 @@ in turn with this app's fixed multiplier/threshold constants (IQR:
 \itemize{
 \item enforced upstream in \code{general_ternary_plot()}, not here - but this
 function has no mutual-exclusion guard of its own and will run all
-three in sequence if somehow more than one flag is set, matching the
-original inline code's own behavior exactly (a pure lift, not a
-rewrite). Extracted from \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} as its own
-function because it's the most self-contained of that function's
-remaining responsibilities (per the vidternary Structural Audit's Sec.04
-responsibility table) - it only reads \code{M} and the filter flags/
-parameters below, and its only real output is \code{M}.
+three in sequence if somehow more than one flag is set. It only reads
+\code{M} and the filter flags/parameters below, and its only real output is
+\code{M}.
 }
 }
 \details{

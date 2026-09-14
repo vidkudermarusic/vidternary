@@ -75,10 +75,8 @@ create_data_comparison_tab <- function(id) {
                 column(4, selectizeInput(ns("comparison_mv_columns"), "Columns for analysis:", choices = NULL, multiple = TRUE))
               ),
 
-              # Mahalanobis parameters - independent of the Ternary Plots tab's
-              # own lambda/omega/threshold-mode inputs (previously silently
-              # reused input$lambda/input$omega/input$mdthresh_mode/
-              # input$custom_mdthresh from that tab). Feeds both the
+              # Mahalanobis parameters - independent of the Ternary Plots
+              # tab's own lambda/omega/threshold-mode inputs. Feeds both the
               # standalone "Run Mahalanobis" button and the "Comprehensive
               # Analysis Results" panel below.
               div(style = "border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin: 10px 0; background-color: #fff;",

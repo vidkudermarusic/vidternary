@@ -19,8 +19,7 @@ create_evs_tab <- function(id) {
         h3("Extreme Value Statistics (Murakami / ASTM E2283)"),
         helpText("Predicts the size of the largest inclusion expected over a larger inspection area, from the distribution of per-field maximum inclusion sizes (Gumbel probability plot)."),
 
-        div(style = "border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #d1ecf1;",
-          h5(" How it works", style = "margin-top: 0; color: #0c5460;"),
+        info_box(" How it works",
           tags$ul(
             tags$li("The inspected area is split into equal 'control areas' - ideally one SEM field-of-view each, identified by a field/frame ID column in your data."),
             tags$li("The largest inclusion (by sqrtArea) in each control area is its block maximum."),
@@ -38,9 +37,7 @@ create_evs_tab <- function(id) {
 
         fluidRow(
           column(6,
-            h4("File Selection"),
-            fileInput(ns("evs_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
-            helpText("Each file's Sheet 1 is read and combined.")
+            create_file_selection_column(ns("evs_files"))
           ),
           column(6,
             h4("Control Area Grouping"),
@@ -57,11 +54,7 @@ create_evs_tab <- function(id) {
           column(12, create_pre_filter_ui(ns, "evs"))
         ),
 
-        fluidRow(
-          column(12, style = "text-align: center; margin-top: 10px;",
-            actionButton(ns("evs_fit"), "Fit Extreme Value Model", class = "btn-primary btn-lg", style = "font-size: 18px;")
-          )
-        ),
+        centered_action_button_row(ns("evs_fit"), "Fit Extreme Value Model", margin_top = "10px"),
 
         fluidRow(
           column(12,
