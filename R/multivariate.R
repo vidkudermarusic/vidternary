@@ -539,7 +539,7 @@ compute_isolation_forest <- function(
   X2 <- X2[, num_cols, drop = FALSE]
   if (ncol(X1) < 2L) stop("Too few columns remain after keeping only the numeric ones.")
 
-  # odstrani konstante / NA vrstice
+  # remove constants / NA rows
   nzv <- vapply(X2, function(v) length(unique(na.omit(v))) > 1L, logical(1))
   X1 <- X1[, nzv, drop = FALSE]
   X2 <- X2[, nzv, drop = FALSE]
@@ -563,7 +563,7 @@ compute_isolation_forest <- function(
   # already-fitted model is well-defined, so the floor here is 1 row.
   if (nrow(X1c) < 1L) stop("The target dataset has no complete rows for the isolation forest (the selected columns are missing in every row).")
 
-  # 2) Treniranje na referenci
+  # 2) Training on the reference
   #
   # sample_size (rows each tree trains on): NULL -> every complete
   # reference row (nrow(X2c)); a number -> that many rows per tree, the
@@ -583,17 +583,17 @@ compute_isolation_forest <- function(
     seed = seed
   )
 
-  # 3) Prag iz REFERENCNIH score-ov
+  # 3) Threshold from REFERENCE scores
   scores_ref <- as.numeric(predict(iso_model, X2c, type = score_type))
   threshold  <- as.numeric(stats::quantile(scores_ref, 1 - contamination, na.rm = TRUE))
 
-  # 4) Ocene za data1 + oznacevanje outlierjev
+  # 4) Scores for data1 + flagging outliers
   scores1_c  <- as.numeric(predict(iso_model, X1c, type = score_type))
-  # mapiraj nazaj na originalni red
+  # map back to original order
   scores1 <- rep(NA_real_, nrow(X1)); scores1[cc1] <- scores1_c
   outlier_indices <- !is.na(scores1) & (scores1 >= threshold)
 
-  # 5) Izvoz filtriranih podatkov (po zelji)
+  # 5) Export of filtered data (optional)
   kept <- if (keep_outliers) outlier_indices else !outlier_indices
   kept[is.na(kept)] <- FALSE
 
