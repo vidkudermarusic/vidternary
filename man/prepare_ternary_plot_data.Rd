@@ -77,7 +77,13 @@ only feeding a live preview render, not a save.}
 
 \item{reference_data}{Optional reference dataset for multivariate
 filtering, when \code{mahalanobis_reference}/an isolation-forest reference
-mode needs one other than the file being processed.}
+mode needs one other than the file being processed. Expected as the
+raw/uncurated dataset (e.g. \code{rv$df1}/\code{rv$df2}, straight off disk) -
+this function curates it internally (same element/optional-parameter
+and statistical filters as \code{M}, same parameters) before it reaches
+\code{\link[=apply_multivariate_filtering]{apply_multivariate_filtering()}}, falling back to the raw dataset if
+curation errors (e.g. a missing column). Ignored/unused when
+\code{mahalanobis_reference == "self"}.}
 
 \item{optional_param1_representation}{\code{"point_size"} or \code{"point_type"} -
 how \code{optional_param1} maps onto the plotted points.}

@@ -65,7 +65,13 @@
 #' @param use_mahalanobis Apply Mahalanobis-distance outlier filtering.
 #' @param reference_data Optional reference dataset for multivariate
 #'   filtering, when `mahalanobis_reference`/an isolation-forest reference
-#'   mode needs one other than the file being processed.
+#'   mode needs one other than the file being processed. Expected as the
+#'   raw/uncurated dataset (e.g. `rv$df1`/`rv$df2`, straight off disk) -
+#'   this function curates it internally (same element/optional-parameter
+#'   and statistical filters as `M`, same parameters) before it reaches
+#'   [apply_multivariate_filtering()], falling back to the raw dataset if
+#'   curation errors (e.g. a missing column). Ignored/unused when
+#'   `mahalanobis_reference == "self"`.
 #' @param optional_param1_representation `"point_size"` or `"point_type"` -
 #'   how `optional_param1` maps onto the plotted points.
 #' @param output_format File format for a real save (e.g. `"png"`).
@@ -275,9 +281,56 @@ prepare_ternary_plot_data <- function(
   )
   list2env(stat_result, environment())
 
+  # Curate the external reference dataset ("dataset1"/"dataset2" reference
+  # mode) through the exact same element/optional-parameter and statistical
+  # filters M itself just went through above, using the same parameters -
+  # so the "normal" population the Mahalanobis/Isolation Forest reference is
+  # fit to reflects the same selection criteria as the data being scored,
+  # rather than a raw upload that may still contain rows the analyst has
+  # already excluded from M (out-of-range element values, missing readings,
+  # already-flagged statistical outliers). "self" mode needs no separate
+  # curation here - it already uses M itself (fully curated) as its own
+  # reference. preview = TRUE unconditionally: this reuses the same filter
+  # functions M's own filtering just called, and running their console
+  # progress messages a second time (for the same filters, on the reference
+  # instead of M) would just be confusing duplicate output.
+  curated_reference_data <- reference_data
+  if (!is.null(reference_data) && mahalanobis_reference != "self" &&
+      (use_mahalanobis || use_isolation_forest)) {
+    curated_reference_data <- tryCatch({
+      ref_filtered <- apply_element_and_parameter_filters(
+        M = reference_data,
+        element_A = element_A, element_B = element_B, element_C = element_C,
+        individual_filters_A = individual_filters_A,
+        individual_filters_B = individual_filters_B,
+        individual_filters_C = individual_filters_C,
+        optional_param1 = optional_param1, optional_param2 = optional_param2,
+        preview = TRUE
+      )$M
+      apply_statistical_filtering(
+        M = ref_filtered,
+        use_iqr_filter = use_iqr_filter,
+        use_zscore_filter = use_zscore_filter,
+        use_mad_filter = use_mad_filter,
+        selected_columns = selected_columns,
+        keep_outliers_iqr = keep_outliers_iqr,
+        keep_outliers_zscore = keep_outliers_zscore,
+        keep_outliers_mad = keep_outliers_mad,
+        stat_filter_log10 = stat_filter_log10
+      )$M
+    }, error = function(e) {
+      if (!preview) {
+        cat("WARNING: Could not curate the reference dataset the same way as the plotted data (",
+            e$message, "). Using the raw, uncurated reference dataset instead.\n", sep = "")
+      }
+      reference_data
+    })
+  }
+
   # Multivariate outlier dispatch: extracted into apply_multivariate_filtering()
   # (see this function's own "Restructuring" doc section above) - identical
-  # behavior; the only fields read back afterward are M (possibly
+  # behavior except reference_data is now curated_reference_data (see just
+  # above); the only fields read back afterward are M (possibly
   # re-filtered), mahal_result, and iso_result.
   mv_result <- apply_multivariate_filtering(
     M = M,
@@ -288,7 +341,7 @@ prepare_ternary_plot_data <- function(
     isolation_sample_size = isolation_sample_size,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
-    reference_data = reference_data,
+    reference_data = curated_reference_data,
     preview = preview,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
