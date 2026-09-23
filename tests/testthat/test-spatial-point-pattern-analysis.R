@@ -12,11 +12,16 @@ test_that("build_point_pattern rejects collinear/degenerate points with a clear 
   # Before this file's own defensive tryCatch(), spatstat.geom::convexhull.xy()
   # throws its own raw internal assertion ("is.owin(w) is not TRUE") on fully
   # collinear input rather than returning a zero-area window - confirmed
-  # directly. Both the all-Y-constant case and a genuinely diagonal-collinear
-  # case are checked, since they reach the failure through different paths.
+  # directly. The all-Y-constant case degenerates under EITHER window (a
+  # zero-height rectangle has no area either), so it's checked with the
+  # default (rectangle); the genuinely diagonal-collinear case only
+  # degenerates for the convex hull - its bounding rectangle has real,
+  # positive area (this is exactly the "rectangle window tolerates
+  # collinear points" behavior covered by its own test below), so it must
+  # be checked with window = "convex_hull" explicitly.
   expect_error(build_point_pattern(c(1, 2, 3, 4), c(5, 5, 5, 5)),
                "non-zero area")
-  expect_error(build_point_pattern(c(1, 2, 3, 4), c(1, 2, 3, 4)),
+  expect_error(build_point_pattern(c(1, 2, 3, 4), c(1, 2, 3, 4), window = "convex_hull"),
                "non-zero area")
 })
 
@@ -32,16 +37,14 @@ test_that("build_point_pattern drops non-finite coordinates before building the 
   expect_equal(spatstat.geom::npoints(pp), 4)
 })
 
-test_that("build_point_pattern's window is the convex hull by default, with a real positive area", {
+test_that("build_point_pattern's window is the rectangular bounding box by default (matches clark_evans_test()'s own default for the same data)", {
   set.seed(1)
   x <- stats::runif(30, 0, 10); y <- stats::runif(30, 0, 10)
   pp <- build_point_pattern(x, y)
   area <- spatstat.geom::area.owin(spatstat.geom::Window(pp))
-  expect_gt(area, 0)
-  # The convex hull of points spread over [0,10]x[0,10] can't exceed the
-  # bounding box's own area (100) - a real, checkable upper bound, not just
-  # "some positive number".
-  expect_lte(area, 100)
+  # Exact equality to the bounding-box area - a real regression check for
+  # the default, not just an upper bound a convex hull would also satisfy.
+  expect_equal(area, (max(x) - min(x)) * (max(y) - min(y)))
 })
 
 test_that("build_point_pattern's window = \"rectangle\" uses the bounding box - strictly larger than the hull for scattered points", {

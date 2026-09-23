@@ -51,7 +51,20 @@ create_evs_tab <- function(id) {
         ),
 
         fluidRow(
-          column(12, create_pre_filter_ui(ns, "evs"))
+          column(12,
+            create_pre_filter_ui(ns, "evs"),
+            div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px; margin-top: -5px;",
+              strong("Caution when filtering by Area: "),
+              "this method needs each control area's TRUE largest inclusion, whatever its size. ",
+              "Filtering on Area itself (e.g. \"Area > 1\" to drop small inclusions) can silently distort the fit: ",
+              "a control area whose real maximum happens to fall below your threshold either loses that ",
+              "maximum to a smaller surviving inclusion, or is dropped from the analysis entirely if every ",
+              "inclusion in it is filtered out - biasing the fitted Gumbel line and the predicted largest ",
+              "inclusion. Filtering on a variable unrelated to size (e.g. a chemistry/inclusion-type column) ",
+              "does not have this problem. If you do filter by Area, check the Fit Summary's control-area ",
+              "count against your unfiltered data to see whether any control areas were lost."
+            )
+          )
         ),
 
         centered_action_button_row(ns("evs_fit"), "Fit Extreme Value Model", margin_top = "10px"),

@@ -81,7 +81,7 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     nsim <- if (!is.null(input$ppp_nsim) && is.finite(input$ppp_nsim) && input$ppp_nsim >= 1) {
       round(input$ppp_nsim)
     } else 99
-    ppp_window <- if (!is.null(input$ppp_window) && input$ppp_window == "rectangle") "rectangle" else "convex_hull"
+    ppp_window <- if (!is.null(input$ppp_window) && input$ppp_window == "convex_hull") "convex_hull" else "rectangle"
     # Global (simultaneous) envelope by default - a valid whole-curve test;
     # unticking gives the descriptive pointwise band. NULL (input not yet
     # rendered) -> the default TRUE.

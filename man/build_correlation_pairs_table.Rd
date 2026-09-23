@@ -27,4 +27,14 @@ For constant-sum compositional columns (wt\% chemistry) a Pearson \code{r} is
 distorted by closure (see \code{\link[=create_correlation_plot]{create_correlation_plot()}}'s details); pass
 \code{method = "spearman"} for a rank-based alternative that is less
 affected.
+
+Missing values are handled pairwise (\code{use = "pairwise.complete.obs"}):
+each pair's correlation uses every row complete for \emph{that} pair, rather
+than dropping any row incomplete in \emph{any} selected column (which would
+needlessly shrink the sample for pairs that have no missingness of their
+own). This matches \code{validate_multivariate_data()}'s own multicollinearity
+check (\code{multivariate.R}) - safe here because this table has no downstream
+requirement that the full matrix be positive-semi-definite, unlike a
+covariance matrix feeding a matrix inversion (Mahalanobis distance),
+which is why those keep listwise deletion instead.
 }
