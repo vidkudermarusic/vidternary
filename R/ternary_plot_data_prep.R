@@ -65,7 +65,13 @@
 #' @param use_mahalanobis Apply Mahalanobis-distance outlier filtering.
 #' @param reference_data Optional reference dataset for multivariate
 #'   filtering, when `mahalanobis_reference`/an isolation-forest reference
-#'   mode needs one other than the file being processed.
+#'   mode needs one other than the file being processed. Expected as the
+#'   raw/uncurated dataset (e.g. `rv$df1`/`rv$df2`, straight off disk) -
+#'   this function curates it internally (same element/optional-parameter
+#'   and statistical filters as `M`, same parameters) before it reaches
+#'   [apply_multivariate_filtering()], falling back to the raw dataset if
+#'   curation errors (e.g. a missing column). Ignored/unused when
+#'   `mahalanobis_reference == "self"`.
 #' @param optional_param1_representation `"point_size"` or `"point_type"` -
 #'   how `optional_param1` maps onto the plotted points.
 #' @param output_format File format for a real save (e.g. `"png"`).
@@ -179,6 +185,34 @@ prepare_ternary_plot_data <- function(
     is_categorical_group
 ) {
 
+  # Only one statistical/multivariate outlier filter may be active per plot
+  # (they're alternative ways to flag outliers, not stages meant to compound
+  # - see apply_statistical_filtering()'s/apply_multivariate_filtering()'s
+  # own docs). general_ternary_plot() already enforces this for the live
+  # app (picks the highest-priority flag and warns, so a UI glitch degrades
+  # gracefully rather than crashing a user's plot) and the Ternary Plots
+  # tab's own UI enforces it a level higher still (checking one of the five
+  # checkboxes auto-unchecks the other four). This function is itself
+  # exported and directly callable, though - bypassing both of those layers
+  # (as the test suite and this package's own smoke-test scripts do) - so it
+  # gets its own hard stop() rather than general_ternary_plot()'s graceful
+  # pick-one-and-warn: a caller invoking this function directly with
+  # multiple flags set is a caller mistake to surface clearly, not a live
+  # end-user UI state to degrade gracefully around.
+  active_filters <- c(
+    "Mahalanobis" = isTRUE(use_mahalanobis),
+    "Isolation Forest" = isTRUE(use_isolation_forest),
+    "IQR" = isTRUE(use_iqr_filter),
+    "Z-score" = isTRUE(use_zscore_filter),
+    "MAD" = isTRUE(use_mad_filter)
+  )
+  if (sum(active_filters) > 1) {
+    stop("Only one statistical/multivariate outlier filter may be active per plot, but ",
+         sum(active_filters), " are here: ", paste(names(active_filters)[active_filters], collapse = ", "),
+         ". Set all but one of use_mahalanobis/use_isolation_forest/use_iqr_filter/use_zscore_filter/",
+         "use_mad_filter to FALSE.")
+  }
+
   # Variables that are only conditionally assigned below (depending on which
   # filter method or point-styling branch runs). Pre-declaring them as NULL
   # lets the render functions check `!is.null(pd$x)` instead of relying on
@@ -275,9 +309,56 @@ prepare_ternary_plot_data <- function(
   )
   list2env(stat_result, environment())
 
+  # Curate the external reference dataset ("dataset1"/"dataset2" reference
+  # mode) through the exact same element/optional-parameter and statistical
+  # filters M itself just went through above, using the same parameters -
+  # so the "normal" population the Mahalanobis/Isolation Forest reference is
+  # fit to reflects the same selection criteria as the data being scored,
+  # rather than a raw upload that may still contain rows the analyst has
+  # already excluded from M (out-of-range element values, missing readings,
+  # already-flagged statistical outliers). "self" mode needs no separate
+  # curation here - it already uses M itself (fully curated) as its own
+  # reference. preview = TRUE unconditionally: this reuses the same filter
+  # functions M's own filtering just called, and running their console
+  # progress messages a second time (for the same filters, on the reference
+  # instead of M) would just be confusing duplicate output.
+  curated_reference_data <- reference_data
+  if (!is.null(reference_data) && mahalanobis_reference != "self" &&
+      (use_mahalanobis || use_isolation_forest)) {
+    curated_reference_data <- tryCatch({
+      ref_filtered <- apply_element_and_parameter_filters(
+        M = reference_data,
+        element_A = element_A, element_B = element_B, element_C = element_C,
+        individual_filters_A = individual_filters_A,
+        individual_filters_B = individual_filters_B,
+        individual_filters_C = individual_filters_C,
+        optional_param1 = optional_param1, optional_param2 = optional_param2,
+        preview = TRUE
+      )$M
+      apply_statistical_filtering(
+        M = ref_filtered,
+        use_iqr_filter = use_iqr_filter,
+        use_zscore_filter = use_zscore_filter,
+        use_mad_filter = use_mad_filter,
+        selected_columns = selected_columns,
+        keep_outliers_iqr = keep_outliers_iqr,
+        keep_outliers_zscore = keep_outliers_zscore,
+        keep_outliers_mad = keep_outliers_mad,
+        stat_filter_log10 = stat_filter_log10
+      )$M
+    }, error = function(e) {
+      if (!preview) {
+        cat("WARNING: Could not curate the reference dataset the same way as the plotted data (",
+            e$message, "). Using the raw, uncurated reference dataset instead.\n", sep = "")
+      }
+      reference_data
+    })
+  }
+
   # Multivariate outlier dispatch: extracted into apply_multivariate_filtering()
   # (see this function's own "Restructuring" doc section above) - identical
-  # behavior; the only fields read back afterward are M (possibly
+  # behavior except reference_data is now curated_reference_data (see just
+  # above); the only fields read back afterward are M (possibly
   # re-filtered), mahal_result, and iso_result.
   mv_result <- apply_multivariate_filtering(
     M = M,
@@ -288,7 +369,7 @@ prepare_ternary_plot_data <- function(
     isolation_sample_size = isolation_sample_size,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
-    reference_data = reference_data,
+    reference_data = curated_reference_data,
     preview = preview,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
@@ -508,6 +589,30 @@ prepare_ternary_plot_data <- function(
       if (use_mad_filter) {
         outlier_status <- if (keep_outliers_mad) "(keep only outliers)" else "(remove outliers)"
         stat_info <- c(stat_info, paste("MAD", outlier_status))
+      }
+      # Columns used, matching how the Mahalanobis/Isolation Forest block
+      # above already reports its own "Columns used:" - IQR/Z-score/MAD
+      # never showed this at all before.
+      if (!is.null(selected_columns) && length(selected_columns) > 0) {
+        stat_info <- c(stat_info, paste("  Columns used:", paste(selected_columns, collapse = ", ")))
+      }
+      # Multiple-comparisons caveat: each active method flags a row if it
+      # crosses the fence in ANY ONE of selected_columns (the per-column
+      # flags are OR-ed - see statistical_filters.R's own module header),
+      # so the effective false-positive rate compounds with the column
+      # count and can be well above any single column's own nominal rate.
+      # That's real and documented in the source, but previously invisible
+      # anywhere a reader of the actual plot (e.g. in a thesis write-up)
+      # would see it. Shown from 3 columns up - below that the compounding
+      # is small enough not to be worth a line on every such plot. No
+      # specific percentage is claimed: the source header's own example
+      # figures assume a roughly normal column, which right-skewed
+      # inclusion measurements (this app's typical case) usually aren't.
+      if (!is.null(selected_columns) && length(selected_columns) >= 3) {
+        stat_info <- c(stat_info, sprintf(
+          "  Note: outlier flag = union across %d columns (false-positive rate compounds)",
+          length(selected_columns)
+        ))
       }
       # Same fix as "Outlier Detection:" just above - each active filter's
       # own line stays a separate element instead of being comma-joined
