@@ -322,6 +322,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   } else {
     NULL
   }
+  isolation_seed <- if (!is.null(input$isolation_seed) && !is.na(input$isolation_seed)) input$isolation_seed else 42
 
   # Reference data handling
   reference_data <- NULL
@@ -437,6 +438,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
     isolation_sample_size = isolation_sample_size,
+    isolation_seed = isolation_seed,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_iqr = keep_outliers_iqr,

@@ -20,7 +20,8 @@ apply_multivariate_filtering(
   mdthresh_mode,
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
-  isolation_sample_size = NULL
+  isolation_sample_size = NULL,
+  isolation_seed = 42
 )
 }
 \arguments{
@@ -57,6 +58,10 @@ contamination fraction for \code{\link[=compute_isolation_forest]{compute_isolat
 \item{isolation_sample_size}{Rows each isolation tree trains on - \code{NULL}
 for every complete reference row (default), or a whole number \verb{>= 2}
 to sub-sample (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
+
+\item{isolation_seed}{Random seed for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
+\code{use_isolation_forest = TRUE}. Default 42; user-adjustable in the UI
+like \code{isolation_ntrees}/\code{isolation_contamination} above.}
 }
 \value{
 This function's entire local environment as a list

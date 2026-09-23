@@ -366,6 +366,9 @@ apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, us
 #' @param isolation_sample_size Rows each isolation tree trains on - `NULL`
 #'   for every complete reference row (default), or a whole number `>= 2`
 #'   to sub-sample (see [compute_isolation_forest()]).
+#' @param isolation_seed Random seed for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. Default 42; user-adjustable in the UI
+#'   like `isolation_ntrees`/`isolation_contamination` above.
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`) - `M`, `mahal_result`, and `iso_result` are
 #'   the fields [prepare_ternary_plot_data()] actually reads back; the rest
@@ -378,7 +381,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
                                           keep_outliers_isolation, keep_outliers_mahalanobis,
                                           lambda, omega, custom_mdthresh, mdthresh_mode,
                                           isolation_ntrees = 200, isolation_contamination = 0.10,
-                                          isolation_sample_size = NULL) {
+                                          isolation_sample_size = NULL, isolation_seed = 42) {
   mahal_result <- NULL
   iso_result <- NULL
 
@@ -448,7 +451,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
         if (use_isolation_forest) {
           iso_result <- compute_isolation_forest(M, actual_reference_data, keep_outliers = keep_outliers_isolation, selected_columns = selected_columns,
                                                   ntrees = isolation_ntrees, contamination = isolation_contamination,
-                                                  sample_size = isolation_sample_size)
+                                                  sample_size = isolation_sample_size, seed = isolation_seed)
           keep_indices <- if (keep_outliers_isolation) {
             iso_result$outlier_indices
           } else {

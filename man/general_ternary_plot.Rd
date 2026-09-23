@@ -24,6 +24,7 @@ general_ternary_plot(
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
   isolation_sample_size = NULL,
+  isolation_seed = 42,
   use_iqr_filter = FALSE,
   use_zscore_filter = FALSE,
   use_mad_filter = FALSE,
@@ -99,6 +100,10 @@ when \code{use_isolation_forest = TRUE}. Default 0.10.}
 \code{use_isolation_forest = TRUE}. \code{NULL} (default) uses every complete
 reference row; a whole number \verb{>= 2} sub-samples that many per tree
 (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
+
+\item{isolation_seed}{Random seed for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
+\code{use_isolation_forest = TRUE}. Default 42; user-adjustable in the UI
+like \code{isolation_ntrees}/\code{isolation_contamination} above.}
 
 \item{use_iqr_filter}{Apply an IQR outlier filter. Default \code{FALSE}.}
 

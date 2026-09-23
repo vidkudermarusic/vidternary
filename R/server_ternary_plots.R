@@ -414,7 +414,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       multivariate_methods <- c(multivariate_methods, "Isolation Forest")
       report_lines <- c(report_lines, " ISOLATION FOREST:")
       report_lines <- c(report_lines, "  - Method: Machine learning anomaly detection")
-      # Trees/contamination/sample size shown explicitly - all three are
+      # Trees/contamination/sample size/seed shown explicitly - all four are
       # user-adjustable, matching how Mahalanobis's own lambda/omega are
       # already shown above.
       report_lines <- c(report_lines, paste("  - Number of trees:", input$isolation_ntrees))
@@ -422,6 +422,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
       report_lines <- c(report_lines, paste("  - Training sample size per tree:",
                                             if (isTRUE(input$isolation_use_all_rows) || is.null(input$isolation_use_all_rows))
                                               "all reference rows" else paste(input$isolation_sample_size, "(sub-sampled)")))
+      report_lines <- c(report_lines, paste("  - Random seed:", if (!is.null(input$isolation_seed) && !is.na(input$isolation_seed)) input$isolation_seed else 42))
       report_lines <- c(report_lines, paste("  - Outlier Handling:", if (input$outlier_mode_isolation) "Keep only outliers" else "Remove outliers"))
       # Isolation Forest uses the same reference selector as Mahalanobis
       # (input$mahalanobis_reference) - there is no separate isolation-forest

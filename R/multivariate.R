@@ -466,7 +466,10 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #' @param seed Random seed for reproducibility, passed through directly to
 #'   `isotree::isolation.forest()`'s own `seed` argument (which governs its
 #'   randomness independently of R's `set.seed()` - confirmed empirically,
-#'   not assumed). Default 42.
+#'   not assumed). Default 42. User-adjustable in the UI, same as
+#'   `contamination`/`ntrees` above - change it to sensitivity-check
+#'   whether outlier calls are stable across different random forest
+#'   realizations.
 #' @param sample_size Number of reference rows each tree is trained on.
 #'   `NULL` (default) uses every complete reference row - simple and fully
 #'   reproducible, but a departure from the algorithm as published: Liu,
@@ -477,7 +480,7 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #'   reference rows is clamped down to it. The value actually used is
 #'   reported back in `sample_size`.
 #' @return A list: `model` (the fitted isolation forest), `columns_used`,
-#'   `threshold`, `contamination`, `ntrees`, `sample_size` (the row count
+#'   `threshold`, `contamination`, `ntrees`, `seed`, `sample_size` (the row count
 #'   each tree was actually trained on - either every complete reference
 #'   row, or the sub-sample size requested, clamped to the rows available),
 #'   `scores` (length `nrow(data1)`), `outlier_indices`,
@@ -527,6 +530,14 @@ compute_isolation_forest <- function(
         sample_size < 2 || sample_size != round(sample_size)) {
       stop("sample_size must be NULL (use all reference rows) or a single whole number >= 2.")
     }
+  }
+
+  # Same NA_real_-from-a-cleared-numericInput hazard as ntrees/contamination
+  # above - now that seed is also user-adjustable via the UI (previously a
+  # fixed internal default), it needs the identical guard.
+  # isotree::isolation.forest(seed = NA) doesn't fail cleanly either.
+  if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) || seed != round(seed)) {
+    stop("seed must be a single whole number.")
   }
 
   # Check for isotree package
@@ -620,6 +631,7 @@ compute_isolation_forest <- function(
     threshold        = threshold,
     contamination    = contamination,
     ntrees           = ntrees,
+    seed             = seed,                      # echoed back so callers can show it, matching ntrees/contamination/sample_size
     sample_size      = ss,                        # == nrow(X2c) - see comment above
     scores           = scores1,                  # length = nrow(data1)
     outlier_indices  = outlier_indices,          # logical vector for data1

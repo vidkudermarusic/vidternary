@@ -244,6 +244,13 @@ create_ternary_plots_tab <- function(id) {
                     ") sub-samples ~256 rows per tree: shallower trees, and the anomaly-score scale stays matched to the sub-sample. ",
                     "Values above the available row count are clamped down.")
                 ),
+                div(style = "margin-top: 8px; padding: 8px; background-color: #f8f9fa; border-radius: 4px; border-left: 3px solid #adb5bd;",
+                  numericInput(ns("isolation_seed"), "Random seed (advanced):", value = 42, min = 0, step = 1),
+                  p(style = "font-size: 11px; margin: 4px 0 0 0; color: #666;",
+                    "Governs the isolation forest's own randomness (independent of R's set.seed()). ",
+                    "Change it to check whether your outlier calls are sensitive to a different random forest - ",
+                    "leave at the default (42) otherwise.")
+                ),
                 p(style = "font-size: 12px; color: #666; font-style: italic;",
                   "Columns selected above will be used for this analysis. ",
                   "\"All reference rows\" is simple and fully reproducible, but a departure from the published algorithm - untick it to sub-sample."),

@@ -83,6 +83,9 @@
 #' @param isolation_sample_size Rows each isolation tree trains on. `NULL`
 #'   (default) uses every complete reference row; a whole number `>= 2`
 #'   sub-samples that many per tree (see [compute_isolation_forest()]).
+#' @param isolation_seed Random seed for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. Default 42; user-adjustable in the UI
+#'   like `isolation_ntrees`/`isolation_contamination` above.
 #' @param use_iqr_filter,use_zscore_filter,use_mad_filter Apply IQR /
 #'   Z-score / MAD statistical outlier filtering. Only one
 #'   statistical/multivariate filter is meant to be active per plot -
@@ -160,6 +163,7 @@ prepare_ternary_plot_data <- function(
     isolation_ntrees = 200,
     isolation_contamination = 0.10,
     isolation_sample_size = NULL,
+    isolation_seed = 42,
     use_iqr_filter,
     use_zscore_filter,
     use_mad_filter,
@@ -367,6 +371,7 @@ prepare_ternary_plot_data <- function(
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
     isolation_sample_size = isolation_sample_size,
+    isolation_seed = isolation_seed,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
     reference_data = curated_reference_data,
@@ -560,6 +565,7 @@ prepare_ternary_plot_data <- function(
             paste0(iso_result$sample_size, " (sub-sampled per tree)")
           }
           mv_info <- c(mv_info, paste("  Sample size:", ss_label))
+          mv_info <- c(mv_info, paste("  Seed:", iso_result$seed))
         }
       }
       # mv_info's entries are appended as their OWN separate lines (not
