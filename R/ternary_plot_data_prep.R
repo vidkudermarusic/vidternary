@@ -590,6 +590,30 @@ prepare_ternary_plot_data <- function(
         outlier_status <- if (keep_outliers_mad) "(keep only outliers)" else "(remove outliers)"
         stat_info <- c(stat_info, paste("MAD", outlier_status))
       }
+      # Columns used, matching how the Mahalanobis/Isolation Forest block
+      # above already reports its own "Columns used:" - IQR/Z-score/MAD
+      # never showed this at all before.
+      if (!is.null(selected_columns) && length(selected_columns) > 0) {
+        stat_info <- c(stat_info, paste("  Columns used:", paste(selected_columns, collapse = ", ")))
+      }
+      # Multiple-comparisons caveat: each active method flags a row if it
+      # crosses the fence in ANY ONE of selected_columns (the per-column
+      # flags are OR-ed - see statistical_filters.R's own module header),
+      # so the effective false-positive rate compounds with the column
+      # count and can be well above any single column's own nominal rate.
+      # That's real and documented in the source, but previously invisible
+      # anywhere a reader of the actual plot (e.g. in a thesis write-up)
+      # would see it. Shown from 3 columns up - below that the compounding
+      # is small enough not to be worth a line on every such plot. No
+      # specific percentage is claimed: the source header's own example
+      # figures assume a roughly normal column, which right-skewed
+      # inclusion measurements (this app's typical case) usually aren't.
+      if (!is.null(selected_columns) && length(selected_columns) >= 3) {
+        stat_info <- c(stat_info, sprintf(
+          "  Note: outlier flag = union across %d columns (false-positive rate compounds)",
+          length(selected_columns)
+        ))
+      }
       # Same fix as "Outlier Detection:" just above - each active filter's
       # own line stays a separate element instead of being comma-joined
       # into one long line, for consistency (and in case a future
