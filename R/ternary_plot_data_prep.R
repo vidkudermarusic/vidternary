@@ -185,6 +185,34 @@ prepare_ternary_plot_data <- function(
     is_categorical_group
 ) {
 
+  # Only one statistical/multivariate outlier filter may be active per plot
+  # (they're alternative ways to flag outliers, not stages meant to compound
+  # - see apply_statistical_filtering()'s/apply_multivariate_filtering()'s
+  # own docs). general_ternary_plot() already enforces this for the live
+  # app (picks the highest-priority flag and warns, so a UI glitch degrades
+  # gracefully rather than crashing a user's plot) and the Ternary Plots
+  # tab's own UI enforces it a level higher still (checking one of the five
+  # checkboxes auto-unchecks the other four). This function is itself
+  # exported and directly callable, though - bypassing both of those layers
+  # (as the test suite and this package's own smoke-test scripts do) - so it
+  # gets its own hard stop() rather than general_ternary_plot()'s graceful
+  # pick-one-and-warn: a caller invoking this function directly with
+  # multiple flags set is a caller mistake to surface clearly, not a live
+  # end-user UI state to degrade gracefully around.
+  active_filters <- c(
+    "Mahalanobis" = isTRUE(use_mahalanobis),
+    "Isolation Forest" = isTRUE(use_isolation_forest),
+    "IQR" = isTRUE(use_iqr_filter),
+    "Z-score" = isTRUE(use_zscore_filter),
+    "MAD" = isTRUE(use_mad_filter)
+  )
+  if (sum(active_filters) > 1) {
+    stop("Only one statistical/multivariate outlier filter may be active per plot, but ",
+         sum(active_filters), " are here: ", paste(names(active_filters)[active_filters], collapse = ", "),
+         ". Set all but one of use_mahalanobis/use_isolation_forest/use_iqr_filter/use_zscore_filter/",
+         "use_mad_filter to FALSE.")
+  }
+
   # Variables that are only conditionally assigned below (depending on which
   # filter method or point-styling branch runs). Pre-declaring them as NULL
   # lets the render functions check `!is.null(pd$x)` instead of relying on
