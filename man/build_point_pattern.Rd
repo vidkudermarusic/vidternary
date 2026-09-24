@@ -18,16 +18,13 @@ A \code{spatstat.geom::ppp} object, windowed as requested.
 }
 \description{
 The observation window every K/L/G/envelope/intensity computation is
-defined on. \code{"rectangle"} (default) uses the axis-aligned bounding box of
-the data - the right choice when the analysed region really is a
-rectangular SEM scan (the typical case for this app's inclusion X/Y stage
-data), and consistent with \code{clark_evans_test()}'s own default for the
-same kind of data. Note this always overstates the true study area at
-least slightly (the extreme points define the box edges but the corners
-are empty), which mildly inflates apparent clustering. \code{"convex_hull"}
-uses the smallest polygon containing every point instead - the better
-choice when the sampled region is genuinely irregular/non-rectangular and
-the points don't fill their bounding box; it has the analogous bias in
-the other direction (understating the true area) only when the region
-really is non-convex.
+defined on. The true scan region is unknown, and any window drawn tightly
+around the points lies inside it - understating the area, overstating the
+intensity and biasing results toward regularity - so both options use
+the Ripley-Rasson estimate (\code{spatstat.geom::ripras()}), matching
+\code{clark_evans_test()}: \code{"rectangle"} (default) is the bounding box
+enlarged by \code{(n+1)/(n-1)}, right for a rectangular SEM scan (this app's
+typical inclusion X/Y stage data); \code{"convex_hull"} is the convex hull
+enlarged by \code{1/sqrt(1 - m/n)} (\code{m} = hull vertices), for a genuinely
+irregular sampled region.
 }

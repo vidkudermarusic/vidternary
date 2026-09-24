@@ -42,9 +42,11 @@ test_that("build_point_pattern's window is the rectangular bounding box by defau
   x <- stats::runif(30, 0, 10); y <- stats::runif(30, 0, 10)
   pp <- build_point_pattern(x, y)
   area <- spatstat.geom::area.owin(spatstat.geom::Window(pp))
-  # Exact equality to the bounding-box area - a real regression check for
-  # the default, not just an upper bound a convex hull would also satisfy.
-  expect_equal(area, (max(x) - min(x)) * (max(y) - min(y)))
+  # Exact equality to the Ripley-Rasson rectangle (bounding box, each side
+  # enlarged by (n+1)/(n-1)) - a real regression check for the default, not
+  # just an upper bound a convex hull would also satisfy.
+  n <- length(x)
+  expect_equal(area, (max(x) - min(x)) * (max(y) - min(y)) * ((n + 1) / (n - 1))^2)
 })
 
 test_that("build_point_pattern's window = \"rectangle\" uses the bounding box - strictly larger than the hull for scattered points", {
@@ -54,7 +56,8 @@ test_that("build_point_pattern's window = \"rectangle\" uses the bounding box - 
   pp_rect <- build_point_pattern(x, y, window = "rectangle")
   a_hull <- spatstat.geom::area.owin(spatstat.geom::Window(pp_hull))
   a_rect <- spatstat.geom::area.owin(spatstat.geom::Window(pp_rect))
-  expect_equal(a_rect, (max(x) - min(x)) * (max(y) - min(y)))
+  n <- length(x)
+  expect_equal(a_rect, (max(x) - min(x)) * (max(y) - min(y)) * ((n + 1) / (n - 1))^2)
   expect_gt(a_rect, a_hull)
   # The rectangle window tolerates collinear points (the hull path can't).
   expect_no_error(build_point_pattern(c(0, 1, 2, 3), c(0, 1, 2, 3), window = "rectangle") )

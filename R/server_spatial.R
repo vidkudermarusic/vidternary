@@ -28,7 +28,7 @@
 #' @export
 create_server_spatial <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- make_combined_upload_reactive(input, "spatial_files")
+  combined_data <- make_combined_upload_reactive(input, "spatial_files", allow_multiple = FALSE)
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)
@@ -139,7 +139,7 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
   output$spatial_summary_table <- renderTable({
     res <- result()
     ce <- res$ce
-    window_label <- if (isTRUE(ce$window == "convex_hull")) "Convex-hull area" else "Bounding-box area"
+    window_label <- if (isTRUE(ce$window == "convex_hull")) "Window area (convex hull, Ripley-Rasson enlarged)" else "Window area (bounding box, Ripley-Rasson enlarged)"
     data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
                  "Points (n)", "Observation window", window_label, "Density (points/area)",

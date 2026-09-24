@@ -10,7 +10,7 @@
 # VignetteBuilder), never loaded at app runtime, so they are not listed
 # here either.
 required_packages <- c(
-  "openxlsx", "Ternary", "PlotTools", "shiny",
+  "openxlsx", "Ternary", "shiny",
   "ggplot2", "corrplot", "DT",
   "isotree", "RColorBrewer", "writexl", "jsonlite", "zip",
   "viridisLite", "magick", "png", "rlang", "RANN",

@@ -12,7 +12,6 @@ Depends:
 Imports:
     openxlsx,
     Ternary,
-    PlotTools,
     shiny,
     ggplot2,
     corrplot,

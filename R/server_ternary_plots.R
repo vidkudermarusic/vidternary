@@ -674,6 +674,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         stop("Please upload a file and select elements A, B, and C first.")
       }
 
+      save_warnings <- character(0)
       result <- tryCatch({
         params <- build_ternary_plot_params(1, FALSE)
         if (is.null(params)) stop("Invalid parameters for Plot 1.")
@@ -681,7 +682,10 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         params$output_dir <- tempfile("plot1_save_")
         dir.create(params$output_dir, recursive = TRUE)
 
-        do.call(general_ternary_plot, params)
+        withCallingHandlers(do.call(general_ternary_plot, params), warning = function(w) {
+          save_warnings <<- c(save_warnings, conditionMessage(w))
+          invokeRestart("muffleWarning")
+        })
       }, error = function(e) {
         output$status <- renderText(paste("Error saving Plot 1:", e$message))
         log_operation("ERROR", "Failed to save Plot 1", e$message)
@@ -694,7 +698,8 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         stop("Failed to save Plot 1 - see the Analysis Log.")
       }
 
-      output$status <- renderText(paste(" Plot 1 saved successfully!\n Location:", result))
+      output$status <- renderText(paste0(" Plot 1 saved successfully!\n Location: ", result,
+                                         if (length(save_warnings) > 0) paste0("\n WARNING: ", paste(unique(save_warnings), collapse = "\n WARNING: ")) else ""))
       log_operation("SUCCESS", "Plot 1 saved successfully", paste("Saved to:", result))
       file.copy(result, file, overwrite = TRUE)
     }
@@ -708,6 +713,7 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         stop("Please upload a file and select elements A, B, and C first.")
       }
 
+      save_warnings <- character(0)
       result <- tryCatch({
         params <- build_ternary_plot_params(2, FALSE)
         if (is.null(params)) stop("Invalid parameters for Plot 2.")
@@ -715,7 +721,10 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         params$output_dir <- tempfile("plot2_save_")
         dir.create(params$output_dir, recursive = TRUE)
 
-        do.call(general_ternary_plot, params)
+        withCallingHandlers(do.call(general_ternary_plot, params), warning = function(w) {
+          save_warnings <<- c(save_warnings, conditionMessage(w))
+          invokeRestart("muffleWarning")
+        })
       }, error = function(e) {
         output$status <- renderText(paste("Error saving Plot 2:", e$message))
         log_operation("ERROR", "Failed to save Plot 2", e$message)
@@ -728,7 +737,8 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
         stop("Failed to save Plot 2 - see the Analysis Log.")
       }
 
-      output$status <- renderText(paste(" Plot 2 saved successfully!\n Location:", result))
+      output$status <- renderText(paste0(" Plot 2 saved successfully!\n Location: ", result,
+                                         if (length(save_warnings) > 0) paste0("\n WARNING: ", paste(unique(save_warnings), collapse = "\n WARNING: ")) else ""))
       log_operation("SUCCESS", "Plot 2 saved successfully", paste("Saved to:", result))
       file.copy(result, file, overwrite = TRUE)
     }

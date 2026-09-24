@@ -225,6 +225,8 @@ prepare_ternary_plot_data <- function(
   # this logic is split across three functions).
   mahal_result <- NULL
   iso_result <- NULL
+  mv_status <- "not_requested"
+  mv_status_message <- NULL
   param1_bins <- NULL
   param1_values <- NULL
   unique_groups <- NULL
@@ -438,7 +440,8 @@ prepare_ternary_plot_data <- function(
       use_zscore_filter = use_zscore_filter, keep_outliers_zscore = keep_outliers_zscore,
       use_mad_filter = use_mad_filter, keep_outliers_mad = keep_outliers_mad,
       file_base = file_base, xlsx_display_name = xlsx_display_name, xlsx_file = xlsx_file,
-      title_layout_fn = preview_title_layout
+      title_layout_fn = preview_title_layout,
+      mv_status = mv_status
     ),
     environment()
   )
@@ -567,6 +570,14 @@ prepare_ternary_plot_data <- function(
           mv_info <- c(mv_info, paste("  Sample size:", ss_label))
           mv_info <- c(mv_info, paste("  Seed:", iso_result$seed))
         }
+      }
+      # Requested but skipped/failed: the plotted data is unfiltered, so the
+      # notes say so explicitly. The reason is shortened because a plot-notes
+      # line never wraps (see the comment below).
+      if (mv_status %in% c("skipped_no_reference", "failed")) {
+        reason <- if (is.null(mv_status_message)) "unknown reason" else mv_status_message
+        if (nchar(reason) > 55) reason <- paste0(substr(reason, 1, 52), "...")
+        mv_info <- c(mv_info, "  NOT APPLIED - plotted data is unfiltered", paste0("  Reason: ", reason))
       }
       # mv_info's entries are appended as their OWN separate lines (not
       # joined with ", " into one string) - Mahalanobis/Isolation Forest

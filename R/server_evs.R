@@ -25,7 +25,7 @@
 #' @export
 create_server_evs <- function(input, output, session, rv, show_message, log_operation) {
 
-  combined_data <- make_combined_upload_reactive(input, "evs_files")
+  combined_data <- make_combined_upload_reactive(input, "evs_files", allow_multiple = FALSE)
 
   observe({
     d <- tryCatch(combined_data(), error = function(e) NULL)

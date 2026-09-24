@@ -37,7 +37,7 @@ create_evs_tab <- function(id) {
 
         fluidRow(
           column(6,
-            create_file_selection_column(ns("evs_files"))
+            create_file_selection_column(ns("evs_files"), multiple = FALSE)
           ),
           column(6,
             h4("Control Area Grouping"),

@@ -229,12 +229,17 @@ create_group_legend <- function(groups, colors, counts) {
 #'
 #' @param input The Shiny `input` object.
 #' @param file_input_id Character; the `fileInput` id to read from.
+#' @param allow_multiple If `FALSE`, more than one uploaded file is rejected
+#'   with a validation message instead of being combined (used by EVS and
+#'   the spatial tabs, where pooling specimens is invalid). Default `TRUE`.
 #' @return A `shiny::reactive({...})` yielding the combined data frame.
 #' @export
-make_combined_upload_reactive <- function(input, file_input_id) {
+make_combined_upload_reactive <- function(input, file_input_id, allow_multiple = TRUE) {
   shiny::reactive({
     req(input[[file_input_id]])
     n_files <- nrow(input[[file_input_id]])
+    shiny::validate(shiny::need(allow_multiple || n_files == 1,
+      "Upload one file (one specimen) only - this analysis can't pool several specimens."))
     dfs <- lapply(seq_len(n_files), function(i) {
       d <- tryCatch(openxlsx::read.xlsx(input[[file_input_id]]$datapath[i], sheet = 1), error = function(e) NULL)
       if (is.null(d)) return(NULL)

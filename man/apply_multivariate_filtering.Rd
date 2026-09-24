@@ -65,11 +65,13 @@ like \code{isolation_ntrees}/\code{isolation_contamination} above.}
 }
 \value{
 This function's entire local environment as a list
-(\code{as.list(environment())}) - \code{M}, \code{mahal_result}, and \code{iso_result} are
-the fields \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} actually reads back; the rest
-are this block's own internal working variables, echoed back unchanged
-from how they already existed in \code{prepare_ternary_plot_data()}'s own
-environment before this extraction.
+(\code{as.list(environment())}) - \code{M}, \code{mahal_result}, \code{iso_result},
+\code{mv_status} and \code{mv_status_message} are the fields
+\code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} actually reads back; the rest are this
+block's own internal working variables. \code{mv_status} is
+\code{"not_requested"}, \code{"applied"}, \code{"skipped_no_reference"} or \code{"failed"};
+in the last two cases \code{M} is returned unfiltered and a warning is
+raised, so a plot is never labelled as filtered when it wasn't.
 }
 \description{
 Resolves the reference dataset (self / Dataset 1 / Dataset 2), runs

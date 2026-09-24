@@ -49,10 +49,8 @@
 # spatstat authors' own textbook, the standard modern reference for this
 # entire toolkit.
 
-# Build a spatstat point pattern (ppp), bounded by the convex hull of the
-# data - the standard choice when no separately-known study-region boundary
-# exists (there isn't one here: an inclusion's X/Y stage position has no
-# natural "window" beyond the sampled points themselves). Marks/colouring
+# Build a spatstat point pattern (ppp) on a Ripley-Rasson estimate of the
+# sampled window (the true scan boundary isn't carried in the data). Marks/colouring
 # are handled separately by this file's own plotting function, not carried
 # on the ppp object itself - K/L/G/envelope/intensity are all computed from
 # point LOCATIONS only, matching how spatial_clustering_analysis.R also
@@ -61,18 +59,15 @@
 #' Build a point pattern (`spatstat.geom::ppp`) for the data
 #'
 #' The observation window every K/L/G/envelope/intensity computation is
-#' defined on. `"rectangle"` (default) uses the axis-aligned bounding box of
-#' the data - the right choice when the analysed region really is a
-#' rectangular SEM scan (the typical case for this app's inclusion X/Y stage
-#' data), and consistent with `clark_evans_test()`'s own default for the
-#' same kind of data. Note this always overstates the true study area at
-#' least slightly (the extreme points define the box edges but the corners
-#' are empty), which mildly inflates apparent clustering. `"convex_hull"`
-#' uses the smallest polygon containing every point instead - the better
-#' choice when the sampled region is genuinely irregular/non-rectangular and
-#' the points don't fill their bounding box; it has the analogous bias in
-#' the other direction (understating the true area) only when the region
-#' really is non-convex.
+#' defined on. The true scan region is unknown, and any window drawn tightly
+#' around the points lies inside it - understating the area, overstating the
+#' intensity and biasing results toward regularity - so both options use
+#' the Ripley-Rasson estimate (`spatstat.geom::ripras()`), matching
+#' `clark_evans_test()`: `"rectangle"` (default) is the bounding box
+#' enlarged by `(n+1)/(n-1)`, right for a rectangular SEM scan (this app's
+#' typical inclusion X/Y stage data); `"convex_hull"` is the convex hull
+#' enlarged by `1/sqrt(1 - m/n)` (`m` = hull vertices), for a genuinely
+#' irregular sampled region.
 #'
 #' @param x Numeric vector of X coordinates.
 #' @param y Numeric vector of Y coordinates (same length as `x`).
@@ -99,7 +94,7 @@ build_point_pattern <- function(x, y, window = c("rectangle", "convex_hull")) {
     if (!all(is.finite(c(xr, yr))) || diff(xr) <= 0 || diff(yr) <= 0) {
       stop("Points must span a non-zero area (X and Y cannot be constant).")
     }
-    win <- spatstat.geom::owin(xrange = xr, yrange = yr)
+    win <- spatstat.geom::ripras(x, y, shape = "rectangle")
     return(spatstat.geom::ppp(x, y, window = win, checkdup = FALSE))
   }
   # Fully collinear points (including the all-X-constant or all-Y-constant
@@ -109,7 +104,7 @@ build_point_pattern <- function(x, y, window = c("rectangle", "convex_hull")) {
   # TRUE") before ever getting that far. Caught here so every degenerate-
   # geometry input gets the same clear, friendly message regardless of
   # which of spatstat's two different failure paths it happens to hit.
-  win <- tryCatch(spatstat.geom::convexhull.xy(x, y), error = function(e) NULL)
+  win <- tryCatch(spatstat.geom::ripras(x, y, shape = "convex"), error = function(e) NULL)
   if (is.null(win) || !is.finite(spatstat.geom::area.owin(win)) || spatstat.geom::area.owin(win) <= 0) {
     stop("Points must span a non-zero area (X and Y cannot be constant or collinear).")
   }
