@@ -20,7 +20,8 @@ apply_multivariate_filtering(
   mdthresh_mode,
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
-  isolation_sample_size = NULL
+  isolation_sample_size = NULL,
+  isolation_seed = 42
 )
 }
 \arguments{
@@ -57,14 +58,20 @@ contamination fraction for \code{\link[=compute_isolation_forest]{compute_isolat
 \item{isolation_sample_size}{Rows each isolation tree trains on - \code{NULL}
 for every complete reference row (default), or a whole number \verb{>= 2}
 to sub-sample (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
+
+\item{isolation_seed}{Random seed for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
+\code{use_isolation_forest = TRUE}. Default 42; user-adjustable in the UI
+like \code{isolation_ntrees}/\code{isolation_contamination} above.}
 }
 \value{
 This function's entire local environment as a list
-(\code{as.list(environment())}) - \code{M}, \code{mahal_result}, and \code{iso_result} are
-the fields \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} actually reads back; the rest
-are this block's own internal working variables, echoed back unchanged
-from how they already existed in \code{prepare_ternary_plot_data()}'s own
-environment before this extraction.
+(\code{as.list(environment())}) - \code{M}, \code{mahal_result}, \code{iso_result},
+\code{mv_status} and \code{mv_status_message} are the fields
+\code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} actually reads back; the rest are this
+block's own internal working variables. \code{mv_status} is
+\code{"not_requested"}, \code{"applied"}, \code{"skipped_no_reference"} or \code{"failed"};
+in the last two cases \code{M} is returned unfiltered and a warning is
+raised, so a plot is never labelled as filtered when it wasn't.
 }
 \description{
 Resolves the reference dataset (self / Dataset 1 / Dataset 2), runs

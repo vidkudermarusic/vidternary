@@ -59,8 +59,10 @@ test_that("window = \"rectangle\" is the default and is reported back unchanged"
   x <- stats::runif(60); y <- stats::runif(60)
   ce <- clark_evans_test(x, y, n_sim = 50)
   expect_equal(ce$window, "rectangle")
-  # Default rectangle area is the bounding box.
-  expect_equal(ce$area, (max(x) - min(x)) * (max(y) - min(y)))
+  # Default rectangle is the Ripley-Rasson estimate: the bounding box with
+  # each side enlarged by (n+1)/(n-1), so the area scales by that squared.
+  n <- length(x)
+  expect_equal(ce$area, (max(x) - min(x)) * (max(y) - min(y)) * ((n + 1) / (n - 1))^2)
 })
 
 test_that("window = \"convex_hull\" uses the hull's (smaller) area and changes the null model", {

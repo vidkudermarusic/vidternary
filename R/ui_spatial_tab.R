@@ -24,8 +24,9 @@ create_spatial_tab <- function(id) {
             tags$li("R = observed/expected: R < 1 means clustering, R > 1 means a more regular/even spread, R ~ 1 means no evidence against randomness."),
             tags$li(strong("Two p-values are reported: "), "an asymptotic one (Donnelly edge-corrected, the standard method used by the spatstat R package) and a Monte Carlo one (simulates many random point sets in the same observation window). Trust the Monte Carlo value when the two disagree."),
             tags$li(strong("Observation window: "), "by default the null model uses the axis-aligned ", strong("bounding box"),
-              " of the points, which is exactly right when the analysed region really is a rectangular SEM scan. If the sampled region is irregular and the points don't fill their bounding box, switch to ", strong("convex hull"),
-              " below - a bounding-box null then overstates the area, understates the intensity, and biases the result toward a false ", em("\"clustered\""), " verdict."),
+              " of the points, which is right when the analysed region really is a rectangular SEM scan. If the sampled region is irregular and the points don't fill their bounding box, switch to ", strong("convex hull"),
+              " below - a bounding-box null then overstates the area, understates the intensity, and biases the result toward a false ", em("\"clustered\""), " verdict. ",
+              "Either window is enlarged slightly with the ", strong("Ripley-Rasson"), " correction, because a window drawn tightly around the points always lies inside the real scanned area (which would otherwise bias the result toward ", em("\"regular\""), ")."),
             tags$li(strong("Homogeneity assumption: "), "the test assumes one uniform underlying process. Real, non-interacting inclusions whose ", em("density"), " varies across the section (banding, an edge-affected zone, a gradient) will read as ", em("\"clustered\""),
               " even with no point-to-point attraction - the test cannot tell \"clumped points\" from \"more points in some regions than others\". Read a clustered verdict as \"not spatially uniform\", and check the scatter plot for a density gradient before concluding the inclusions themselves attract."),
             tags$li(strong("Small-sample caveat (checked empirically, simulating known-random data): "), "both p-values over-report significance somewhat below ~40 points, because the sampling window is estimated from the same points being tested. This bias is asymmetric - at n=15 a false ", em("\"significantly dispersed\""), " verdict occurred ~18% of the time (Monte Carlo) vs a nominal 5%, while a false ", em("\"significantly clustered\""), " verdict occurred well under 1% of the time. In practice: a ", strong("clustered/banding"), " verdict is trustworthy even at small n; treat a ", strong("regular/dispersed"), " verdict with real skepticism below ~40 points, regardless of which p-value you look at."),
@@ -36,7 +37,7 @@ create_spatial_tab <- function(id) {
 
         fluidRow(
           column(6,
-            create_file_selection_column(ns("spatial_files"))
+            create_file_selection_column(ns("spatial_files"), multiple = FALSE)
           ),
           column(6,
             h4("Coordinates"),

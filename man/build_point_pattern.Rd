@@ -4,27 +4,27 @@
 \alias{build_point_pattern}
 \title{Build a point pattern (\code{spatstat.geom::ppp}) for the data}
 \usage{
-build_point_pattern(x, y, window = c("convex_hull", "rectangle"))
+build_point_pattern(x, y, window = c("rectangle", "convex_hull"))
 }
 \arguments{
 \item{x}{Numeric vector of X coordinates.}
 
 \item{y}{Numeric vector of Y coordinates (same length as \code{x}).}
 
-\item{window}{\code{"convex_hull"} (default) or \code{"rectangle"} - see above.}
+\item{window}{\code{"rectangle"} (default) or \code{"convex_hull"} - see above.}
 }
 \value{
 A \code{spatstat.geom::ppp} object, windowed as requested.
 }
 \description{
 The observation window every K/L/G/envelope/intensity computation is
-defined on. \code{"convex_hull"} (default) is the standard choice when no
-separately-known study-region boundary exists - an inclusion's X/Y stage
-position has no natural window beyond the sampled points themselves.
-\code{"rectangle"} uses the axis-aligned bounding box instead, for when the
-analysed region really is a rectangular SEM scan; note this always
-overstates the true study area at least slightly (the extreme points
-define the box edges but the corners are empty), which mildly inflates
-apparent clustering - the convex hull has the same bias in the other
-direction only if the region is genuinely non-convex.
+defined on. The true scan region is unknown, and any window drawn tightly
+around the points lies inside it - understating the area, overstating the
+intensity and biasing results toward regularity - so both options use
+the Ripley-Rasson estimate (\code{spatstat.geom::ripras()}), matching
+\code{clark_evans_test()}: \code{"rectangle"} (default) is the bounding box
+enlarged by \code{(n+1)/(n-1)}, right for a rectangular SEM scan (this app's
+typical inclusion X/Y stage data); \code{"convex_hull"} is the convex hull
+enlarged by \code{1/sqrt(1 - m/n)} (\code{m} = hull vertices), for a genuinely
+irregular sampled region.
 }

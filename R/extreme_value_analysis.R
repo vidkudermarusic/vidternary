@@ -2,7 +2,7 @@
 # Murakami's sqrt(area) method, as standardized in ASTM E2283 ("Standard
 # Practice for Extreme Value Analysis of Nonmetallic Inclusions in Steel
 # and Other Microstructural Features"): partition the inspected area into
-# n equal "control areas" S0 (one SEM field-of-view each, when available),
+# n equal "control areas" S0 (k whole SEM fields-of-view each),
 # take the largest inclusion (by sqrt(area)) per control area, and fit a
 # Gumbel probability plot to the resulting block maxima. The fitted line
 # extrapolates to the expected largest inclusion over a much larger area,
@@ -11,6 +11,64 @@
 #
 # Pure statistics/plotting - no Shiny dependency, mirroring the split
 # between hex_ternary_plot.R (plotting) and server_hex_ternary.R (wiring).
+
+# Control areas: k consecutive fields merged into one. When most single
+# fields hold only detection-limit particles, their block maxima are not
+# inclusions at all and bend the Gumbel line; larger control areas fix
+# that. All control areas must have equal area, so an incomplete trailing
+# group is left out rather than kept as a smaller one.
+#' Assign fields to control areas of `fields_per_area` fields each
+#'
+#' Whole-number field IDs are taken as consecutively numbered fields, so
+#' `min(id)..max(id)` counts as the inspected fields (a missing number is a
+#' field with no detected particle) and fields are grouped by number
+#' (`1..k`, `k+1..2k`, ...). Any other IDs are grouped in sorted order of
+#' the distinct values. Fields in an incomplete last group are left out.
+#'
+#' @param field Field ID of each row to assign.
+#' @param fields_per_area Whole number of fields per control area (>= 1).
+#' @param all_fields Field IDs of all inspected rows, used to count the
+#'   fields (defaults to `field`; pass the unfiltered data's IDs so rows
+#'   removed by a filter don't shrink the inspected area).
+#' @return A list: `control_area` (per-row control-area number, `NA` for
+#'   rows left out or with an unmatched ID), `n_fields`, `n_control_areas`,
+#'   `n_leftover_fields`, `numeric_ids`.
+#' @export
+assign_control_areas <- function(field, fields_per_area = 1, all_fields = field) {
+  k <- fields_per_area
+  if (length(k) != 1 || !is.finite(k) || k < 1 || k != round(k)) {
+    stop("Fields per control area must be a whole number of 1 or more.")
+  }
+  all_ids <- all_fields[!is.na(all_fields)]
+  if (length(all_ids) == 0) stop("The field / frame ID column has no values.")
+
+  all_num <- suppressWarnings(as.numeric(as.character(all_ids)))
+  numeric_ids <- all(is.finite(all_num)) && all(all_num == round(all_num))
+  if (numeric_ids) {
+    first_id <- min(all_num)
+    n_fields <- max(all_num) - first_id + 1
+    idx <- suppressWarnings(as.numeric(as.character(field))) - first_id + 1
+  } else {
+    ids_sorted <- sort(unique(as.character(all_ids)))
+    n_fields <- length(ids_sorted)
+    idx <- match(as.character(field), ids_sorted)
+  }
+
+  n_control_areas <- n_fields %/% k
+  if (n_control_areas < 1) {
+    stop(sprintf("Only %d field(s) inspected - fewer than the %d fields per control area.", n_fields, k))
+  }
+  control_area <- ceiling(idx / k)
+  control_area[!is.na(control_area) & (control_area < 1 | control_area > n_control_areas)] <- NA
+
+  list(
+    control_area = control_area,
+    n_fields = n_fields,
+    n_control_areas = n_control_areas,
+    n_leftover_fields = n_fields - n_control_areas * k,
+    numeric_ids = numeric_ids
+  )
+}
 
 # Block maxima: largest sqrt(area) per control-area group.
 #' Compute per-group block maxima of sqrt(area)

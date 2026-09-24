@@ -116,36 +116,17 @@ save_ternary_plot_to_file <- function(pd) {
         if (!any(is.finite(param1_values))) {
           # No non-NA values for the size parameter in this dataset -
           # min/max(na.rm=TRUE) would return -Inf/Inf here, and seq()/
-          # SizeLegend() on a non-finite range fails with "'from' must be
+          # the size legend's seq() on a non-finite range fails with "'from' must be
           # a finite number". Note it instead of crashing the whole plot.
           legend("topright",
                  title = paste(optional_param1$col, collapse = "+"),
                  legend = "No data",
                  bty = "n",
                  cex = 0.7)
-        } else if (requireNamespace("PlotTools", quietly = TRUE)) {
-          PlotTools::SizeLegend(
-            "topright",
-            width = c(MIN_POINT_SIZE, MAX_POINT_SIZE),
-            lend = "round",
-            legend = paste(
-              signif(seq(max(param1_values, na.rm = TRUE), min(param1_values, na.rm = TRUE), length.out = 5), digits = 3)
-            ),
-            title = paste(optional_param1$col, collapse = "+"),
-            bty = "n",
-            cex = 0.7
-          )
         } else {
-          # Fallback to regular legend
-          size_range <- seq(min(param1_values, na.rm = TRUE), max(param1_values, na.rm = TRUE), length.out = 5)
-          legend_sizes <- size_range * (MAX_POINT_SIZE - MIN_POINT_SIZE) / max(param1_values, na.rm = TRUE) + MIN_POINT_SIZE
-
-          legend("topright",
-                 title = paste(optional_param1$col, collapse = "+"),
-                 legend = paste("Size:", signif(size_range, 3)),
-                 pch = 16,
-                 pt.cex = legend_sizes,
-                 cex = 0.7)
+          # Same size mapping as the plotted points (param1_point_size()).
+          draw_param1_size_legend(param1_values, paste(optional_param1$col, collapse = "+"),
+                                  MIN_POINT_SIZE, MAX_POINT_SIZE)
         }
       } else if (length(optional_param1$col) == 1 && optional_param1_representation == "point_type") {
         # Point type representation - show different point types

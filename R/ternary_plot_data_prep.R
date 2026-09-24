@@ -83,6 +83,9 @@
 #' @param isolation_sample_size Rows each isolation tree trains on. `NULL`
 #'   (default) uses every complete reference row; a whole number `>= 2`
 #'   sub-samples that many per tree (see [compute_isolation_forest()]).
+#' @param isolation_seed Random seed for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. Default 42; user-adjustable in the UI
+#'   like `isolation_ntrees`/`isolation_contamination` above.
 #' @param use_iqr_filter,use_zscore_filter,use_mad_filter Apply IQR /
 #'   Z-score / MAD statistical outlier filtering. Only one
 #'   statistical/multivariate filter is meant to be active per plot -
@@ -160,6 +163,7 @@ prepare_ternary_plot_data <- function(
     isolation_ntrees = 200,
     isolation_contamination = 0.10,
     isolation_sample_size = NULL,
+    isolation_seed = 42,
     use_iqr_filter,
     use_zscore_filter,
     use_mad_filter,
@@ -221,6 +225,8 @@ prepare_ternary_plot_data <- function(
   # this logic is split across three functions).
   mahal_result <- NULL
   iso_result <- NULL
+  mv_status <- "not_requested"
+  mv_status_message <- NULL
   param1_bins <- NULL
   param1_values <- NULL
   unique_groups <- NULL
@@ -367,6 +373,7 @@ prepare_ternary_plot_data <- function(
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
     isolation_sample_size = isolation_sample_size,
+    isolation_seed = isolation_seed,
     selected_columns = selected_columns,
     mahalanobis_reference = mahalanobis_reference,
     reference_data = curated_reference_data,
@@ -433,7 +440,8 @@ prepare_ternary_plot_data <- function(
       use_zscore_filter = use_zscore_filter, keep_outliers_zscore = keep_outliers_zscore,
       use_mad_filter = use_mad_filter, keep_outliers_mad = keep_outliers_mad,
       file_base = file_base, xlsx_display_name = xlsx_display_name, xlsx_file = xlsx_file,
-      title_layout_fn = preview_title_layout
+      title_layout_fn = preview_title_layout,
+      mv_status = mv_status
     ),
     environment()
   )
@@ -560,7 +568,16 @@ prepare_ternary_plot_data <- function(
             paste0(iso_result$sample_size, " (sub-sampled per tree)")
           }
           mv_info <- c(mv_info, paste("  Sample size:", ss_label))
+          mv_info <- c(mv_info, paste("  Seed:", iso_result$seed))
         }
+      }
+      # Requested but skipped/failed: the plotted data is unfiltered, so the
+      # notes say so explicitly. The reason is shortened because a plot-notes
+      # line never wraps (see the comment below).
+      if (mv_status %in% c("skipped_no_reference", "failed")) {
+        reason <- if (is.null(mv_status_message)) "unknown reason" else mv_status_message
+        if (nchar(reason) > 55) reason <- paste0(substr(reason, 1, 52), "...")
+        mv_info <- c(mv_info, "  NOT APPLIED - plotted data is unfiltered", paste0("  Reason: ", reason))
       }
       # mv_info's entries are appended as their OWN separate lines (not
       # joined with ", " into one string) - Mahalanobis/Isolation Forest
