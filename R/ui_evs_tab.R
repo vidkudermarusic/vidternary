@@ -48,7 +48,8 @@ create_evs_tab <- function(id) {
               "Each distinct value is one field. If your export has no such column, EVS cannot be run on it - the method needs genuine per-field grouping, not an arbitrary split of the row list."
             ),
             numericInput(ns("evs_fields_per_area"), "Fields per control area:", value = 1, min = 1, step = 1),
-            helpText("Merges consecutive fields into one control area (fields 1-k, k+1-2k, ...; whole-number IDs are taken as consecutively numbered, so a missing number counts as a field with nothing detected). ",
+            helpText("Merges every k consecutive fields into one control area, without overlap: with k = 16, fields 1 to 16 form control area 1, fields 17 to 32 control area 2, and so on. ",
+              "Whole-number IDs are taken as consecutively numbered, so a missing number counts as a field with nothing detected. ",
               "Increase it when most single fields contain only tiny particles near the detection limit: each control area should contain at least one real inclusion, otherwise the Gumbel plot bends and the prediction falls short. ",
               "Fields in an incomplete last control area are left out so all control areas have the same area.")
           )
