@@ -12,7 +12,7 @@
 #'
 #' Registers the observers/renderers for the "Extreme Value Analysis" tab:
 #' file upload/combine, area/group column auto-detection, and the
-#' Murakami/Gumbel fit pipeline (`compute_block_maxima()`/
+#' Murakami/Gumbel fit pipeline (`assign_control_areas()`/`compute_block_maxima()`/
 #' `fit_evs_gumbel()`/`gumbel_goodness_of_fit()`/`predict_evs_max()`).
 #'
 #' @param input The Shiny `input` object.
@@ -73,6 +73,18 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
                                  "Select the field / frame ID column that identifies which SEM field each inclusion came from. EVS needs genuine per-field grouping and cannot run without it."))
     group_col <- input$evs_group_col
 
+    # Fields are counted on the unfiltered data, so a filter that removes
+    # every row of a field doesn't shrink the inspected area (and with it
+    # the T that matches it).
+    fields_per_area <- if (is.null(input$evs_fields_per_area)) 1 else input$evs_fields_per_area
+    areas <- tryCatch(assign_control_areas(d[[group_col]], fields_per_area,
+                                           all_fields = combined_data()[[group_col]]),
+                      error = function(e) { shiny::validate(e$message) })
+    if (fields_per_area > 1) {
+      d$.control_area <- areas$control_area
+      group_col <- ".control_area"
+    }
+
     block_maxima <- tryCatch(compute_block_maxima(d, input$evs_area_col, group_col),
                               error = function(e) { shiny::validate(paste("Error computing block maxima:", e$message)) })
     shiny::validate(shiny::need(nrow(block_maxima) >= 3, "At least 3 control-area groups with valid data are required."))
@@ -83,6 +95,10 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     fit$gof <- tryCatch(gumbel_goodness_of_fit(fit), error = function(e) NULL)
     fit$n_rows_before_filter <- n_before_filter
     fit$n_rows_after_filter <- n_after_filter
+    fit$fields_per_area <- fields_per_area
+    fit$n_fields <- areas$n_fields
+    fit$n_control_areas <- areas$n_control_areas
+    fit$n_leftover_fields <- areas$n_leftover_fields
     fit
   })
 
@@ -118,8 +134,9 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     # handling, so it still propagates and displays as a real error.
     render_gated_status(input, "evs_fit", evs_placeholder_msg, function() {
       fit <- fit_result()
-      base_msg <- sprintf("Fit successful: n = %d control areas, R2 = %.3f, intercept a = %.3f, slope b = %.3f",
-                           fit$n, fit$r_squared, fit$intercept, fit$slope)
+      base_msg <- sprintf("Fit successful: n = %d control areas (%d field%s each), R2 = %.3f, intercept a = %.3f, slope b = %.3f",
+                           fit$n, fit$fields_per_area, if (fit$fields_per_area == 1) "" else "s",
+                           fit$r_squared, fit$intercept, fit$slope)
       if (is.null(fit$gof)) return(base_msg)
       gof_msg <- if (fit$gof$reject_at_05) {
         sprintf("Goodness-of-fit: Anderson-Darling A2 = %.3f, p %s -> data DEVIATE from a single Gumbel distribution (see note below).",
@@ -150,6 +167,28 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     )
   })
 
+  # T is counted in control areas, so T = number of inspected control areas
+  # predicts for exactly the inspected area. A smaller T predicts for a
+  # smaller area than was measured, so the prediction can legitimately fall
+  # below the largest inclusion in the data - flagged so it isn't mistaken
+  # for a calculation error.
+  output$evs_return_period_note <- renderUI({
+    fit <- tryCatch(fit_result(), error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    n_ca <- fit$n_control_areas
+    note <- div(style = "font-size: 12px; margin-bottom: 8px;",
+      sprintf("You inspected %d control areas (%d fields, %d per control area). T = %d predicts the largest inclusion in the inspected area; a larger T extrapolates to a larger area.",
+              n_ca, n_ca * fit$fields_per_area, fit$fields_per_area, n_ca)
+    )
+    T_val <- input$evs_return_period
+    if (is.null(T_val) || !is.finite(T_val) || T_val >= n_ca) return(note)
+    tagList(note, div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px; margin-bottom: 8px;",
+      strong(sprintf("T = %s is smaller than the %d control areas you inspected. ", format(T_val), n_ca)),
+      sprintf("The prediction is for a smaller area than you measured, so it can come out below the largest inclusion in your data (sqrtArea = %.2f um). Set T to at least %d to predict for the inspected area or larger.",
+              max(fit$data$sqrt_area_max), n_ca)
+    ))
+  })
+
   # geom_point()'s `size` is a fixed physical size (mm), not relative to
   # the plot - matching the preview device's aspect ratio/inches to the
   # download's 10x7in avoids a preview/download point-size mismatch. See
@@ -172,10 +211,18 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     pred <- prediction()
     df <- data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
-                 "Control areas (n)", "Intercept (a)", "Slope (b)", "R2"),
+                 "Fields inspected", "Fields per control area",
+                 "Control areas inspected (T for the inspected area)",
+                 "Control areas in the fit (n)", "Intercept (a)", "Slope (b)", "R2"),
       Value = c(sprintf("%d", fit$n_rows_before_filter), sprintf("%d", fit$n_rows_after_filter),
+                sprintf("%d", fit$n_fields), sprintf("%d", fit$fields_per_area),
+                sprintf("%d", fit$n_control_areas),
                 sprintf("%d", fit$n), sprintf("%.4f", fit$intercept), sprintf("%.4f", fit$slope), sprintf("%.4f", fit$r_squared))
     )
+    if (fit$n_leftover_fields > 0) {
+      df <- rbind(df, data.frame(Metric = "Fields left out (incomplete last control area)",
+                                 Value = sprintf("%d", fit$n_leftover_fields)))
+    }
     if (!is.null(fit$gof)) {
       df <- rbind(df, data.frame(
         Metric = c("Anderson-Darling A2", "Goodness-of-fit (p-value)", "Rejects Gumbel at 5%?"),

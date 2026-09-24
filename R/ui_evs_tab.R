@@ -21,11 +21,11 @@ create_evs_tab <- function(id) {
 
         info_box(" How it works",
           tags$ul(
-            tags$li("The inspected area is split into equal 'control areas' - ideally one SEM field-of-view each, identified by a field/frame ID column in your data."),
+            tags$li("The inspected area is split into equal 'control areas' of one or more whole SEM fields-of-view each, identified by a field/frame ID column in your data."),
             tags$li("The largest inclusion (by sqrtArea) in each control area is its block maximum."),
             tags$li("Block maxima are fit to a Gumbel probability plot; the fitted line predicts the largest inclusion over T control areas."),
             tags$li(strong("A real field/frame ID column is required."),
-              " Each distinct value of that column is one control area of known physical size, so T = 100 means a real area 100x one field. ",
+              " Each distinct value of that column is one field of known physical size, so with 1 field per control area T = 100 means a real area 100x one field. ",
               "The method has no valid meaning without genuine per-field grouping - splitting a flat row list into N arbitrary chunks is not a set of control areas (it depends on sort order and forces equal inclusion counts rather than equal areas), so that fallback has been removed."),
             tags$li("Method: ", cite_link("Murakami, 1994", "https://doi.org/10.6028/jres.099.032"),
               ", standardized in ", cite_link("ASTM E2283-08(2019)"), ". ",
@@ -45,8 +45,12 @@ create_evs_tab <- function(id) {
             selectInput(ns("evs_group_col"), "Field / frame ID column (required):", choices = NULL),
             div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px;",
               strong("Required: "), "pick the column that identifies which SEM field / frame each inclusion came from. ",
-              "Each distinct value becomes one control area. If your export has no such column, EVS cannot be run on it - the method needs genuine per-field grouping, not an arbitrary split of the row list."
-            )
+              "Each distinct value is one field. If your export has no such column, EVS cannot be run on it - the method needs genuine per-field grouping, not an arbitrary split of the row list."
+            ),
+            numericInput(ns("evs_fields_per_area"), "Fields per control area:", value = 1, min = 1, step = 1),
+            helpText("Merges consecutive fields into one control area (fields 1-k, k+1-2k, ...; whole-number IDs are taken as consecutively numbered, so a missing number counts as a field with nothing detected). ",
+              "Increase it when most single fields contain only tiny particles near the detection limit: each control area should contain at least one real inclusion, otherwise the Gumbel plot bends and the prediction falls short. ",
+              "Fields in an incomplete last control area are left out so all control areas have the same area.")
           )
         ),
 
@@ -80,7 +84,8 @@ create_evs_tab <- function(id) {
           column(4,
             h4("Prediction"),
             numericInput(ns("evs_return_period"), "Return period T (multiples of the control area):", value = 100, min = 1.01, step = 1),
-            helpText("E.g. T = 100 predicts the largest inclusion expected over 100x one control area (one SEM field / frame)."),
+            helpText("E.g. T = 100 predicts the largest inclusion expected over 100x one control area."),
+            uiOutput(ns("evs_return_period_note")),
             downloadButton(ns("evs_download_plot"), "Download plot (PNG)"),
             br(), br(),
             downloadButton(ns("evs_download_table"), "Download block maxima (xlsx)")
