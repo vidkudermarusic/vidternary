@@ -3,13 +3,21 @@
 # Parameter 2 (point color / categorical grouping) into per-point
 # pointSize/pointType/pointCol vectors, plus legend metadata.
 
-# Optional Param 1 "point_size" mapping: symbol AREA proportional to the value
-# (cex scales the diameter, so diameter ~ sqrt(value)); 0 -> min_size,
-# max_value -> max_size. The small min_size floor keeps zero-valued points
-# visible. Used for the plotted points AND both legends (preview and save),
-# so the legend always shows the sizes actually drawn.
+# Optional Param 1 "point_size" mapping: linear, as in the original app;
+# 0 -> min_size, max_value -> max_size. Used for the plotted points AND both
+# legends (preview and save), so the legend always shows the sizes actually
+# drawn.
 param1_point_size <- function(values, max_value, min_size, max_size) {
-  min_size + (max_size - min_size) * sqrt(pmax(values, 0) / max_value)
+  min_size + (max_size - min_size) * pmax(values, 0) / max_value
+}
+
+# Draws the points biggest first, so smaller points stay visible on top of
+# larger ones. order(-x) is stable, so equal sizes keep their data order.
+draw_ternary_points <- function(ternary_points1, pointSize, pointCol, pointType) {
+  o <- order(-pointSize)
+  Ternary::TernaryPoints(ternary_points1[o, , drop = FALSE],
+                         cex = pointSize[o], col = pointCol[o], pch = pointType[o])
+  invisible(o)
 }
 
 # Size legend for Optional Param 1: real point glyphs at the sizes
@@ -129,7 +137,7 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 
     if (optional_param1_representation == "point_size") {
       # Point size representation
-      minPointSize <- MIN_POINT_SIZE
+      minPointSize <- PARAM1_MIN_POINT_SIZE
       maxSize <- MAX_POINT_SIZE
       # Optional Param 1 is a non-negative physical measurement (wt%, ECD,
       # area, etc.), so this formula's "0 -> minPointSize, max ->

@@ -180,29 +180,29 @@ test_that("a decimal comma in a pre-analysis filter is rejected with the same cl
   expect_error(apply_pre_filters(data.frame(Area = 1:3), list(Area = "> 1,5")), "decimal separator")
 })
 
-# ---- Item 9: point size scales by area and the legend matches the points ----
+# ---- Item 9: point size scaling and the legend matches the points ----
+# (Linear scaling from 0.25, as in the original app - the area-proportional
+# scale from this pass was reverted at the user's request.)
 
-test_that("param1_point_size() makes symbol area (size above the floor, squared) proportional to the value", {
-  s <- param1_point_size(c(0, 25, 50, 100), max_value = 100, min_size = 0.1, max_size = 2.5)
-  expect_equal(s[1], 0.1)
-  expect_equal(s[4], 2.5)
-  scaled <- (s - 0.1) / (2.5 - 0.1)
-  expect_equal(scaled^2, c(0, 0.25, 0.5, 1), tolerance = 1e-12)
+test_that("param1_point_size() scales linearly from the smallest size to the largest", {
+  s <- param1_point_size(c(0, 25, 50, 100), max_value = 100, min_size = 0.25, max_size = 2.5)
+  expect_equal(s, c(0.25, 0.8125, 1.375, 2.5))
   # Negative values clamp to the floor instead of producing NaN.
-  expect_equal(param1_point_size(-5, 100, 0.1, 2.5), 0.1)
+  expect_equal(param1_point_size(-5, 100, 0.25, 2.5), 0.25)
 })
 
 test_that("plotted point sizes come from param1_point_size(), and the size legend draws the same sizes", {
   d <- pass9_data(30)
   d$ECD <- seq(1, 30)
   pd <- pass9_pd(d, optional_param1 = list(col = "ECD", filter = NULL), include_plot_notes = FALSE)
-  expect_equal(pd$pointSize, param1_point_size(pd$param1_values, max(pd$param1_values), 0.1, 2.5))
+  expect_equal(pd$pointSize, param1_point_size(pd$param1_values, max(pd$param1_values), PARAM1_MIN_POINT_SIZE, MAX_POINT_SIZE))
+  expect_equal(PARAM1_MIN_POINT_SIZE, 0.25)
 
   png(tempfile(fileext = ".png"))
   plot.new()
-  drawn <- draw_param1_size_legend(pd$param1_values, "ECD", 0.1, 2.5)
+  drawn <- draw_param1_size_legend(pd$param1_values, "ECD", PARAM1_MIN_POINT_SIZE, MAX_POINT_SIZE)
   dev.off()
-  expect_equal(drawn$sizes, param1_point_size(drawn$values, max(pd$param1_values), 0.1, 2.5))
+  expect_equal(drawn$sizes, param1_point_size(drawn$values, max(pd$param1_values), PARAM1_MIN_POINT_SIZE, MAX_POINT_SIZE))
   expect_equal(drawn$values[1], max(pd$param1_values))
   # The legend's smallest entry is the data minimum, drawn at the size a
   # point with that value actually gets - not at the floor size.
@@ -219,6 +219,33 @@ test_that("the preview renders with a size legend without needing PlotTools", {
   expect_no_error(render_ternary_plot_preview(pd))
   dev.off()
   expect_gt(file.info(f)$size, 0)
+})
+
+test_that("points are drawn biggest first, and equal sizes keep their data order", {
+  pts <- data.frame(A = c(0.2, 0.3, 0.4, 0.5, 0.6), B = 0.2, C = c(0.6, 0.5, 0.4, 0.3, 0.2))
+  png(tempfile(fileext = ".png"))
+  Ternary::TernaryPlot()
+  o <- draw_ternary_points(pts, c(0.5, 2, 0.5, 1, 2), rep("black", 5), rep(16, 5))
+  dev.off()
+  expect_equal(o, c(2L, 5L, 4L, 1L, 3L))
+})
+
+test_that("the preview draws Optional Param 1 points biggest first, each keeping its own colour", {
+  d <- pass9_data(30)
+  d$ECD <- seq(1, 30)
+  d$AR <- rep(c(1.2, 2, 4), 10)
+  pd <- pass9_pd(d, optional_param1 = list(col = "ECD", filter = NULL),
+                 optional_param2 = list(col = "AR", filter = NULL), include_plot_notes = FALSE)
+  drawn <- NULL
+  local_mocked_bindings(draw_ternary_points = function(ternary_points1, pointSize, pointCol, pointType) {
+    drawn <<- list(size = pointSize, col = pointCol)
+  })
+  png(tempfile(fileext = ".png"), width = 800, height = 900)
+  render_ternary_plot_preview(pd)
+  dev.off()
+  expect_equal(drawn$size, pd$pointSize)
+  expect_equal(unname(drawn$col), unname(pd$pointCol))
+  expect_gt(length(unique(drawn$col)), 1)
 })
 
 # ---- Item 10: missing values never create phantom rows ----

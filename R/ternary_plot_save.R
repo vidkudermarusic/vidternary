@@ -96,7 +96,7 @@ save_ternary_plot_to_file <- function(pd) {
         pointType <- rep(pointType[1], n_points)
       }
 
-      Ternary::TernaryPoints(ternary_points1, cex = pointSize, col = pointCol, pch = pointType)
+      draw_ternary_points(ternary_points1, pointSize, pointCol, pointType)
       if (getOption("ternary.debug", FALSE)) cat("DEBUG: All points plotted successfully for file save\n")
     }
 
@@ -126,7 +126,7 @@ save_ternary_plot_to_file <- function(pd) {
         } else {
           # Same size mapping as the plotted points (param1_point_size()).
           draw_param1_size_legend(param1_values, paste(optional_param1$col, collapse = "+"),
-                                  MIN_POINT_SIZE, MAX_POINT_SIZE)
+                                  PARAM1_MIN_POINT_SIZE, MAX_POINT_SIZE)
         }
       } else if (length(optional_param1$col) == 1 && optional_param1_representation == "point_type") {
         # Point type representation - show different point types
