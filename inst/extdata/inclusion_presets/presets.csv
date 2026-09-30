@@ -1,0 +1,12 @@
+id,name,kind,A,B,C,basis,threshold_pct,classification,description,applies_to,sources
+cao-al2o3-mgo,CaO-Al2O3-MgO,compound,CaO,Al2O3,MgO,mass,50,rules,"Oxide inclusions of Al-killed steel and their modification by calcium treatment: alumina, spinel and the calcium aluminates.","Al-killed, Ca-treated steel",nanoscience_astm;pistorius_spinel;cao_al2o3_phases
+cao-al2o3-cas,CaO-Al2O3-CaS,compound,CaO,Al2O3,CaS,mass,50,nearest,"Calcium aluminates and calcium sulfide after calcium treatment.","Ca-treated steel",thermo_an0197;cao_al2o3_phases
+mno-sio2-al2o3,MnO-SiO2-Al2O3,compound,MnO,SiO2,Al2O3,mass,50,nearest,"Manganese silicate inclusions of Si-Mn deoxidised steel.","Si-Mn killed steel (e.g. tire cord, spring steel)",mno_al2o3_sio2;snow1943
+cao-sio2-al2o3,CaO-SiO2-Al2O3,compound,CaO,SiO2,Al2O3,mass,50,nearest,"Calcium aluminosilicate inclusions and slag-derived oxides.","Ca or slag influenced steel",cao_al2o3_sio2
+mgo-sio2-al2o3,MgO-SiO2-Al2O3,compound,MgO,SiO2,Al2O3,mass,50,nearest,"Magnesium aluminosilicates: spinel, cordierite, forsterite, enstatite.","Refractory or MgO influenced steel",mgo_al2o3_sio2
+tin-al2o3-mgo,TiN-Al2O3-MgO,compound,TiN,Al2O3,MgO,mass,50,nearest,"Titanium nitride, alumina and spinel in Ti-bearing steel.","Ti-bearing steel",thermo_an0197
+mns-cas-oxides,MnS-CaS-oxides,compound,MnS,CaS,@oxides,mass,50,rules,"Sulfide inclusions between MnS and CaS, separated from oxide-dominated particles.","Steel with MnS and/or CaS",thermo_an0197;nanoscience_astm
+mg-al-ca,Mg-Al-Ca,element,Mg,Al,Ca,mass,30,nearest,"Element ternary common in automated inclusion reports; oxides of Al-killed and Ca-treated steel (oxygen not shown).","Al-killed, Ca-treated steel",thermo_an0197
+ca-al-s,Ca-Al-S,element,Ca,Al,S,mass,30,nearest,"Element ternary for calcium treatment: CaS towards calcium aluminates and alumina.","Ca-treated steel",thermo_an0197
+ti-al-n,Ti-Al-N,element,Ti,Al,N,mass,30,nearest,"Element ternary for Ti-bearing steel: TiN towards alumina.","Ti-bearing steel",thermo_an0197
+mn-s-al,Mn-S-Al,element,Mn,S,Al,mass,30,nearest,"Element ternary separating MnS from alumina and galaxite.","Steel with MnS and alumina",nanoscience_astm
