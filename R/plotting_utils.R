@@ -58,7 +58,14 @@ create_correlation_plot <- function(data, method = "pearson",
     return(invisible(FALSE))
   }
 
-  # Calculate correlation matrix
+  # Calculate correlation matrix. Deliberately listwise (complete.obs), NOT
+  # pairwise.complete.obs like build_correlation_pairs_table()'s own
+  # equivalent table (stats_display_utils.R): this matrix feeds hclust()
+  # below for column reordering, and a pairwise-deleted correlation matrix
+  # isn't guaranteed positive-semi-definite when missingness differs across
+  # column pairs - which can produce an invalid "distance" for clustering.
+  # The plain table has no such requirement, so it uses the more
+  # data-efficient pairwise convention instead.
   cor_matrix <- cor(data, use = "complete.obs", method = method)
 
   # A pairwise NA can still remain (e.g. two columns share no complete rows

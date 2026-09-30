@@ -24,7 +24,8 @@ build_ternary_plot_title(
   file_base,
   xlsx_display_name,
   xlsx_file,
-  title_layout_fn
+  title_layout_fn,
+  mv_status = "applied"
 )
 }
 \arguments{
@@ -54,6 +55,12 @@ only when \code{file_base} isn't usable.}
 final \code{plot_title} string - \code{\link[=prepare_ternary_plot_data]{prepare_ternary_plot_data()}} passes its
 own local \code{preview_title_layout()} closure, so that stays the single
 source of truth for that formatting rather than being duplicated here.}
+
+\item{mv_status}{Outcome of \code{\link[=apply_multivariate_filtering]{apply_multivariate_filtering()}}
+(\code{"applied"}, \code{"skipped_no_reference"}, \code{"failed"}, ...). When the
+requested Mahalanobis/Isolation Forest filter was skipped or failed, the
+title marks it "(NOT APPLIED)" instead of "(filtered)". Default
+\code{"applied"}.}
 }
 \value{
 This function's entire local environment as a list

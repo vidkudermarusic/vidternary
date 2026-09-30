@@ -370,7 +370,7 @@ test_that("repo-hygiene bundle: no dead viridisLite install.packages() fallback,
 # reinitialize warning, found on a fresh re-check of the ternary
 # coordinate/point-styling/rendering pipeline requested after pass 6 closed ----
 
-test_that("compute_point_styling() under Point Size representation maps an all-zero Optional Param 1 column to MIN_POINT_SIZE, not NaN (regression)", {
+test_that("compute_point_styling() under Point Size representation maps an all-zero Optional Param 1 column to PARAM1_MIN_POINT_SIZE, not NaN (regression)", {
   # Optional Param 1 is a non-negative physical measurement (wt%, ECD,
   # area, etc. - confirmed with the user, so a signed/negative column was
   # ruled out as a real scenario). The one real edge case left is every
@@ -397,7 +397,7 @@ test_that("compute_point_styling() under Point Size representation maps an all-z
   )
 
   expect_false(anyNA(result$pointSize))
-  expect_true(all(result$pointSize == 0.1))
+  expect_true(all(result$pointSize == PARAM1_MIN_POINT_SIZE))
   expect_false(any(grepl("has issues\\. Reinitializing", console_output)))
 })
 

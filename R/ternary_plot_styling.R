@@ -3,6 +3,35 @@
 # Parameter 2 (point color / categorical grouping) into per-point
 # pointSize/pointType/pointCol vectors, plus legend metadata.
 
+# Optional Param 1 "point_size" mapping: linear, as in the original app;
+# 0 -> min_size, max_value -> max_size. Used for the plotted points AND both
+# legends (preview and save), so the legend always shows the sizes actually
+# drawn.
+param1_point_size <- function(values, max_value, min_size, max_size) {
+  min_size + (max_size - min_size) * pmax(values, 0) / max_value
+}
+
+# Draws the points biggest first, so smaller points stay visible on top of
+# larger ones. order(-x) is stable, so equal sizes keep their data order.
+draw_ternary_points <- function(ternary_points1, pointSize, pointCol, pointType) {
+  o <- order(-pointSize)
+  Ternary::TernaryPoints(ternary_points1[o, , drop = FALSE],
+                         cex = pointSize[o], col = pointCol[o], pch = pointType[o])
+  invisible(o)
+}
+
+# Size legend for Optional Param 1: real point glyphs at the sizes
+# param1_point_size() gives for 5 values spanning the data, largest first.
+# Returns the values and sizes drawn (invisibly).
+draw_param1_size_legend <- function(param1_values, title, min_size, max_size) {
+  max_v <- max(param1_values, na.rm = TRUE)
+  legend_values <- unique(signif(seq(max_v, min(param1_values, na.rm = TRUE), length.out = 5), 3))
+  sizes <- if (max_v > 0) param1_point_size(legend_values, max_v, min_size, max_size) else rep(min_size, length(legend_values))
+  legend("topright", title = title, legend = legend_values, pch = 16, pt.cex = sizes,
+         cex = 0.7, bty = "n", y.intersp = 1.5)
+  invisible(list(values = legend_values, sizes = sizes))
+}
+
 #' Work out each point's plotted size, color, and shape
 #'
 #' Turns Optional Parameter 1 (point size or point type) and Optional
@@ -108,7 +137,7 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
 
     if (optional_param1_representation == "point_size") {
       # Point size representation
-      minPointSize <- MIN_POINT_SIZE
+      minPointSize <- PARAM1_MIN_POINT_SIZE
       maxSize <- MAX_POINT_SIZE
       # Optional Param 1 is a non-negative physical measurement (wt%, ECD,
       # area, etc.), so this formula's "0 -> minPointSize, max ->
@@ -125,14 +154,12 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       if (is.finite(max_param1) && max_param1 <= 0) {
         pointSize <- rep(minPointSize, length(param1_values))
       } else {
-        pointSize <- param1_values * (maxSize - minPointSize) / max_param1 + minPointSize
-        # Defense in depth for a value outside [0, max_param1] getting
-        # here at all (e.g. a direct, non-UI caller) - clipped to the
-        # intended range with a warning naming how many points were
-        # affected, instead of letting an out-of-range point render
-        # invisibly (a size below minPointSize) or oversized silently.
-        out_of_range <- pointSize < minPointSize | pointSize > maxSize
-        out_of_range[is.na(out_of_range)] <- FALSE
+        # Defense in depth for a negative value getting here at all (e.g. a
+        # direct, non-UI caller): param1_point_size() clamps it to
+        # minPointSize, with a warning naming how many points were affected
+        # rather than silently.
+        out_of_range <- !is.na(param1_values) & param1_values < 0
+        pointSize <- param1_point_size(param1_values, max_param1, minPointSize, maxSize)
         if (any(out_of_range)) {
           warning(sprintf(
             "%d point(s) have an out-of-range Optional Param 1 value under Point Size representation; clipped to the visible size range [%.2g, %.2g].",

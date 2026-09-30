@@ -76,6 +76,16 @@ build_descriptive_stats_comparison_table <- function(dfs) {
 #' `method = "spearman"` for a rank-based alternative that is less
 #' affected.
 #'
+#' Missing values are handled pairwise (`use = "pairwise.complete.obs"`):
+#' each pair's correlation uses every row complete for *that* pair, rather
+#' than dropping any row incomplete in *any* selected column (which would
+#' needlessly shrink the sample for pairs that have no missingness of their
+#' own). This matches `validate_multivariate_data()`'s own multicollinearity
+#' check (`multivariate.R`) - safe here because this table has no downstream
+#' requirement that the full matrix be positive-semi-definite, unlike a
+#' covariance matrix feeding a matrix inversion (Mahalanobis distance),
+#' which is why those keep listwise deletion instead.
+#'
 #' @param df A data frame.
 #' @param numeric_cols Columns to correlate. Defaults to all numeric
 #'   columns of `df`. Needs at least 2.
@@ -88,7 +98,7 @@ build_correlation_pairs_table <- function(df, numeric_cols = NULL, method = "pea
   if (length(numeric_cols) < 2) {
     return(data.frame(Variable_1 = character(0), Variable_2 = character(0), Correlation = numeric(0)))
   }
-  m <- suppressWarnings(stats::cor(df[, numeric_cols, drop = FALSE], use = "complete.obs", method = method))
+  m <- suppressWarnings(stats::cor(df[, numeric_cols, drop = FALSE], use = "pairwise.complete.obs", method = method))
   pairs <- utils::combn(numeric_cols, 2, simplify = FALSE)
   rows <- lapply(pairs, function(p) {
     data.frame(Variable_1 = p[1], Variable_2 = p[2], Correlation = m[p[1], p[2]], stringsAsFactors = FALSE)

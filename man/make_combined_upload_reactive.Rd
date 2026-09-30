@@ -4,12 +4,16 @@
 \alias{make_combined_upload_reactive}
 \title{Build a combined-upload reactive for a multi-file \code{fileInput}}
 \usage{
-make_combined_upload_reactive(input, file_input_id)
+make_combined_upload_reactive(input, file_input_id, allow_multiple = TRUE)
 }
 \arguments{
 \item{input}{The Shiny \code{input} object.}
 
 \item{file_input_id}{Character; the \code{fileInput} id to read from.}
+
+\item{allow_multiple}{If \code{FALSE}, more than one uploaded file is rejected
+with a validation message instead of being combined (used by EVS and
+the spatial tabs, where pooling specimens is invalid). Default \code{TRUE}.}
 }
 \value{
 A \code{shiny::reactive({...})} yielding the combined data frame.

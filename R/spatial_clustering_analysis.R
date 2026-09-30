@@ -31,11 +31,12 @@
 #   SE(R)                    SE(Dobs) / Dkevin
 #   Z = (R - 1) / SE(R), two-sided p-value = 2*(1 - pnorm(abs(Z)))
 #
-# `area` and `perim` above are the bounding box's by default; the `window`
-# argument switches them (and the Monte Carlo simulation region) to the
-# convex hull of the points, for when the sampled region isn't actually a
-# rectangle. The Donnelly coefficients are rectangle-derived, so on a hull
-# the asymptotic test is approximate and the Monte Carlo p-value leads.
+# `area` and `perim` above are those of the Ripley-Rasson estimate of the
+# sampled window: the bounding box enlarged by (n+1)/(n-1) by default, or
+# with `window = "convex_hull"` the convex hull enlarged by 1/sqrt(1 - m/n)
+# (spatstat.geom::ripras). The Monte Carlo simulation uses the same window.
+# The Donnelly coefficients are rectangle-derived, so on a hull the
+# asymptotic test is approximate and the Monte Carlo p-value leads.
 
 # Pure Euclidean nearest-neighbour distance per point (excluding self).
 #'
@@ -72,7 +73,7 @@ compute_nearest_neighbor_distances <- function(x, y, method = c("kdtree", "matri
 # Clark-Evans test of complete spatial randomness (CSR). Reports both the
 # Donnelly-corrected asymptotic Z-test (standard practice, comparable to
 # published values) and a Monte Carlo p-value (simulate n_sim CSR point
-# sets in the same bounding box, compare observed Dobs to that empirical
+# sets in the same estimated window, compare observed Dobs to that empirical
 # distribution) - even the Donnelly correction was checked empirically to
 # still over-reject somewhat at small n (~15% instead of 5% at n=40); the
 # Monte Carlo p-value doesn't rely on any asymptotic approximation and is
@@ -89,7 +90,7 @@ compute_nearest_neighbor_distances <- function(x, y, method = c("kdtree", "matri
 #'
 #' Reports both a Donnelly (1978) edge-corrected asymptotic Z-test and a
 #' Monte Carlo p-value (simulating `n_sim` CSR point sets in the same
-#' bounding box). Both are known to over-reject somewhat at small n - see
+#' estimated window). Both are known to over-reject somewhat at small n - see
 #' this file's header comment and the package's Statistical Appendix
 #' vignette for the empirically-measured false-positive rates and why the
 #' bias is asymmetric (favors false "dispersed" verdicts, not "clustered" ones).
@@ -106,18 +107,17 @@ compute_nearest_neighbor_distances <- function(x, y, method = c("kdtree", "matri
 #'   `compute_nearest_neighbor_distances()`: `"kdtree"` (default, fast,
 #'   exact) or `"matrix"` (slow for large `n`, exact). Both give identical
 #'   results - this only affects runtime.
-#' @param window Observation window the null model is defined on:
-#'   `"rectangle"` (default) uses the axis-aligned bounding box of the
-#'   points - correct when the inspected region really is a rectangular
-#'   scan; `"convex_hull"` uses the convex hull of the points instead -
-#'   the right choice when the sampled region is irregular and the points
-#'   don't fill their bounding box (a bounding-box null then underestimates
-#'   the intensity and biases `R` toward a false "clustered" verdict). Both
-#'   the area/perimeter used for the Donnelly correction and the Monte
-#'   Carlo simulation window follow this choice. `"convex_hull"` needs the
-#'   `spatstat.geom` package; the Donnelly coefficients (0.0514, 0.0412)
-#'   were derived for rectangles, so on a hull they are approximate and the
-#'   Monte Carlo p-value is the figure to trust.
+#' @param window Observation window the null model is defined on, always
+#'   as a Ripley-Rasson estimate (`spatstat.geom::ripras()`) because the
+#'   true scan region is unknown and a window drawn tightly around the
+#'   points always lies inside it: `"rectangle"` (default) is the bounding
+#'   box enlarged by `(n+1)/(n-1)`, right when the inspected region is a
+#'   rectangular scan; `"convex_hull"` is the convex hull enlarged by
+#'   `1/sqrt(1 - m/n)` (`m` = hull vertices), for an irregular sampled
+#'   region. Both the area/perimeter used for the Donnelly correction and
+#'   the Monte Carlo simulation window follow this choice. The Donnelly
+#'   coefficients (0.0514, 0.0412) were derived for rectangles, so on a hull
+#'   they are approximate and the Monte Carlo p-value is the figure to trust.
 #' @return A list: `n`, `area`, `density`, `window`, `nnd` (per-point
 #'   distances), `Dobs`, `Dpois`, `Dkevin`, `R`, `SE_R`, `Z`,
 #'   `p_value_asymptotic`, `n_sim`, `nn_method`, `p_value_monte_carlo`,
@@ -136,24 +136,28 @@ clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtre
   height <- max(y) - min(y)
   bbox_area <- width * height
   if (!is.finite(bbox_area) || bbox_area <= 0) stop("Points must span a non-zero area (X and Y cannot both be constant).")
-  xr <- range(x); yr <- range(y)
 
+  # The real sampled region (the SEM scan) is unknown here, and any window
+  # drawn tightly around the points always lies inside it, which understates
+  # the area, overstates the intensity and biases R toward "regular". The
+  # Ripley-Rasson estimator (spatstat.geom::ripras) corrects this by
+  # enlarging the bounding box by (n+1)/(n-1), or the convex hull by
+  # 1/sqrt(1 - m/n) (m = hull vertices), about its centroid.
   hull_win <- NULL
   if (window == "convex_hull") {
-    if (!requireNamespace("spatstat.geom", quietly = TRUE)) {
-      stop("Package 'spatstat.geom' is required for window = \"convex_hull\".")
-    }
-    hull_win <- tryCatch(spatstat.geom::convexhull.xy(x, y), error = function(e) NULL)
+    hull_win <- tryCatch(spatstat.geom::ripras(x, y, shape = "convex"), error = function(e) NULL)
     hull_area <- if (is.null(hull_win)) NA_real_ else spatstat.geom::area.owin(hull_win)
     if (is.null(hull_win) || !is.finite(hull_area) || hull_area <= 0) {
       stop("Points must span a non-zero area (X and Y cannot be constant or collinear) for window = \"convex_hull\".")
     }
-    area <- hull_area
-    perim <- spatstat.geom::perimeter(hull_win)
+    win <- hull_win
   } else {
-    area <- bbox_area
-    perim <- 2 * (width + height)
+    win <- spatstat.geom::ripras(x, y, shape = "rectangle")
   }
+  area <- spatstat.geom::area.owin(win)
+  perim <- spatstat.geom::perimeter(win)
+  # Monte Carlo CSR patterns are simulated in this same (enlarged) window.
+  xr <- win$xrange; yr <- win$yrange
 
   nnd <- compute_nearest_neighbor_distances(x, y, method = nn_method)
   Dobs <- mean(nnd)
@@ -178,11 +182,10 @@ clark_evans_test <- function(x, y, n_sim = NULL, seed = 42, nn_method = c("kdtre
   Dobs_sim <- vapply(seq_len(n_sim), function(s) {
     if (window == "convex_hull") {
       # Uniform CSR inside the SAME hull the observed area/perimeter came
-      # from: rejection-sample from the bounding box and keep the points
-      # that land inside the hull polygon (spatstat.geom::inside.owin is
-      # the exported test - runifpoint lives in spatstat.random, which this
-      # package doesn't depend on). The null then matches the real study
-      # region rather than an over-large bounding box.
+      # from: rejection-sample from the hull window's own frame and keep
+      # the points that land inside the hull polygon
+      # (spatstat.geom::inside.owin is the exported test - runifpoint lives
+      # in spatstat.random, which this package doesn't depend on).
       sx <- numeric(0); sy <- numeric(0)
       while (length(sx) < n) {
         batch <- max((n - length(sx)) * 2L, 64L)

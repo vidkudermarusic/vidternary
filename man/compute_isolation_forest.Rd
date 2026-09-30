@@ -41,7 +41,10 @@ User-adjustable in the UI, same as \code{contamination} above.}
 \item{seed}{Random seed for reproducibility, passed through directly to
 \code{isotree::isolation.forest()}'s own \code{seed} argument (which governs its
 randomness independently of R's \code{set.seed()} - confirmed empirically,
-not assumed). Default 42.}
+not assumed). Default 42. User-adjustable in the UI, same as
+\code{contamination}/\code{ntrees} above - change it to sensitivity-check
+whether outlier calls are stable across different random forest
+realizations.}
 
 \item{sample_size}{Number of reference rows each tree is trained on.
 \code{NULL} (default) uses every complete reference row - simple and fully
@@ -55,7 +58,7 @@ reported back in \code{sample_size}.}
 }
 \value{
 A list: \code{model} (the fitted isolation forest), \code{columns_used},
-\code{threshold}, \code{contamination}, \code{ntrees}, \code{sample_size} (the row count
+\code{threshold}, \code{contamination}, \code{ntrees}, \code{seed}, \code{sample_size} (the row count
 each tree was actually trained on - either every complete reference
 row, or the sub-sample size requested, clamped to the rows available),
 \code{scores} (length \code{nrow(data1)}), \code{outlier_indices},

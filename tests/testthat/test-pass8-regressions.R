@@ -126,3 +126,76 @@ test_that("prepare_ternary_plot_data()'s plot notes flag the multiple-comparison
   expect_length(caveat_line, 1)
   expect_match(caveat_line, "5 columns")
 })
+
+test_that("compute_isolation_forest()'s seed argument is validated the same way as ntrees/contamination (regression)", {
+  set.seed(40)
+  ref <- data.frame(Al = rnorm(30, 5, 1), Si = rnorm(30, 5, 1))
+  expect_error(
+    compute_isolation_forest(ref, ref, selected_columns = c("Al", "Si"), seed = NA_real_),
+    "seed must be a single whole number"
+  )
+  expect_error(
+    compute_isolation_forest(ref, ref, selected_columns = c("Al", "Si"), seed = 1.5),
+    "seed must be a single whole number"
+  )
+})
+
+test_that("compute_isolation_forest()'s seed actually changes the fitted model's scores (regression)", {
+  # Confirms the parameter is real - not merely accepted and ignored -
+  # since isotree's own randomness is independent of R's set.seed() (see
+  # this function's own doc comment).
+  set.seed(41)
+  ref <- data.frame(Al = rnorm(60, 5, 1), Si = rnorm(60, 5, 1), Mn = rnorm(60, 5, 1))
+  target <- data.frame(Al = rnorm(20, 5, 1), Si = rnorm(20, 5, 1), Mn = rnorm(20, 5, 1))
+
+  res_seed1 <- compute_isolation_forest(target, ref, selected_columns = c("Al", "Si", "Mn"), seed = 1)
+  res_seed2 <- compute_isolation_forest(target, ref, selected_columns = c("Al", "Si", "Mn"), seed = 2)
+  res_seed1_again <- compute_isolation_forest(target, ref, selected_columns = c("Al", "Si", "Mn"), seed = 1)
+
+  expect_false(isTRUE(all.equal(res_seed1$scores, res_seed2$scores)))
+  # Same seed -> exactly reproducible scores.
+  expect_equal(res_seed1$scores, res_seed1_again$scores)
+  expect_equal(res_seed1$seed, 1)
+  expect_equal(res_seed2$seed, 2)
+})
+
+test_that("prepare_ternary_plot_data() threads isolation_seed through to compute_isolation_forest() and reports it in the plot notes (regression)", {
+  xlsx_path <- tempfile(fileext = ".xlsx")
+  set.seed(42)
+  openxlsx::write.xlsx(
+    data.frame(
+      Al = abs(rnorm(40, 5, 1)), Si = abs(rnorm(40, 5, 1)), Mn = abs(rnorm(40, 5, 1))
+    ),
+    xlsx_path
+  )
+  base_args <- list(
+    xlsx_file = xlsx_path, working_dir = getwd(), output_dir = tempfile(),
+    element_A = list(col = "Al"), element_B = list(col = "Si"), element_C = list(col = "Mn"),
+    optional_param1 = NULL, optional_param2 = NULL, color_palette = "blue",
+    xlsx_display_name = NULL, preview = TRUE,
+    use_mahalanobis = FALSE, reference_data = NULL,
+    optional_param1_representation = "point_size", output_format = "png",
+    use_isolation_forest = TRUE, isolation_ntrees = 100, isolation_contamination = 0.10,
+    use_iqr_filter = FALSE, use_zscore_filter = FALSE, use_mad_filter = FALSE,
+    stat_filter_log10 = FALSE,
+    lambda = 1, omega = 0,
+    keep_outliers_mahalanobis = FALSE, keep_outliers_isolation = FALSE,
+    keep_outliers_iqr = FALSE, keep_outliers_zscore = FALSE, keep_outliers_mad = FALSE,
+    individual_filters_A = NULL, individual_filters_B = NULL, individual_filters_C = NULL,
+    custom_mdthresh = NULL, mdthresh_mode = "auto", mahalanobis_reference = "self",
+    selected_columns = c("Al", "Si", "Mn"),
+    include_plot_notes = TRUE, use_manual_point_size = FALSE, manual_point_size = 1.0,
+    selected_groups = NULL, is_categorical_group = FALSE
+  )
+
+  pd_default <- do.call(prepare_ternary_plot_data, base_args)
+  expect_equal(pd_default$iso_result$seed, 42) # default, unchanged behavior
+
+  pd_custom <- do.call(prepare_ternary_plot_data, utils::modifyList(base_args, list(isolation_seed = 7)))
+  expect_equal(pd_custom$iso_result$seed, 7)
+
+  seed_line <- strsplit(pd_custom$col3_text, "\n")[[1]]
+  seed_line <- seed_line[grepl("Seed:", seed_line)]
+  expect_length(seed_line, 1)
+  expect_match(seed_line, "7")
+})

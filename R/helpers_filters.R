@@ -84,18 +84,24 @@ apply_filter <- function(df, col, filter) {
     # Handle comparison operators safely
     operator <- gsub("^([><=!]+).*", "\\1", filter)
     value_str <- gsub("^[><=!]+\\s*", "", filter)
-    value <- as.numeric(value_str)
+    if (grepl(",", value_str, fixed = TRUE)) {
+      stop("Invalid filter value: ", value_str, ". Use a dot as the decimal separator (e.g. \"> 1.5\"); commas are not allowed.")
+    }
+    value <- suppressWarnings(as.numeric(value_str))
 
     if (is.na(value)) {
       stop("Invalid filter value: ", value_str, ". Must be a numeric value.")
     }
 
-    if (operator == ">") return(df[df[[col]] > value, , drop = FALSE])
-    if (operator == "<") return(df[df[[col]] < value, , drop = FALSE])
-    if (operator == ">=") return(df[df[[col]] >= value, , drop = FALSE])
-    if (operator == "<=") return(df[df[[col]] <= value, , drop = FALSE])
-    if (operator == "==") return(df[df[[col]] == value, , drop = FALSE])
-    if (operator == "!=") return(df[df[[col]] != value, , drop = FALSE])
+    # which() drops rows whose value is NA: indexing a data frame with an NA
+    # logical would insert a phantom all-NA row instead.
+    x <- df[[col]]
+    if (operator == ">") return(df[which(x > value), , drop = FALSE])
+    if (operator == "<") return(df[which(x < value), , drop = FALSE])
+    if (operator == ">=") return(df[which(x >= value), , drop = FALSE])
+    if (operator == "<=") return(df[which(x <= value), , drop = FALSE])
+    if (operator == "==") return(df[which(x == value), , drop = FALSE])
+    if (operator == "!=") return(df[which(x != value), , drop = FALSE])
   }
 
   stop("Invalid filter format. Use operators: >, <, >=, <=, ==, !=")
@@ -322,6 +328,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
   } else {
     NULL
   }
+  isolation_seed <- if (!is.null(input$isolation_seed) && !is.na(input$isolation_seed)) input$isolation_seed else 42
 
   # Reference data handling
   reference_data <- NULL
@@ -437,6 +444,7 @@ extract_ternary_params <- function(input, rv, dataset_num, preview = FALSE, mult
     isolation_ntrees = isolation_ntrees,
     isolation_contamination = isolation_contamination,
     isolation_sample_size = isolation_sample_size,
+    isolation_seed = isolation_seed,
     keep_outliers_mahalanobis = keep_outliers_mahalanobis,
     keep_outliers_isolation = keep_outliers_isolation,
     keep_outliers_iqr = keep_outliers_iqr,

@@ -44,8 +44,5 @@ Computes the Mahalanobis distance of each \code{data1} row from \code{data2}'s
 distribution over \code{selected_columns}, then flags outliers against
 either a manual threshold or the automatic formula \code{MDthresh = MDmean + sqrt(100/(100 + lambda - omega)) * stdMD} (Vode et al., 2022,
 \url{https://doi.org/10.3390/ma15020684}). \code{MDmean}/\code{stdMD} are the mean/SD
-of \code{data2}'s own distances from itself (its baseline spread as a
-"normal" reference), not of the \code{data1} distances being tested -
-otherwise outliers already present in \code{data1} would inflate the very
-mean/SD used to judge them.
+of the \code{data1} distances, as in the cited method.
 }

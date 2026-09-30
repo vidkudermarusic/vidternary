@@ -4,12 +4,19 @@
 \alias{create_file_selection_column}
 \title{Build the "File Selection" column content for a tab}
 \usage{
-create_file_selection_column(file_input_id, label = "Select Excel File(s)")
+create_file_selection_column(file_input_id, label = NULL, multiple = TRUE)
 }
 \arguments{
 \item{file_input_id}{Already-namespaced input id for the \code{fileInput()}.}
 
-\item{label}{Label shown above the file picker.}
+\item{label}{Label shown above the file picker. Defaults to a singular or
+plural wording depending on \code{multiple}.}
+
+\item{multiple}{Allow selecting more than one file (combined row-wise).
+\code{FALSE} for analyses where pooling specimens is invalid - EVS (field IDs
+from different files would merge into one control area) and the two
+spatial tabs (stage coordinates from different specimens would overlay
+into one point pattern). Default \code{TRUE}.}
 }
 \value{
 A \code{shiny::tagList()}.

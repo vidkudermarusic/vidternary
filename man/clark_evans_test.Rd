@@ -31,18 +31,17 @@ state is saved and restored afterward. Default 42.}
 exact) or \code{"matrix"} (slow for large \code{n}, exact). Both give identical
 results - this only affects runtime.}
 
-\item{window}{Observation window the null model is defined on:
-\code{"rectangle"} (default) uses the axis-aligned bounding box of the
-points - correct when the inspected region really is a rectangular
-scan; \code{"convex_hull"} uses the convex hull of the points instead -
-the right choice when the sampled region is irregular and the points
-don't fill their bounding box (a bounding-box null then underestimates
-the intensity and biases \code{R} toward a false "clustered" verdict). Both
-the area/perimeter used for the Donnelly correction and the Monte
-Carlo simulation window follow this choice. \code{"convex_hull"} needs the
-\code{spatstat.geom} package; the Donnelly coefficients (0.0514, 0.0412)
-were derived for rectangles, so on a hull they are approximate and the
-Monte Carlo p-value is the figure to trust.}
+\item{window}{Observation window the null model is defined on, always
+as a Ripley-Rasson estimate (\code{spatstat.geom::ripras()}) because the
+true scan region is unknown and a window drawn tightly around the
+points always lies inside it: \code{"rectangle"} (default) is the bounding
+box enlarged by \code{(n+1)/(n-1)}, right when the inspected region is a
+rectangular scan; \code{"convex_hull"} is the convex hull enlarged by
+\code{1/sqrt(1 - m/n)} (\code{m} = hull vertices), for an irregular sampled
+region. Both the area/perimeter used for the Donnelly correction and
+the Monte Carlo simulation window follow this choice. The Donnelly
+coefficients (0.0514, 0.0412) were derived for rectangles, so on a hull
+they are approximate and the Monte Carlo p-value is the figure to trust.}
 }
 \value{
 A list: \code{n}, \code{area}, \code{density}, \code{window}, \code{nnd} (per-point
@@ -53,7 +52,7 @@ distances), \code{Dobs}, \code{Dpois}, \code{Dkevin}, \code{R}, \code{SE_R}, \co
 \description{
 Reports both a Donnelly (1978) edge-corrected asymptotic Z-test and a
 Monte Carlo p-value (simulating \code{n_sim} CSR point sets in the same
-bounding box). Both are known to over-reject somewhat at small n - see
+estimated window). Both are known to over-reject somewhat at small n - see
 this file's header comment and the package's Statistical Appendix
 vignette for the empirically-measured false-positive rates and why the
 bias is asymmetric (favors false "dispersed" verdicts, not "clustered" ones).
