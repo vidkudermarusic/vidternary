@@ -143,6 +143,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
     # field reports as NA_real_, not NULL.
     ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
     contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
+    iso_seed <- if (!is.null(input$comparison_iso_seed) && !is.na(input$comparison_iso_seed)) input$comparison_iso_seed else 42
 
     # renderPrint({...}) only builds and returns a render closure; it does
     # NOT execute the body at assignment time (Shiny calls it later, on
@@ -159,7 +160,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
         td$reference[, selected_cols, drop = FALSE],
         selected_columns = selected_cols,
         keep_outliers = FALSE,
-        ntrees = ntrees, contamination = contamination
+        ntrees = ntrees, contamination = contamination, seed = iso_seed
       )
 
       report_text <- capture.output({
@@ -173,16 +174,32 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
           # contamination/columns_used - not total_points/outlier_count/
           # threshold_method (those are compute_mahalanobis_distance()
           # fields; this analysis was silently printing blanks for them).
-          total_points <- length(iso_result$outlier_indices)
+          #
+          # total_points: length(outlier_indices) is NOT the right count here -
+          # it equals nrow(target) BEFORE complete-case filtering (kept that
+          # length deliberately, in compute_isolation_forest(), so the vector
+          # stays positionally aligned with the target for row-selection use
+          # elsewhere in the app). Rows with a missing value in a selected
+          # column get a scores entry of NA and are never actually scored -
+          # counting them as "analyzed" understates the true outlier rate
+          # among rows that could actually be evaluated. Use the real
+          # complete-case count instead.
+          n_scored <- sum(!is.na(iso_result$scores))
+          total_points <- n_scored
           outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
           cat(" Analysis completed successfully!\n\n")
-          # Model parameters reported explicitly - ntrees/contamination are
-          # user-adjustable; sample_size is read back from the result
+          if (n_scored < length(iso_result$outlier_indices)) {
+            cat(sprintf("Note: %d of %d target row(s) had a missing value in a selected column and were not scored.\n",
+                        length(iso_result$outlier_indices) - n_scored, length(iso_result$outlier_indices)))
+          }
+          # Model parameters reported explicitly - ntrees/contamination/seed
+          # are user-adjustable; sample_size is read back from the result
           # itself rather than assumed, since it always equals the
           # reference's own complete-row count for the selected columns,
           # not a value chosen here.
           cat("Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
-              "| Sample size (reference rows used):", iso_result$sample_size, "\n")
+              "| Sample size (reference rows used):", iso_result$sample_size,
+              "| Seed:", iso_result$seed, "\n")
           cat("Threshold method: Quantile of reference scores at (1 - contamination) =", iso_result$contamination, "\n")
           cat("Threshold value:", round(iso_result$threshold, 3), "\n")
           cat("Total points analyzed:", total_points, "\n")
@@ -237,11 +254,12 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
       iso_ntrees <- if (!is.null(input$comparison_iso_ntrees) && !is.na(input$comparison_iso_ntrees)) input$comparison_iso_ntrees else 200
       iso_contamination <- if (!is.null(input$comparison_iso_contamination) && !is.na(input$comparison_iso_contamination)) input$comparison_iso_contamination else 0.10
+      iso_seed <- if (!is.null(input$comparison_iso_seed) && !is.na(input$comparison_iso_seed)) input$comparison_iso_seed else 42
       iso_result <- compute_isolation_forest(
         td$target[, selected_cols, drop = FALSE],
         td$reference[, selected_cols, drop = FALSE],
         selected_columns = selected_cols, keep_outliers = FALSE,
-        ntrees = iso_ntrees, contamination = iso_contamination
+        ntrees = iso_ntrees, contamination = iso_contamination, seed = iso_seed
       )
 
       report_text <- capture.output({
@@ -266,13 +284,21 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
         if (!is.null(iso_result)) {
           # compute_isolation_forest() returns outlier_indices, not
-          # total_points/outlier_count directly.
-          iso_total_points <- length(iso_result$outlier_indices)
+          # total_points/outlier_count directly. length(outlier_indices)
+          # includes rows never actually scored (a missing value in a
+          # selected column) - see the single-method handler's own comment
+          # above for the full explanation. Use the real complete-case count.
+          iso_total_points <- sum(!is.na(iso_result$scores))
           iso_outlier_count <- sum(iso_result$outlier_indices, na.rm = TRUE)
           cat(" Isolation Forest:\n")
           cat("  Trees:", iso_result$ntrees, "| Contamination:", iso_result$contamination,
-              "| Sample size (reference rows used):", iso_result$sample_size, "\n")
+              "| Sample size (reference rows used):", iso_result$sample_size,
+              "| Seed:", iso_result$seed, "\n")
           cat("  Total points analyzed:", iso_total_points, "\n")
+          if (iso_total_points < length(iso_result$outlier_indices)) {
+            cat(sprintf("  (%d of %d target row(s) had a missing value in a selected column and were not scored)\n",
+                        length(iso_result$outlier_indices) - iso_total_points, length(iso_result$outlier_indices)))
+          }
           cat("  Threshold value:", round(iso_result$threshold, 3), "\n")
           cat("  Outliers detected:", iso_outlier_count, "(", round(iso_outlier_count / iso_total_points * 100, 1), "%)\n")
         } else {

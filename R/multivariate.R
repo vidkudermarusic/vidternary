@@ -255,10 +255,7 @@ validate_multivariate_data <- function(data1, data2, selected_columns, method = 
 #' either a manual threshold or the automatic formula `MDthresh = MDmean +
 #' sqrt(100/(100 + lambda - omega)) * stdMD` (Vode et al., 2022,
 #' <https://doi.org/10.3390/ma15020684>). `MDmean`/`stdMD` are the mean/SD
-#' of `data2`'s own distances from itself (its baseline spread as a
-#' "normal" reference), not of the `data1` distances being tested -
-#' otherwise outliers already present in `data1` would inflate the very
-#' mean/SD used to judge them.
+#' of the `data1` distances, as in the cited method.
 #'
 #' @param data1 Dataset whose points are scored, as a data frame.
 #' @param data2 Reference dataset the distribution is fit to, as a data frame.
@@ -334,27 +331,18 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
     }
   })
   
-  # Calculate Mahalanobis distances for data1 relative to data2 - these are
-  # the per-row scores actually compared against MDthresh below.
+  # Calculate Mahalanobis distances for data1 relative to data2
   mahal_distances <- mahalanobis(data1_clean,
                                  center = colMeans(data2_clean),
                                  cov = cov_matrix)
 
-  # Calculate threshold based on mode. MDmean/stdMD calibrate the threshold
-  # and MUST come from the reference dataset's own distances (data2 scored
-  # against itself), not from mahal_distances (data1 scored against data2)
-  # above. Using data1's own distances here would let genuine outliers in
-  # data1 inflate the very mean/SD used to judge them - the same masking
-  # effect this codebase already guards against for the Z-score filter (see
-  # statistical_filters.R's module header). This also keeps "self" reference
-  # mode unchanged: when data1 and data2 are the same dataset (self-reference
-  # in apply_multivariate_filtering()), ref_distances and mahal_distances are
-  # identical, so MDmean/stdMD come out exactly as before.
-  ref_distances <- mahalanobis(data2_clean,
-                               center = colMeans(data2_clean),
-                               cov = cov_matrix)
-  MDmean <- mean(ref_distances)
-  stdMD <- sd(ref_distances)
+  # MDmean/stdMD come from the distances of the dataset being analysed
+  # (data1 scored against data2), as in Vode et al. (2022). Deliberately not
+  # calibrated on data2's own in-sample distances: with a small reference,
+  # in-sample distances are biased low, which set the threshold too low and
+  # flagged ~30-50% of clean data (n_ref = 15-30, 5 columns, simulated).
+  MDmean <- mean(mahal_distances)
+  stdMD <- sd(mahal_distances)
   
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: Threshold calculation:\n")
@@ -466,7 +454,10 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #' @param seed Random seed for reproducibility, passed through directly to
 #'   `isotree::isolation.forest()`'s own `seed` argument (which governs its
 #'   randomness independently of R's `set.seed()` - confirmed empirically,
-#'   not assumed). Default 42.
+#'   not assumed). Default 42. User-adjustable in the UI, same as
+#'   `contamination`/`ntrees` above - change it to sensitivity-check
+#'   whether outlier calls are stable across different random forest
+#'   realizations.
 #' @param sample_size Number of reference rows each tree is trained on.
 #'   `NULL` (default) uses every complete reference row - simple and fully
 #'   reproducible, but a departure from the algorithm as published: Liu,
@@ -477,7 +468,7 @@ compute_mahalanobis_distance <- function(data1, data2, lambda = 1, omega = 0, ke
 #'   reference rows is clamped down to it. The value actually used is
 #'   reported back in `sample_size`.
 #' @return A list: `model` (the fitted isolation forest), `columns_used`,
-#'   `threshold`, `contamination`, `ntrees`, `sample_size` (the row count
+#'   `threshold`, `contamination`, `ntrees`, `seed`, `sample_size` (the row count
 #'   each tree was actually trained on - either every complete reference
 #'   row, or the sub-sample size requested, clamped to the rows available),
 #'   `scores` (length `nrow(data1)`), `outlier_indices`,
@@ -527,6 +518,14 @@ compute_isolation_forest <- function(
         sample_size < 2 || sample_size != round(sample_size)) {
       stop("sample_size must be NULL (use all reference rows) or a single whole number >= 2.")
     }
+  }
+
+  # Same NA_real_-from-a-cleared-numericInput hazard as ntrees/contamination
+  # above - now that seed is also user-adjustable via the UI (previously a
+  # fixed internal default), it needs the identical guard.
+  # isotree::isolation.forest(seed = NA) doesn't fail cleanly either.
+  if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) || seed != round(seed)) {
+    stop("seed must be a single whole number.")
   }
 
   # Check for isotree package
@@ -620,6 +619,7 @@ compute_isolation_forest <- function(
     threshold        = threshold,
     contamination    = contamination,
     ntrees           = ntrees,
+    seed             = seed,                      # echoed back so callers can show it, matching ntrees/contamination/sample_size
     sample_size      = ss,                        # == nrow(X2c) - see comment above
     scores           = scores1,                  # length = nrow(data1)
     outlier_indices  = outlier_indices,          # logical vector for data1

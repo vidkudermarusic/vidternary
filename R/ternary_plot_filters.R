@@ -91,12 +91,17 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
     }
     operator <- gsub("^([><=!]+).*", "\\1", filter)
     value_str <- gsub("^([><=!]+)\\s*", "", filter)
-    value <- as.numeric(value_str)
+    # A decimal comma must be rejected, not stripped: the lenient fallback
+    # below would turn "1,5" into 15.
+    if (grepl(",", value_str, fixed = TRUE)) {
+      stop("Invalid filter value: ", value_str, ". Use a dot as the decimal separator (e.g. \"> 1.5\"); commas are not allowed.")
+    }
+    value <- suppressWarnings(as.numeric(value_str))
     if (is.na(value)) {
-      value <- as.numeric(gsub("[^0-9.-]", "", value_str))
+      value <- suppressWarnings(as.numeric(gsub("[^0-9.-]", "", value_str)))
       if (is.na(value)) stop("Invalid filter value: ", value_str, ". Must be a numeric value.")
     }
-    switch(operator,
+    cond <- switch(operator,
       ">"  = col_values > value,
       "<"  = col_values < value,
       ">=" = col_values >= value,
@@ -105,6 +110,9 @@ apply_element_and_parameter_filters <- function(M, element_A, element_B, element
       "!=" = col_values != value,
       stop("Invalid filter format. Use operators: >, <, >=, <=, ==, !=")
     )
+    # A missing value never satisfies a filter. Returning NA here would make
+    # data[cond, ] insert a phantom all-NA row instead of dropping the row.
+    cond %in% TRUE
   }
 
   # Safe filtering function - prevents security issues by avoiding eval()
@@ -366,21 +374,28 @@ apply_statistical_filtering <- function(M, use_iqr_filter, use_zscore_filter, us
 #' @param isolation_sample_size Rows each isolation tree trains on - `NULL`
 #'   for every complete reference row (default), or a whole number `>= 2`
 #'   to sub-sample (see [compute_isolation_forest()]).
+#' @param isolation_seed Random seed for [compute_isolation_forest()], when
+#'   `use_isolation_forest = TRUE`. Default 42; user-adjustable in the UI
+#'   like `isolation_ntrees`/`isolation_contamination` above.
 #' @return This function's entire local environment as a list
-#'   (`as.list(environment())`) - `M`, `mahal_result`, and `iso_result` are
-#'   the fields [prepare_ternary_plot_data()] actually reads back; the rest
-#'   are this block's own internal working variables, echoed back unchanged
-#'   from how they already existed in `prepare_ternary_plot_data()`'s own
-#'   environment before this extraction.
+#'   (`as.list(environment())`) - `M`, `mahal_result`, `iso_result`,
+#'   `mv_status` and `mv_status_message` are the fields
+#'   [prepare_ternary_plot_data()] actually reads back; the rest are this
+#'   block's own internal working variables. `mv_status` is
+#'   `"not_requested"`, `"applied"`, `"skipped_no_reference"` or `"failed"`;
+#'   in the last two cases `M` is returned unfiltered and a warning is
+#'   raised, so a plot is never labelled as filtered when it wasn't.
 #' @export
 apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_forest, selected_columns,
                                           mahalanobis_reference, reference_data, preview,
                                           keep_outliers_isolation, keep_outliers_mahalanobis,
                                           lambda, omega, custom_mdthresh, mdthresh_mode,
                                           isolation_ntrees = 200, isolation_contamination = 0.10,
-                                          isolation_sample_size = NULL) {
+                                          isolation_sample_size = NULL, isolation_seed = 42) {
   mahal_result <- NULL
   iso_result <- NULL
+  mv_status <- if (use_mahalanobis || use_isolation_forest) "pending" else "not_requested"
+  mv_status_message <- NULL
 
   # Apply multivariate analysis filtering if requested
   if (getOption("ternary.debug", FALSE)) {
@@ -435,6 +450,9 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
 
     # Skip if reference dataset is not available
     if (is.null(actual_reference_data)) {
+      mv_status <- "skipped_no_reference"
+      mv_status_message <- paste0("no reference dataset available (reference mode: ", mahalanobis_reference,
+                                  ") - upload that dataset or switch to self-reference")
       if (!preview) {
         debug_log("Skipping multivariate analysis: No reference dataset provided")
         debug_log("Reference data status: mahalanobis_reference=%s, reference_data=%s",
@@ -448,7 +466,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
         if (use_isolation_forest) {
           iso_result <- compute_isolation_forest(M, actual_reference_data, keep_outliers = keep_outliers_isolation, selected_columns = selected_columns,
                                                   ntrees = isolation_ntrees, contamination = isolation_contamination,
-                                                  sample_size = isolation_sample_size)
+                                                  sample_size = isolation_sample_size, seed = isolation_seed)
           keep_indices <- if (keep_outliers_isolation) {
             iso_result$outlier_indices
           } else {
@@ -529,7 +547,9 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
           cat("DEBUG: M before filtering:", nrow(M), "rows\n")
         }
 
+        n_before_mv <- nrow(M)
         M <- M[original_indices, , drop = FALSE]
+        mv_status <- "applied"
 
         if (getOption("ternary.debug", FALSE)) {
           cat("DEBUG: M after filtering:", nrow(M), "rows\n")
@@ -547,7 +567,7 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
           cat("SUCCESS: Multivariate analysis applied successfully!\n")
           cat("Method:", method_name, "\n")
           cat("Reference:", ref_name, "\n")
-          cat("Points filtered:", nrow(M) - sum(keep_indices), "outliers removed\n")
+          cat("Rows before:", n_before_mv, "| rows kept:", nrow(M), "\n")
           cat("Columns used:", paste(common_cols, collapse = ", "), "\n")
         }
       }, error = function(e) {
@@ -563,8 +583,21 @@ apply_multivariate_filtering <- function(M, use_mahalanobis, use_isolation_fores
           cat("ERROR: Multivariate analysis failed:", e$message, "\n")
           cat("This means multivariate filtering was NOT applied to the plot.\n")
         }
+        # M is still the unfiltered input here; drop any partial result so
+        # nothing downstream reports numbers from a filter that didn't apply.
+        mv_status <<- "failed"
+        mv_status_message <<- conditionMessage(e)
+        mahal_result <<- NULL
+        iso_result <<- NULL
       })
     }
+  }
+
+  if (mv_status %in% c("skipped_no_reference", "failed")) {
+    method_name <- if (use_isolation_forest) "Isolation Forest" else "Mahalanobis"
+    msg <- paste0(method_name, " outlier filtering was NOT applied: ", mv_status_message)
+    log_operation("WARNING", "Multivariate filtering not applied", msg)
+    warning(msg, call. = FALSE)
   }
 
   as.list(environment())

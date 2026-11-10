@@ -129,13 +129,19 @@ test_that("prepare_ternary_plot_data() falls back to the raw reference dataset (
   # reference rather than propagating an error out of prepare_ternary_plot_data().
   reference_missing_col <- data.frame(Si = abs(rnorm(15, 5, 1)), Other = abs(rnorm(15, 5, 1)))
 
-  expect_no_error({
+  # No crash - but Isolation Forest can't run on this reference, so it must
+  # warn and the plot must NOT claim the data was filtered (pass 9).
+  expect_warning(
     pd <- build_pd(
       target,
       use_mahalanobis = FALSE, use_isolation_forest = TRUE,
       mahalanobis_reference = "dataset2", reference_data = reference_missing_col,
       individual_filters_A = list(Al = "<50"),
       selected_columns = c("Al", "Si")
-    )
-  })
+    ),
+    "NOT applied"
+  )
+  expect_equal(pd$mv_status, "failed")
+  expect_match(pd$plot_title, "Isolation Forest \\(NOT APPLIED\\)")
+  expect_false(grepl("(filtered)", pd$plot_title, fixed = TRUE))
 })

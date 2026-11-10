@@ -102,14 +102,14 @@ create_data_comparison_tab <- function(id) {
               ),
 
               # Isolation Forest parameters - independent of the Ternary
-              # Plots tab's own isolation_ntrees/isolation_contamination
-              # inputs, matching the Mahalanobis parameters box above.
-              # Feeds both the standalone "Run Isolation Forest" button and
-              # the "Comprehensive Analysis Results" panel below. Sample
-              # size is deliberately not a user input here - it always
-              # equals the number of complete reference rows actually used
-              # (see compute_isolation_forest()'s own comment) - only
-              # ntrees and contamination are genuine modeling choices.
+              # Plots tab's own isolation_ntrees/isolation_contamination/
+              # isolation_seed inputs, matching the Mahalanobis parameters
+              # box above. Feeds both the standalone "Run Isolation Forest"
+              # button and the "Comprehensive Analysis Results" panel below.
+              # Sample size is deliberately not a user input here - it
+              # always equals the number of complete reference rows actually
+              # used (see compute_isolation_forest()'s own comment) - only
+              # ntrees, contamination, and seed are genuine modeling choices.
               div(style = "border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin: 10px 0; background-color: #fff;",
                 h6("Isolation Forest Parameters", style = "margin-top: 0;"),
                 fluidRow(
@@ -117,6 +117,15 @@ create_data_comparison_tab <- function(id) {
                   column(4, numericInput(ns("comparison_iso_contamination"), "Contamination:", value = 0.10, min = 0.001, max = 0.999, step = 0.01)),
                   column(4, p(style = "font-size: 11px; margin-top: 24px; color: #666;",
                     "Sample size always matches the reference dataset's complete rows for the selected columns."))
+                ),
+                fluidRow(
+                  column(4,
+                    numericInput(ns("comparison_iso_seed"), "Random seed (advanced):", value = 42, min = 0, step = 1)
+                  ),
+                  column(8, p(style = "font-size: 11px; margin-top: 24px; color: #666;",
+                    "Governs the isolation forest's own randomness (independent of R's set.seed()). ",
+                    "Change it to check whether your outlier calls are sensitive to a different random forest - ",
+                    "leave at the default (42) otherwise."))
                 )
               ),
 

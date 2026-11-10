@@ -24,6 +24,7 @@ prepare_ternary_plot_data(
   isolation_ntrees = 200,
   isolation_contamination = 0.1,
   isolation_sample_size = NULL,
+  isolation_seed = 42,
   use_iqr_filter,
   use_zscore_filter,
   use_mad_filter,
@@ -100,6 +101,10 @@ trees, 0.10 contamination.}
 \item{isolation_sample_size}{Rows each isolation tree trains on. \code{NULL}
 (default) uses every complete reference row; a whole number \verb{>= 2}
 sub-samples that many per tree (see \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}).}
+
+\item{isolation_seed}{Random seed for \code{\link[=compute_isolation_forest]{compute_isolation_forest()}}, when
+\code{use_isolation_forest = TRUE}. Default 42; user-adjustable in the UI
+like \code{isolation_ntrees}/\code{isolation_contamination} above.}
 
 \item{use_iqr_filter, use_zscore_filter, use_mad_filter}{Apply IQR /
 Z-score / MAD statistical outlier filtering. Only one

@@ -25,6 +25,6 @@ A list with \code{module_name}.
 \description{
 Registers the observers/renderers for the "Extreme Value Analysis" tab:
 file upload/combine, area/group column auto-detection, and the
-Murakami/Gumbel fit pipeline (\code{compute_block_maxima()}/
+Murakami/Gumbel fit pipeline (\code{assign_control_areas()}/\code{compute_block_maxima()}/
 \code{fit_evs_gumbel()}/\code{gumbel_goodness_of_fit()}/\code{predict_evs_max()}).
 }

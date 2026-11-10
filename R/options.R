@@ -6,3 +6,5 @@
 # Point size settings
 MIN_POINT_SIZE <- 0.1
 MAX_POINT_SIZE <- 2.5
+# Smallest point when Optional Param 1 sets the point size (value 0).
+PARAM1_MIN_POINT_SIZE <- 0.25

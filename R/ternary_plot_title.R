@@ -33,6 +33,11 @@
 #'   final `plot_title` string - [prepare_ternary_plot_data()] passes its
 #'   own local `preview_title_layout()` closure, so that stays the single
 #'   source of truth for that formatting rather than being duplicated here.
+#' @param mv_status Outcome of [apply_multivariate_filtering()]
+#'   (`"applied"`, `"skipped_no_reference"`, `"failed"`, ...). When the
+#'   requested Mahalanobis/Isolation Forest filter was skipped or failed, the
+#'   title marks it "(NOT APPLIED)" instead of "(filtered)". Default
+#'   `"applied"`.
 #' @return This function's entire local environment as a list
 #'   (`as.list(environment())`), mirroring
 #'   [prepare_ternary_plot_data()]'s own return convention - includes
@@ -48,7 +53,7 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
                                       use_zscore_filter, keep_outliers_zscore,
                                       use_mad_filter, keep_outliers_mad,
                                       file_base, xlsx_display_name, xlsx_file,
-                                      title_layout_fn) {
+                                      title_layout_fn, mv_status = "applied") {
   # Clean labels for ternary plot corners (remove Wt% suffix)
   clean_labels_A <- gsub("\\.\\(Wt%\\)", "", paste(element_A$col, collapse = "+"))
   clean_labels_B <- gsub("\\.\\(Wt%\\)", "", paste(element_B$col, collapse = "+"))
@@ -84,13 +89,17 @@ build_ternary_plot_title <- function(element_A, element_B, element_C,
   # Mahalanobis distance is a multivariate statistical method; Isolation
   # Forest is a machine-learning algorithm - grouped under "Outlier
   # Detection" (not "Multivariate") since only one of the two actually is.
+  # mv_status comes from apply_multivariate_filtering(): when the requested
+  # method was skipped or failed, the data is unfiltered and the title must
+  # say so rather than "(filtered)".
+  mv_not_applied <- mv_status %in% c("skipped_no_reference", "failed")
   mv_methods <- c()
   if (use_mahalanobis) {
-    indicator <- if (keep_outliers_mahalanobis) "(outliers only)" else "(filtered)"
+    indicator <- if (mv_not_applied) " (NOT APPLIED)" else if (keep_outliers_mahalanobis) "(outliers only)" else "(filtered)"
     mv_methods <- c(mv_methods, paste0("Mahalanobis", indicator))
   }
   if (use_isolation_forest) {
-    indicator <- if (keep_outliers_isolation) "(outliers only)" else "(filtered)"
+    indicator <- if (mv_not_applied) " (NOT APPLIED)" else if (keep_outliers_isolation) "(outliers only)" else "(filtered)"
     mv_methods <- c(mv_methods, paste0("Isolation Forest", indicator))
   }
 

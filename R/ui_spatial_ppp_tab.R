@@ -22,7 +22,7 @@ create_spatial_ppp_tab <- function(id) {
 
         info_box(" How it works",
           tags$ul(
-            tags$li("The point pattern is converted to a planar point process bounded by the ", strong("convex hull"), " of the data (default) - the smallest polygon containing every point, used as the observation window since no separately-known study-region boundary exists. Switch to ", strong("bounding box"), " below if the analysed region is a rectangular SEM scan."),
+            tags$li("The point pattern is converted to a planar point process bounded by the ", strong("rectangular bounding box"), " of the data (default) - the right choice when the analysed region really is a rectangular SEM scan, and consistent with the Spatial Clustering tab's own default for the same kind of X/Y data. Switch to ", strong("convex hull"), " below if the sampled region is irregular and the points don't fill their bounding box (a bounding-box window then overstates the study area and inflates apparent clustering). Either window is enlarged slightly with the ", strong("Ripley-Rasson"), " correction, because a window drawn tightly around the points always lies inside the real scanned area (which would otherwise bias results toward regularity)."),
             tags$li(strong("Ripley's K(r): "), "the expected number of further points within distance r of a typical point, divided by intensity - compared against the complete-spatial-randomness (CSR) expectation K(r) = pir2. Above the CSR line suggests clustering at that distance; below suggests regularity."),
             tags$li(strong("L(r): "), "a variance-stabilizing transform, L(r) = sqrt(K(r)/pi), so CSR plots as a straight line through the origin. L(r) - r above zero is the conventional clustering diagnostic."),
             tags$li(strong("G(r): "), "the empirical distribution of nearest-neighbour distances - rises faster than the CSR expectation under clustering, slower under inhibition/regularity."),
@@ -37,7 +37,7 @@ create_spatial_ppp_tab <- function(id) {
 
         fluidRow(
           column(6,
-            create_file_selection_column(ns("ppp_files"))
+            create_file_selection_column(ns("ppp_files"), multiple = FALSE)
           ),
           column(6,
             h4("Coordinates"),
@@ -58,9 +58,9 @@ create_spatial_ppp_tab <- function(id) {
           column(6,
             h4("Observation window & intensity"),
             radioButtons(ns("ppp_window"), "Observation window:",
-              choices = c("Convex hull of the points" = "convex_hull",
-                          "Rectangular scan area (bounding box)" = "rectangle"),
-              selected = "convex_hull"),
+              choices = c("Rectangular scan area (bounding box)" = "rectangle",
+                          "Convex hull of the points" = "convex_hull"),
+              selected = "rectangle"),
             checkboxInput(ns("ppp_edge_correct"),
               "Edge-correct the kernel intensity map (Diggle)", value = TRUE),
             helpText("Edge correction removes the boundary under-estimate in the hotspot map; leave it on unless you specifically want the raw estimator.")
