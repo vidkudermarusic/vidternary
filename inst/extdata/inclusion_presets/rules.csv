@@ -1,0 +1,15 @@
+preset_id,priority,class,conditions,colour,note
+cao-al2o3-mgo,1,Al2O3-poor (CaO/MgO-rich),Al2O3<0.10,#999999,Less than 10 % Al2O3 in the three corners.
+cao-al2o3-mgo,2,Alumina,CaO/(CaO+Al2O3)<0.042;MgO/(MgO+Al2O3)<0.15,#0072B2,Almost no Ca and little Mg relative to Al2O3.
+cao-al2o3-mgo,3,Spinel-type,CaO/(CaO+Al2O3)<0.042;MgO/(MgO+Al2O3)<0.40,#009E73,Ca-free; MgO/(MgO+Al2O3) 0.15 to 0.40 around spinel (0.283).
+cao-al2o3-mgo,4,MgO-rich,CaO/(CaO+Al2O3)<0.042,#D55E00,Ca-free with MgO/(MgO+Al2O3) of 0.40 or more.
+cao-al2o3-mgo,5,MgO-rich Ca-aluminate,MgO>=0.30,#CC79A7,Contains Ca and at least 30 % MgO.
+cao-al2o3-mgo,6,CA6,CaO/(CaO+Al2O3)<0.15,#56B4E9,CaO/(CaO+Al2O3) below the CA6-CA2 midpoint.
+cao-al2o3-mgo,7,CA2,CaO/(CaO+Al2O3)<0.2855,#0B7A75,Between the CA6-CA2 and CA2-CA midpoints.
+cao-al2o3-mgo,8,CA,CaO/(CaO+Al2O3)<0.42,#E69F00,Between the CA2-CA and CA-C12A7 midpoints.
+cao-al2o3-mgo,9,C12A7,CaO/(CaO+Al2O3)<0.554,#F0C808,Between the CA-C12A7 and C12A7-C3A midpoints.
+cao-al2o3-mgo,10,C3A,CaO/(CaO+Al2O3)>=0.554,#8E5572,Above the C12A7-C3A midpoint.
+mns-cas-oxides,1,Oxide-dominated,oxides>=0.50,#999999,Half or more of the three corners is oxide.
+mns-cas-oxides,2,CaS-rich sulfide,CaS/(CaS+MnS)>=0.70,#D55E00,CaS/(CaS+MnS) of 0.70 or more.
+mns-cas-oxides,3,(Mn;Ca)S mixed sulfide,CaS/(CaS+MnS)>=0.30,#E69F00,CaS/(CaS+MnS) between 0.30 and 0.70.
+mns-cas-oxides,4,MnS-rich sulfide,CaS/(CaS+MnS)<0.30,#009E73,CaS/(CaS+MnS) below 0.30.

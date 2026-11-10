@@ -21,7 +21,7 @@
 #' @import shiny
 #' @importFrom stats complete.cases cor cov mad mahalanobis median na.omit
 #'   predict qchisq quantile sd setNames var
-#' @importFrom graphics legend mtext plot.new text
+#' @importFrom graphics legend mtext par plot.new text title
 #' @importFrom grDevices as.raster colorRampPalette rainbow
 #' @importFrom utils capture.output head install.packages installed.packages
 NULL

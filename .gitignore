@@ -54,3 +54,6 @@ cache/
 # Environment
 .env
 .Renviron
+
+# Keep the inclusion preset tables (*.csv is ignored above)
+!inst/extdata/inclusion_presets/*.csv

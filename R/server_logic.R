@@ -72,6 +72,11 @@ create_server_logic <- function(input, output, session) {
     create_server_plot_builder(input, output, session, rv, show_message, log_operation)
   })
 
+  # Import inclusion presets functions (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("inclusion", function(input, output, session) {
+    create_server_inclusion(input, output, session, rv, show_message, log_operation)
+  })
+
   # Import extreme value analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
   moduleServer("evs", function(input, output, session) {
     create_server_evs(input, output, session, rv, show_message, log_operation)
