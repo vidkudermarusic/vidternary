@@ -201,7 +201,8 @@ preset_boundary_segments <- function(preset) {
 #' @export
 inclusion_class_colors <- function(preset, classes = NULL) {
   pal <- c("#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9", "#8E5572",
-           "#0B7A75", "#B8860B", "#6A3D9A", "#A6761D", "#1B9E77")
+           "#0B7A75", "#B8860B", "#6A3D9A", "#A6761D", "#1B9E77", "#332288", "#882255",
+           "#117733", "#AA4499", "#44AA99", "#999933")
   if (preset$classification == "rules") {
     cols <- setNames(preset$rules$colour, preset$rules$class)
   } else {

@@ -18,12 +18,16 @@ removed by a filter don't shrink the inspected area).}
 \value{
 A list: \code{control_area} (per-row control-area number, \code{NA} for
 rows left out or with an unmatched ID), \code{n_fields}, \code{n_control_areas},
-\code{n_leftover_fields}, \code{numeric_ids}.
+\code{n_leftover_fields}, \code{numeric_ids}, \code{n_fields_with_data},
+\code{n_missing_fields}, \code{longest_missing_run} (numeric IDs only) and
+\code{ids_sorted} (text IDs only).
 }
 \description{
 Whole-number field IDs are taken as consecutively numbered fields, so
 \verb{min(id)..max(id)} counts as the inspected fields (a missing number is a
 field with no detected particle) and fields are grouped by number
-(\verb{1..k}, \verb{k+1..2k}, ...). Any other IDs are grouped in sorted order of
-the distinct values. Fields in an incomplete last group are left out.
+(\verb{1..k}, \verb{k+1..2k}, ...). Any other IDs are grouped in natural sorted
+order of the distinct values (\code{F2} before \code{F10}). Fields in an incomplete
+last group are left out. See \code{\link[=evs_area_notes]{evs_area_notes()}} for the checks that flag
+IDs which are not one consecutive series.
 }

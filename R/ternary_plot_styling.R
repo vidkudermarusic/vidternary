@@ -267,6 +267,10 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
         cat("DEBUG: Original selected_groups:", paste(selected_groups, collapse = ", "), "\n")
       }
 
+      # Colours follow the group NAMES of the whole column (not the selection or
+      # the row order), see group_colors_by_name().
+      all_group_values <- param2_values
+
       # Filter data to selected groups
       group_mask <- param2_values %in% group_names
 
@@ -293,13 +297,11 @@ compute_point_styling <- function(ternary_points1, matrika, optional_param1, opt
       pointSize <- pointSize[group_mask]
       pointType <- pointType[group_mask]
 
-      # Generate distinct colors for groups
+      # Fixed colour per group name (same group -> same colour in every plot)
       unique_groups <- unique(param2_values)
       n_groups <- length(unique_groups)
-      group_colors <- generate_distinct_colors(n_groups)
-
-      # Assign colors to groups
-      group_color_map <- setNames(group_colors, unique_groups)
+      group_color_map <- group_colors_by_name(all_group_values)
+      group_colors <- unname(group_color_map[as.character(unique_groups)])
       pointCol <- group_color_map[as.character(param2_values)]
 
       # Safety check: ensure pointCol doesn't contain NA values

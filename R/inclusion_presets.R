@@ -65,6 +65,26 @@ inclusion_phase_references <- function(phases, kind, corners, basis, weights, co
   do.call(rbind, rows)
 }
 
+# Extra reference points of a preset, written in presets.csv as
+# "label@A;label@B" (a label at a pure corner): a phase that cannot be
+# written as a compound, e.g. Ti with no or little N in the Ti-Al-N diagram,
+# where a Ti-rich particle would otherwise fall into the nearest phase, TiN,
+# without any nitrogen being measured.
+.incl_extra_references <- function(txt, preset_id = "") {
+  empty <- data.frame(phase = character(0), A = numeric(0), B = numeric(0), C = numeric(0), description = character(0))
+  if (is.null(txt) || length(txt) == 0 || is.na(txt) || !nzchar(txt)) return(empty)
+  rows <- lapply(strsplit(txt, ";", fixed = TRUE)[[1]], function(part) {
+    kv <- strsplit(trimws(part), "@", fixed = TRUE)[[1]]
+    if (length(kv) != 2 || !kv[2] %in% c("A", "B", "C")) {
+      stop("Preset ", preset_id, ": cannot read extra reference '", part, "' (use label@A, label@B or label@C).", call. = FALSE)
+    }
+    v <- c(A = 0, B = 0, C = 0); v[kv[2]] <- 1
+    data.frame(phase = kv[1], A = v[["A"]], B = v[["B"]], C = v[["C"]],
+               description = paste0("Pure corner ", kv[2]), stringsAsFactors = FALSE)
+  })
+  do.call(rbind, rows)
+}
+
 #' Load the preset library
 #'
 #' Reads `presets.csv`, `phases.csv`, `rules.csv` and `sources.csv` from
@@ -87,6 +107,7 @@ load_inclusion_presets <- function(dir = inclusion_preset_dir()) {
     if (p$kind[i] == "compound") lapply(corners, corner_compounds, compounds = compounds)
     if (!p$basis[i] %in% c("mass", "mole")) stop("Preset ", p$id[i], ": basis must be mass or mole.", call. = FALSE)
     if (!p$classification[i] %in% c("rules", "nearest", "none")) stop("Preset ", p$id[i], ": unknown classification.", call. = FALSE)
+    if ("extra_refs" %in% names(p)) .incl_extra_references(p$extra_refs[i], p$id[i])
     if (p$classification[i] == "rules") {
       r <- lib$rules[lib$rules$preset_id == p$id[i], ]
       if (nrow(r) == 0) stop("Preset ", p$id[i], " uses rules but has none in rules.csv.", call. = FALSE)
@@ -139,7 +160,8 @@ get_inclusion_preset <- function(id, library = load_inclusion_presets(), basis =
     labels = sub("^@", "", corners), basis = basis, threshold_pct = row$threshold_pct,
     classification = row$classification, description = row$description, applies_to = row$applies_to,
     rules = rules,
-    references = inclusion_phase_references(library$phases, row$kind, corners, basis, weights, compounds),
+    references = rbind(inclusion_phase_references(library$phases, row$kind, corners, basis, weights, compounds),
+                       .incl_extra_references(if ("extra_refs" %in% names(row)) row$extra_refs else NULL, row$id)),
     sources = library$sources[library$sources$id %in% src, , drop = FALSE]
   ), class = "inclusion_preset")
 }

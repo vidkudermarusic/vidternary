@@ -2,46 +2,57 @@
 % Please edit documentation in R/extreme_value_analysis.R
 \name{predict_evs_max}
 \alias{predict_evs_max}
-\title{Predict the largest inclusion expected over a larger area}
+\title{Predict the return level and the largest inclusion over T control areas}
 \usage{
-predict_evs_max(fit, return_period)
+predict_evs_max(fit, return_period, n_boot = 2000, level = 0.95, seed = 42)
 }
 \arguments{
 \item{fit}{A result from \code{fit_evs_gumbel()}.}
 
 \item{return_period}{Return period \code{T} (multiples of the control area),
 a finite number greater than 1.}
+
+\item{n_boot}{Number of bootstrap samples. Default 2000.}
+
+\item{level}{Confidence level of both intervals. Default 0.95.}
+
+\item{seed}{RNG seed for the bootstrap; the caller's RNG state is
+restored afterwards.}
 }
 \value{
-A list: \code{return_period}, \code{y}, \code{predicted}, \code{lower}/\code{upper} (95\%
-prediction-interval bounds), \code{ci_lower}/\code{ci_upper} (95\%
-confidence-interval bounds on \code{predicted}), \code{se_fit} (standard error
-of \code{predicted}).
+A list: \code{return_period}, \code{y}, \code{predicted} (return level),
+\code{ci_lower}/\code{ci_upper} (interval for the return level), \code{lower}/\code{upper}
+(interval for the largest inclusion over \code{T} control areas), \code{se_fit}
+(bootstrap standard error of \code{predicted}), \code{bias} (bootstrap estimate
+of the estimator's bias), \code{prob_exceed} (probability that the actual
+maximum over \code{T} areas exceeds \code{predicted}), \code{level}, \code{n_boot}.
 }
 \description{
 Extrapolates the fitted Gumbel line to reduced variate
-\code{y_T = -ln(-ln(1 - 1/T))} for return period \code{T}, and returns two
-intervals from the underlying linear model:
+\code{y_T = -ln(-ln(1 - 1 / T))} for return period \code{T}. That value
+(\code{predicted}) is the \strong{return level}: the size exceeded on average once
+per \code{T} control areas. It is not the size of the largest inclusion in
+exactly \code{T} control areas - that maximum is itself random and lies above
+the return level with probability \code{1 - (1 - 1/T)^T} (about 63\% for
+large \code{T}). Two parametric-bootstrap intervals (see
+\code{\link[=evs_bootstrap_params]{evs_bootstrap_params()}}) describe the uncertainty:
 }
 \details{
 \itemize{
-\item \strong{Prediction interval} (\code{lower}/\code{upper}): the range a \emph{single} future
-block maximum over \code{T} control areas is expected to fall in - the
-"largest inclusion you might actually see" bound. Wider, because it
-adds the residual scatter of block maxima about the fitted line.
-\item \strong{Confidence interval} (\code{ci_lower}/\code{ci_upper}) and its standard error
-\code{se_fit}: the uncertainty in the \emph{estimated} return level \code{predicted}
-itself (\code{se_fit} is the delta-method SE of \code{a_hat + b_hat * y_T}, i.e.
-\verb{sqrt(c' vcov(model) c)} with \verb{c = (1, y_T)}). This is the quantity
-ASTM E2283 reports as the confidence bound on the predicted maximum.
+\item \strong{Confidence interval} (\code{ci_lower}/\code{ci_upper}): uncertainty of the
+estimated return level \code{predicted} (basic bootstrap interval, which
+also corrects the upward bias of the least-squares estimate).
+\item \strong{Interval for the largest inclusion over \code{T} control areas}
+(\code{lower}/\code{upper}): where the actual maximum over \code{T} new control areas
+is expected to fall. It includes both the uncertainty of the fitted
+line and the natural spread of a maximum, so it is much wider.
 }
 
-Both are \strong{defensible approximations}, not exact: they treat the
-reduced variate \code{y_T} as known and the straight-line Gumbel
-probability-plot model as correct. They do not propagate the sampling
-uncertainty in the block maxima themselves, nor Gumbel-model
-misspecification - the latter is assessed separately by
-\code{gumbel_goodness_of_fit()}. This is the standard interval treatment for
-the least-squares probability-plot method (an exact interval would
-require MLE fitting and the Gumbel parameters' full information matrix).
+In simulations (Gumbel data, 19 to 76 control areas, \code{T} equal to the
+number of control areas, 700 repeats each) the confidence interval
+contained the true return level in 94-96\% of runs and the second
+interval contained the actual maximum in 95-97\%. The regression
+intervals used before contained them in 23\% and 29\%. Both intervals
+assume the Gumbel model is correct; check it with
+\code{gumbel_goodness_of_fit()}.
 }

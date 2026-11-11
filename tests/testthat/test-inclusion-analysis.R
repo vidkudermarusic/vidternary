@@ -121,3 +121,34 @@ test_that("every preset draws without error, including when no particle passes t
   expect_no_error(plot_inclusion_preset(none, show_lines = FALSE, show_reference = FALSE, legend = FALSE, notes = FALSE))
   dev.off()
 })
+
+test_that("a blank or text reading excludes the particle instead of being read as 0", {
+  spinel <- incl_row(list(MgO = 28.331, Al2O3 = 71.669), steel = 40)
+  d2 <- incl_data(spinel, spinel, spinel)
+  d2[["Al.(Wt%)"]][2] <- NA
+  d2[["Mg.(Wt%)"]] <- as.character(d2[["Mg.(Wt%)"]])
+  d2[["Mg.(Wt%)"]][3] <- "n/a"
+  r <- analyze_inclusion_preset(d2, "cao-al2o3-mgo", matrix_element = "Fe",
+                                matrix_mode = "matrix_and_alloys", steel_composition = INCL_STEEL)
+  expect_equal(r$excluded[2:3], c("missing reading", "missing reading"))
+  expect_equal(r$keep, c(TRUE, FALSE, FALSE))
+  expect_true(all(is.na(r$class[2:3])))
+})
+
+test_that("a column that is blank in every row counts as not measured, not as missing readings", {
+  d3 <- incl_data(incl_row(list(MgO = 28.331, Al2O3 = 71.669), steel = 40),
+                  incl_row(list(Al2O3 = 100), steel = 40))
+  d3[["V.(Wt%)"]] <- NA_real_
+  r <- analyze_inclusion_preset(d3, "cao-al2o3-mgo", matrix_element = "Fe",
+                                matrix_mode = "matrix_and_alloys", steel_composition = INCL_STEEL)
+  expect_false(any(r$excluded == "missing reading", na.rm = TRUE))
+  expect_true(all(r$keep))
+})
+
+test_that("ignored elements may be blank without excluding the particle", {
+  d4 <- incl_data(incl_row(list(Al2O3 = 100), steel = 40))
+  d4[["C.(Wt%)"]] <- NA_real_
+  r <- analyze_inclusion_preset(d4, "cao-al2o3-mgo", matrix_element = "Fe",
+                                matrix_mode = "matrix_and_alloys", steel_composition = INCL_STEEL, ignore_elements = "C")
+  expect_true(r$keep)
+})

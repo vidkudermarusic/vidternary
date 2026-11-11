@@ -38,15 +38,20 @@ inclusion_detected_elements <- function(data) {
 
 #' The likely matrix element of a dataset
 #'
-#' The element with the highest median wt% (Fe in steel), or `""` when no
-#' element reaches `min_median` wt%.
+#' The candidate with the highest median wt% (Fe in steel), or `""` when none
+#' reaches `min_median` wt%. Only elements that can be a steel matrix are
+#' candidates: on a file cut down to large particles or made of extracted
+#' inclusions the most abundant element is Ti, O or Al, which is not a
+#' matrix, and then the matrix has to be chosen by hand.
 #'
 #' @param data A data frame with element wt% columns.
 #' @param min_median Smallest median wt% that counts as a matrix.
+#' @param candidates Elements that may be proposed.
 #' @return An element symbol or `""`.
 #' @export
-default_matrix_element <- function(data, min_median = 10) {
+default_matrix_element <- function(data, min_median = 10, candidates = c("Fe", "Ni", "Co")) {
   cols <- if (is.null(data)) character(0) else inclusion_element_columns(names(data))
+  cols <- cols[names(cols) %in% candidates]
   if (length(cols) == 0) return("")
   med <- vapply(cols, function(cn) stats::median(suppressWarnings(as.numeric(data[[cn]])), na.rm = TRUE), numeric(1))
   if (all(is.na(med)) || max(med, na.rm = TRUE) < min_median) return("")

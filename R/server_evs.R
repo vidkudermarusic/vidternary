@@ -99,6 +99,8 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     fit$n_fields <- areas$n_fields
     fit$n_control_areas <- areas$n_control_areas
     fit$n_leftover_fields <- areas$n_leftover_fields
+    fit$n_missing_fields <- areas$n_missing_fields
+    fit$area_notes <- evs_area_notes(areas, nrow(block_maxima), fields_per_area)
     fit
   })
 
@@ -149,6 +151,21 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     })
   })
 
+  # Field-ID / control-area problems (see evs_area_notes()): a yellow box for
+  # warnings, plain text for notes. NULL (no box) when there is nothing to
+  # say or no fit yet - same reasoning as evs_gof_warning below.
+  output$evs_area_warning <- renderUI({
+    fit <- tryCatch(fit_result(), error = function(e) NULL)
+    if (is.null(fit) || is.null(fit$area_notes)) return(NULL)
+    notes <- fit$area_notes
+    tagList(
+      lapply(notes$warnings, function(msg)
+        div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 10px; font-size: 13px; margin: 10px 0;",
+            strong("Check the field IDs: "), msg)),
+      lapply(notes$notes, function(msg) div(style = "font-size: 12px; margin: 6px 0;", msg))
+    )
+  })
+
   output$evs_gof_warning <- renderUI({
     # Unlike evs_status above, swallowing the error here to NULL is correct,
     # not a copy of that bug: this output's only job is to conditionally
@@ -167,24 +184,25 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     )
   })
 
-  # T is counted in control areas, so T = number of inspected control areas
-  # predicts for exactly the inspected area. A smaller T predicts for a
-  # smaller area than was measured, so the prediction can legitimately fall
-  # below the largest inclusion in the data - flagged so it isn't mistaken
-  # for a calculation error.
+  # The predicted value is a return level: the size exceeded on average once
+  # per T control areas. The actual largest inclusion in T control areas is
+  # random and lies above the return level with probability
+  # 1 - (1 - 1/T)^T (~63%), so even T = number of inspected control areas
+  # can give a return level below the largest inclusion in the data without
+  # any calculation error. A smaller T lowers the return level further.
   output$evs_return_period_note <- renderUI({
     fit <- tryCatch(fit_result(), error = function(e) NULL)
     if (is.null(fit)) return(NULL)
     n_ca <- fit$n_control_areas
     note <- div(style = "font-size: 12px; margin-bottom: 8px;",
-      sprintf("You inspected %d control areas (%d fields, %d per control area). T = %d predicts the largest inclusion in the inspected area; a larger T extrapolates to a larger area.",
-              n_ca, n_ca * fit$fields_per_area, fit$fields_per_area, n_ca)
+      sprintf("You inspected %d control areas (%d fields, %d per control area). The return level for T control areas is the size exceeded on average once per T control areas; it is not the size of the largest inclusion you will find in T areas. That largest inclusion lies above the return level in about %.0f%% of cases, so compare it with the 95%% interval for the largest inclusion instead.",
+              n_ca, n_ca * fit$fields_per_area, fit$fields_per_area, 100 * (1 - (1 - 1 / n_ca)^n_ca))
     )
     T_val <- input$evs_return_period
     if (is.null(T_val) || !is.finite(T_val) || T_val >= n_ca) return(note)
     tagList(note, div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px; margin-bottom: 8px;",
       strong(sprintf("T = %s is smaller than the %d control areas you inspected. ", format(T_val), n_ca)),
-      sprintf("The prediction is for a smaller area than you measured, so it can come out below the largest inclusion in your data (sqrtArea = %.2f um). Set T to at least %d to predict for the inspected area or larger.",
+      sprintf("The return level is for a smaller area than you measured, so it can come out below the largest inclusion in your data (sqrtArea = %.2f um). Set T to at least %d to cover the inspected area or larger.",
               max(fit$data$sqrt_area_max), n_ca)
     ))
   })
@@ -212,7 +230,7 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     df <- data.frame(
       Metric = c("Rows before pre-analysis filter", "Rows after pre-analysis filter",
                  "Fields inspected", "Fields per control area",
-                 "Control areas inspected (T for the inspected area)",
+                 "Control areas inspected",
                  "Control areas in the fit (n)", "Intercept (a)", "Slope (b)", "R2"),
       Value = c(sprintf("%d", fit$n_rows_before_filter), sprintf("%d", fit$n_rows_after_filter),
                 sprintf("%d", fit$n_fields), sprintf("%d", fit$fields_per_area),
@@ -223,6 +241,10 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
       df <- rbind(df, data.frame(Metric = "Fields left out (incomplete last control area)",
                                  Value = sprintf("%d", fit$n_leftover_fields)))
     }
+    if (isTRUE(fit$n_missing_fields > 0)) {
+      df <- rbind(df, data.frame(Metric = "Field numbers with no inclusion (counted as empty fields)",
+                                 Value = sprintf("%d", fit$n_missing_fields)))
+    }
     if (!is.null(fit$gof)) {
       df <- rbind(df, data.frame(
         Metric = c("Anderson-Darling A2", "Goodness-of-fit (p-value)", "Rejects Gumbel at 5%?"),
@@ -231,13 +253,16 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     }
     if (!is.null(pred)) {
       df <- rbind(df, data.frame(
-        Metric = c("Return period T", "Predicted sqrtArea (um)",
-                   "95% prediction interval (single future max)",
-                   "95% confidence interval (on the estimate, ASTM-style)",
-                   "Std. error of the estimate"),
+        Metric = c("Return period T (control areas)",
+                   "Return level sqrtArea (um) - exceeded once per T control areas",
+                   sprintf("%.0f%% confidence interval of the return level (bootstrap)", 100 * pred$level),
+                   sprintf("%.0f%% interval for the largest inclusion over T control areas (bootstrap)", 100 * pred$level),
+                   "Chance the largest inclusion over T areas exceeds the return level",
+                   "Bootstrap std. error of the return level"),
         Value = c(sprintf("%.0f", pred$return_period), sprintf("%.2f", pred$predicted),
-                  sprintf("[%.2f, %.2f]", pred$lower, pred$upper),
                   sprintf("[%.2f, %.2f]", pred$ci_lower, pred$ci_upper),
+                  sprintf("[%.2f, %.2f]", pred$lower, pred$upper),
+                  sprintf("%.0f%%", 100 * pred$prob_exceed),
                   sprintf("%.3f", pred$se_fit))
       ))
     }

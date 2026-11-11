@@ -85,3 +85,32 @@ test_that("a library with an unreadable rule or unknown compound is rejected whe
   writeLines(p, file.path(d2, "presets.csv"))
   expect_error(load_inclusion_presets(d2), "Unknown compound")
 })
+
+test_that("Ti-Al-N has a Ti corner reference so that Ti without measured N is not called TiN", {
+  p <- get_inclusion_preset("ti-al-n")
+  ref <- p$references[p$references$phase == "Ti (no or little N)", ]
+  expect_equal(nrow(ref), 1)
+  expect_equal(unlist(ref[, c("A", "B", "C")], use.names = FALSE), c(1, 0, 0))
+  cls <- classify_inclusions(data.frame(A = c(1, 0.95, 0.774), B = c(0, 0, 0), C = c(0, 0.05, 0.226)), p)
+  expect_equal(cls, c("Ti (no or little N)", "Ti (no or little N)", "TiN"))
+  # other presets are unchanged
+  expect_false("Ti (no or little N)" %in% get_inclusion_preset("tin-al2o3-mgo")$references$phase)
+})
+
+test_that("extra references are read strictly", {
+  extra <- vidternary:::.incl_extra_references
+  expect_equal(nrow(extra(NA)), 0)
+  expect_equal(extra("X@B")$B, 1)
+  expect_equal(nrow(extra("X@A;Y@C")), 2)
+  expect_error(extra("X@D", "p"), "cannot read extra reference")
+  expect_error(extra("nolabel", "p"), "cannot read extra reference")
+})
+
+test_that("every class of every preset gets its own colour, also with 14 classes", {
+  lib <- load_inclusion_presets()
+  for (id in lib$presets$id) {
+    cols <- inclusion_class_colors(get_inclusion_preset(id, lib))
+    cols <- cols[names(cols) != "Other"]
+    expect_equal(length(unique(cols)), length(cols), info = id)
+  }
+})

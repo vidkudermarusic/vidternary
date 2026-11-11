@@ -4,17 +4,22 @@
 \alias{default_matrix_element}
 \title{The likely matrix element of a dataset}
 \usage{
-default_matrix_element(data, min_median = 10)
+default_matrix_element(data, min_median = 10, candidates = c("Fe", "Ni", "Co"))
 }
 \arguments{
 \item{data}{A data frame with element wt\% columns.}
 
 \item{min_median}{Smallest median wt\% that counts as a matrix.}
+
+\item{candidates}{Elements that may be proposed.}
 }
 \value{
 An element symbol or \code{""}.
 }
 \description{
-The element with the highest median wt\% (Fe in steel), or \code{""} when no
-element reaches \code{min_median} wt\%.
+The candidate with the highest median wt\% (Fe in steel), or \code{""} when none
+reaches \code{min_median} wt\%. Only elements that can be a steel matrix are
+candidates: on a file cut down to large particles or made of extracted
+inclusions the most abundant element is Ti, O or Al, which is not a
+matrix, and then the matrix has to be chosen by hand.
 }

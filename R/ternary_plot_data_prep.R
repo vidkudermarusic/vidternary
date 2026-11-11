@@ -571,6 +571,10 @@ prepare_ternary_plot_data <- function(
           mv_info <- c(mv_info, paste("  Seed:", iso_result$seed))
         }
       }
+      # What the model was fitted on, so the plot can be reproduced from its notes.
+      if (!is.null(mahal_result) || !is.null(iso_result)) {
+        mv_info <- c(mv_info, mv_reference_note_lines(mahalanobis_reference, curated_reference_data, selected_columns))
+      }
       # Requested but skipped/failed: the plotted data is unfiltered, so the
       # notes say so explicitly. The reason is shortened because a plot-notes
       # line never wraps (see the comment below).

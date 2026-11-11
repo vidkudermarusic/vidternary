@@ -18,8 +18,8 @@
 # coordinates with a non-singular covariance matrix, at the cost of each
 # coordinate being an abstract contrast between subsets of elements rather
 # than one single element. Uses the standard sequential-binary-partition
-# ("pivot coordinate") basis: part 1 contrasted against parts 2..D, then
-# part 2 against 3..D, etc.
+# ("pivot coordinate") basis: balance j contrasts the geometric mean of the
+# first j parts against part j+1 alone (j = 1..D-1).
 #
 # Zero-handling: zeros/NAs are replaced with a small pseudo-count before
 # taking logs - by default, half the smallest positive value found in that

@@ -63,7 +63,7 @@ module, 5 lines), `R/ui_components.R` (adds the tab, 1 line + doc count),
 
 Controls: preset (grouped by kind, with description, use and source links),
 basis (fixed to mass for rule presets), coverage threshold, matrix element
-(default: the most abundant element), matrix-only or matrix-and-alloys
+(default: Fe, Ni or Co if one has a median of at least 10 wt%, else none), matrix-only or matrix-and-alloys
 removal (steel composition estimated from the data or typed as
 `Fe=70, Cr=20, Ni=10`), elements to ignore, sulfur order and Ti treatment
 (compound presets only), display options. Outputs: loaded-data summary,
@@ -74,6 +74,19 @@ reason if dropped), the class summary, settings and sources.
 Default: matrix and alloying elements removed, steel composition estimated
 from the 10 % most matrix-rich particles (the ratios used are shown above
 the diagram).
+
+Rules for the input and the presets (after the audit of 2026-09-30):
+
+* A blank or non-numeric reading is a missing reading, not a 0: the
+  particle is dropped with the reason "missing reading" (as in the main
+  ternary pipeline). A column that is blank in every row counts as not
+  measured; ignored elements (default C) are not checked.
+* `presets.csv` has an optional column `extra_refs` (`label@A;label@C`): an
+  extra reference phase at a pure corner. Ti-Al-N uses it for
+  "Ti (no or little N)", so a Ti-rich particle without a measured N is not
+  called TiN (EDS nitrogen next to Ti is unreliable).
+* Class colours: 18-colour palette, so the 14 classes of CaO-SiO2-Al2O3 all
+  differ.
 
 ## Sources and licences
 

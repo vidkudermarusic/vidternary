@@ -377,3 +377,31 @@ test_that("Isolation Forest with no custom parameters touched still uses the doc
     expect_true(file.exists(saved_path))
   })
 })
+
+test_that("the analysis report labels its first rows as raw Dataset 1 rows, marks unplotted rows, and shows no outlier-model values", {
+  server <- make_ternary_plots_server()
+  d <- make_ternary_data(n = 12, extra_cols = list(X = stats::rnorm(12), Y = stats::rnorm(12)))
+  d[1, c("Al", "Si", "Mn")] <- 0   # A+B+C = 0: the plot drops this row
+  testServer(server$app, {
+    session$setInputs(`ternary_plots-xlsx_file1` = make_upload(d),
+                       `ternary_plots-element_A1` = "Al", `ternary_plots-element_B1` = "Si", `ternary_plots-element_C1` = "Mn")
+    session$setInputs(`ternary_plots-use_mahalanobis` = TRUE, `ternary_plots-use_isolation_forest` = FALSE,
+                       `ternary_plots-use_iqr_filter` = FALSE, `ternary_plots-use_zscore_filter` = FALSE,
+                       `ternary_plots-use_mad_filter` = FALSE, `ternary_plots-outlier_mode_mahalanobis` = FALSE,
+                       `ternary_plots-mdthresh_mode` = "auto", `ternary_plots-lambda` = 1, `ternary_plots-omega` = 0,
+                       `ternary_plots-mahalanobis_reference` = "self")
+    # No columns selected: the report must not claim an automatic selection.
+    report <- output[["ternary_plots-analysis_report"]]
+    expect_match(report, "Selected Columns: none (required for Mahalanobis and Isolation Forest)", fixed = TRUE)
+    expect_false(grepl("auto-selected", report, fixed = TRUE))
+
+    session$setInputs(`ternary_plots-multivariate_columns` = c("X", "Y"))
+    report <- output[["ternary_plots-analysis_report"]]
+    expect_match(report, "FIRST TEN ROWS OF DATASET 1 (RAW FILE)", fixed = TRUE)
+    expect_match(report, "before any element, parameter or outlier filter", fixed = TRUE)
+    expect_match(report, "Row 1 : A+B+C = 0 - not plotted", fixed = TRUE)
+    expect_match(report, "A=", fixed = TRUE)                       # a normal row still shows its coordinates
+    expect_false(grepl("MD =", report, fixed = TRUE))
+    expect_false(grepl("IF = N/A", report, fixed = TRUE))
+  })
+})

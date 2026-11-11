@@ -16,7 +16,8 @@ observed K(r)), \code{correction} (which edge-correction column was used).
 \description{
 \code{K(r)}: the expected number of further points within distance \code{r} of a
 typical point, divided by the pattern's intensity - compared against the
-CSR expectation \code{K(r) = pi * r^2}. Edge-corrected using spatstat's own
-recommended correction for this point pattern (\code{spatstat.explore::Kest()}'s
-default).
+CSR expectation \code{K(r) = pi * r^2}. Edge-corrected with the isotropic
+correction (\code{spatstat.explore::Kest()}'s recommended one), also above
+spatstat's default limit of 3000 points, where it would otherwise switch
+to the border correction.
 }

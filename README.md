@@ -9,7 +9,7 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 - **Multiple Ternary Creator** — batch-generates one ternary plot per uploaded file using a shared element mapping and per-element filters
 - **Hexagonal Ternary Diagram** — composites 6 triangular ternary plots that share a central element/combination into one hexagonal image
 - **Plot Builder** — a generic chart builder: pick plot type (violin/box/bar/histogram/scatter/rose), X/Y axis, color/group, and log scales from dropdowns populated from your data's own columns, with named presets you can save and reload
-- **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the largest inclusion expected over a larger inspection area
+- **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the return level (and an interval for the largest inclusion) expected over a larger inspection area
 - **Spatial Clustering** — Clark-Evans nearest-neighbour test on inclusion X/Y positions: are they randomly scattered, clustered, or more evenly spread than chance predicts (asymptotic + Monte Carlo p-values)
 - **Compositional Analysis** — CLR / ILR log-ratio transforms plus PCA for Wt% chemistry data, avoiding the closure-problem artifacts of running ordinary statistics on raw percentages
 - **Analysis Log** — a running, filterable/searchable log of operations performed during the session

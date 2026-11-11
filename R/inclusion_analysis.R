@@ -68,6 +68,13 @@ analyze_inclusion_preset <- function(data, preset, element_cols = NULL,
   wt <- as.data.frame(lapply(element_cols, function(cn) suppressWarnings(as.numeric(data[[cn]]))))
   names(wt) <- names(element_cols)
 
+  # A blank or non-numeric reading is a missing reading, not a 0: such a
+  # particle is excluded (as in the main ternary pipeline) instead of being
+  # plotted with that element read as zero. Columns that are blank in every
+  # row are treated as not measured, and ignored elements are not checked.
+  checked <- setdiff(names(wt)[!vapply(wt, function(v) all(is.na(v)), logical(1))], ignore_elements)
+  missing_reading <- if (length(checked)) rowSums(is.na(wt[, checked, drop = FALSE])) > 0 else rep(FALSE, nrow(wt))
+
   mx <- remove_matrix(wt, matrix_element, matrix_mode, alloy_elements, steel_composition,
                       ignore_elements, max_matrix_pct, min_residual_pct)
   conv <- NULL
@@ -83,10 +90,11 @@ analyze_inclusion_preset <- function(data, preset, element_cols = NULL,
   coverage <- 100 * unname(rowSums(corner_mass)) / total_mass
 
   low_cov <- !is.finite(coverage) | coverage < threshold_pct
-  excluded <- ifelse(mx$matrix_particle, "matrix particle",
+  excluded <- ifelse(missing_reading, "missing reading",
+              ifelse(mx$matrix_particle, "matrix particle",
               ifelse(mx$no_signal, "no inclusion signal after matrix removal",
               ifelse(!is.finite(corner_sum) | corner_sum <= 0, "corners empty",
-              ifelse(low_cov, "corners below threshold", NA_character_))))
+              ifelse(low_cov, "corners below threshold", NA_character_)))))
   keep <- is.na(excluded)
 
   coords <- data.frame(A = corner[, 1] / corner_sum, B = corner[, 2] / corner_sum, C = corner[, 3] / corner_sum)

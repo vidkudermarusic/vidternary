@@ -179,3 +179,12 @@ test_that("a real Mahalanobis-active plot renders end to end with no error after
   expect_true(file.exists(result))
   expect_gt(file.info(result)$size, 0)
 })
+
+test_that("mv_reference_note_lines names the reference dataset and the columns", {
+  expect_equal(mv_reference_note_lines("self", NULL, c("Mg.(Wt%)", "Al.(Wt%)")),
+               c("  Reference: self (the plotted data)", "  Columns: Mg, Al"))
+  ref <- data.frame(x = 1:12)
+  lines <- mv_reference_note_lines("dataset2", ref, paste0("C", 1:8))
+  expect_equal(lines[1], "  Reference: Dataset 2 (12 rows)")
+  expect_equal(lines[2], "  Columns: C1, C2, C3, C4, C5, C6 + 2 more")
+})
