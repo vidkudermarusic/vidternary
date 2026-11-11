@@ -68,3 +68,13 @@ test_that("the export tables hold one row per input row with the corner fraction
   expect_true(all(startsWith(tb$Sources$url, "https://")))
   expect_gt(nrow(tb$Settings), 2)
 })
+
+test_that("the default matrix element is only proposed among Fe, Ni and Co", {
+  # A file cut down to large particles or made of extracted inclusions has
+  # Ti, O or Al as its most abundant element - not a matrix.
+  inclusions <- data.frame(`Ti.(Wt%)` = c(48, 50, 52), `Fe.(Wt%)` = c(8, 9, 7), `O.(Wt%)` = c(30, 31, 29), check.names = FALSE)
+  expect_equal(default_matrix_element(inclusions), "")
+  expect_equal(default_matrix_element(inclusions, min_median = 5), "Fe")
+  nickel <- data.frame(`Ni.(Wt%)` = c(60, 62), `Fe.(Wt%)` = c(20, 18), `Ti.(Wt%)` = c(15, 12), check.names = FALSE)
+  expect_equal(default_matrix_element(nickel), "Ni")
+})

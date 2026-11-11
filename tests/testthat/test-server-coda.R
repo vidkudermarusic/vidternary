@@ -70,3 +70,23 @@ test_that("a normal, successful run still downloads real CLR/ILR data and biplot
     }
   })
 })
+
+test_that("a run with zero-heavy parts shows the zero warning and the per-part zero table", {
+  set.seed(5)
+  n <- 60
+  d <- data.frame(`Fe (Wt%)` = runif(n, 50, 70), `Cr (Wt%)` = runif(n, 10, 20), `Ni (Wt%)` = runif(n, 5, 10),
+                  `Ca (Wt%)` = runif(n, 1, 3), check.names = FALSE)
+  d[["Ca (Wt%)"]][seq_len(30)] <- 0
+  path <- tempfile(fileext = ".xlsx"); openxlsx::write.xlsx(d, path)
+  up <- data.frame(name = basename(path), size = file.info(path)$size, type = "", datapath = path, stringsAsFactors = FALSE)
+  testServer(make_coda_server(), {
+    session$setInputs(`coda-coda_files` = up)
+    session$setInputs(`coda-coda_parts` = c("Fe.(Wt%)", "Cr.(Wt%)", "Ni.(Wt%)", "Ca.(Wt%)"))
+    session$setInputs(`coda-coda_run` = 1)
+    warn <- output[["coda-coda_zero_warning"]]$html
+    expect_match(warn, "have more than 10% zeros: Ca (50%)", fixed = TRUE)
+    tbl <- output[["coda-coda_zero_table"]]
+    expect_match(tbl, "Ca.(Wt%)", fixed = TRUE)
+    expect_match(tbl, "50.0", fixed = TRUE)
+  })
+})

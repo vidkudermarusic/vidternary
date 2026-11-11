@@ -348,9 +348,23 @@ Murakami, 1994 (<https://doi.org/10.6028/jres.099.032>).
 3. Assign each of the $n$ sorted block maxima a plotting position
    $F_j = j/(n+1)$ and a reduced Gumbel variate $y_j = -\ln(-\ln F_j)$.
 4. Fit a straight line $\sqrt{Area} = a + b\cdot y$ by least squares.
-5. To predict the expected largest inclusion over $T$ control areas (the
-   **return period**), solve for $y_T = -\ln(-\ln(1-1/T))$ and read off
-   the fitted line, with a 95% prediction interval.
+5. For a **return period** of $T$ control areas, solve for
+   $y_T = -\ln(-\ln(1-1/T))$ and read off the fitted line. The result is the
+   **return level**: the size exceeded on average once per $T$ control
+   areas. It is *not* the size of the largest inclusion in exactly $T$
+   control areas: that maximum is random and lies above the return level
+   with probability $1-(1-1/T)^T$, about 63% for large $T$.
+6. Two intervals come from a **parametric bootstrap**: samples of the same
+   size are drawn from the fitted Gumbel distribution and refitted the same
+   way. One is a 95% confidence interval for the return level (basic
+   bootstrap interval, which also corrects the upward bias of the
+   least-squares estimate). The other is a 95% interval for the largest
+   inclusion over $T$ control areas, which adds the natural spread of a
+   maximum. Ordinary regression intervals are not used: they assume
+   independent points of equal spread, which ordered maxima are not. In a
+   simulation (Gumbel data, 19 to 76 control areas, $T$ equal to the number
+   of control areas) the regression intervals contained the true value in
+   23% and 29% of runs, the bootstrap intervals in 94-96% and 95-97%.
 
 **Worked example** (six fictional control areas, each with a few
 inclusions; sizes in µm)
@@ -375,8 +389,10 @@ cat(sprintf("Fitted line: sqrt(Area) = %.3f + %.3f * y   (R^2 = %.3f)\n",
             fit$intercept, fit$slope, fit$r_squared))
 
 pred <- predict_evs_max(fit, return_period = 50)
-cat(sprintf("Predicted largest inclusion over T=50 control areas: %.2f um [%.2f, %.2f] 95%% PI\n",
-            pred$predicted, pred$lower, pred$upper))
+cat(sprintf("Return level for T=50 control areas: %.2f um, 95%% CI [%.2f, %.2f]\n",
+            pred$predicted, pred$ci_lower, pred$ci_upper))
+cat(sprintf("Largest inclusion over 50 control areas: 95%% interval [%.2f, %.2f] um\n",
+            pred$lower, pred$upper))
 ```
 
 ```{r evs-plot}
@@ -385,9 +401,10 @@ print(create_gumbel_plot(fit, pred))
 
 **Interpreting the result:** $R^2$ close to 1 means the block maxima line
 up well on the Gumbel probability plot - a good sign the extreme-value
-model fits. The prediction interval widens quickly as $T$ grows (predicting
-far beyond the inspected area is inherently uncertain) - report the
-interval, not just the point prediction.
+model fits. The intervals widen quickly as $T$ grows (predicting far beyond
+the inspected area is inherently uncertain) - report the intervals, not just
+the return level. With few control areas they are wide: the interval for the
+largest inclusion often spans several µm.
 
 **When it can't help you:**
 

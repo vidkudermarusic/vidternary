@@ -26,6 +26,7 @@ create_inclusion_presets_panel <- function(ns) {
       ),
       box("Matrix removal",
         selectInput(ns("incl_matrix_element"), "Matrix element:", choices = c("None (do not remove)" = "")),
+        helpText("Proposed automatically only when Fe, Ni or Co has a median of at least 10 wt%; otherwise pick the matrix element yourself."),
         conditionalPanel(
           condition = paste0("input['", ns("incl_matrix_element"), "'] != ''"),
           radioButtons(ns("incl_matrix_mode"), "Remove:",

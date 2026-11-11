@@ -475,12 +475,16 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
     if (!is.null(input$multivariate_columns) && length(input$multivariate_columns) > 0) {
       report_lines <- c(report_lines, paste("Selected Columns:", paste(input$multivariate_columns, collapse = ", ")))
     } else {
-      report_lines <- c(report_lines, "Selected Columns: All numeric columns (auto-selected)")
+      # Column selection is mandatory for Mahalanobis and Isolation Forest
+      # (validate_multivariate_data() stops without it); nothing is
+      # auto-selected.
+      report_lines <- c(report_lines, "Selected Columns: none (required for Mahalanobis and Isolation Forest)")
     }
 
-    # First Ten Points Calculation
+    # First ten rows of Dataset 1, raw
     report_lines <- c(report_lines, "")
-    report_lines <- c(report_lines, "=== FIRST TEN POINTS CALCULATION ===")
+    report_lines <- c(report_lines, "=== FIRST TEN ROWS OF DATASET 1 (RAW FILE) ===")
+    report_lines <- c(report_lines, "These are the first rows of the uploaded file as they are - before any element, parameter or outlier filter - so they are not necessarily the plotted points. Rows with A+B+C = 0 are not plotted. Dataset 2 is not covered. Mahalanobis and Isolation Forest values depend on the filtered data and the reference dataset, so they are not shown here; the plot notes list the model settings.")
 
     # Check if we have data available
     if (!is.null(rv$df1) && nrow(rv$df1) > 0) {
@@ -542,52 +546,20 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
 
           # Calculate ternary coordinates
           total <- A_value + B_value + C_value
-          if (total > 0) {
-            A_coord <- A_value / total
-            B_coord <- B_value / total
-            C_coord <- C_value / total
-          } else {
-            A_coord <- B_coord <- C_coord <- 0
+          if (!(total > 0)) {
+            # The plot drops such rows (compute_ternary_coordinates()).
+            report_lines <- c(report_lines, paste("  Row", i, ": A+B+C = 0 - not plotted"))
+            next
           }
-
-          # Calculate multivariate analysis values for this row
-          multivariate_values <- c()
-
-          # Mahalanobis Distance
-          if (input$use_mahalanobis && !is.null(input$multivariate_columns) && length(input$multivariate_columns) > 1) {
-            tryCatch({
-              selected_cols <- intersect(input$multivariate_columns, names(row_data))
-              if (length(selected_cols) > 1) {
-                row_mahal_data <- row_data[1, selected_cols, drop = FALSE]
-                # For single row, we need to use the full dataset for covariance calculation
-                full_mahal_data <- rv$df1[, selected_cols, drop = FALSE]
-                mahal_dist <- mahalanobis(row_mahal_data,
-                                        colMeans(full_mahal_data, na.rm = TRUE),
-                                        cov(full_mahal_data, use = "complete.obs"))
-                multivariate_values <- c(multivariate_values, paste("MD =", round(mahal_dist, 2)))
-              }
-            }, error = function(e) {
-              # Skip if calculation fails
-            })
-          }
-
-
-          # Isolation Forest (simplified - would need actual model for proper calculation)
-          if (input$use_isolation_forest && !is.null(input$multivariate_columns)) {
-            multivariate_values <- c(multivariate_values, "IF = N/A (requires model)")
-          }
+          A_coord <- A_value / total
+          B_coord <- B_value / total
+          C_coord <- C_value / total
 
           report_lines <- c(report_lines, paste("  Row", i, ":"))
           report_lines <- c(report_lines, paste("    - A (", paste(element_A_cols, collapse = "+"), "):", round(A_value, 3), "->", round(A_coord, 4)))
           report_lines <- c(report_lines, paste("    - B (", paste(element_B_cols, collapse = "+"), "):", round(B_value, 3), "->", round(B_coord, 4)))
           report_lines <- c(report_lines, paste("    - C (", paste(element_C_cols, collapse = "+"), "):", round(C_value, 3), "->", round(C_coord, 4)))
           report_lines <- c(report_lines, paste("    - Total:", round(total, 3), "| Ternary coordinates: A=", round(A_coord, 4), ", B=", round(B_coord, 4), ", C=", round(C_coord, 4)))
-
-          # Add outlier-detection values if available (Mahalanobis distance
-          # and/or Isolation Forest)
-          if (length(multivariate_values) > 0) {
-            report_lines <- c(report_lines, paste("    - Outlier Detection:", paste(multivariate_values, collapse = ", ")))
-          }
         }
       }
 

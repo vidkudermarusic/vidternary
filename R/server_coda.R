@@ -32,8 +32,10 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     if (is.null(d)) return()
     numeric_cols <- names(d)[sapply(d, is.numeric)]
     wt_cols <- numeric_cols[grepl("wt%", numeric_cols, ignore.case = TRUE)]
+    # Pre-select the Wt% columns with few zeros (see
+    # compositional_zero_diagnostics.R for why); the rest stay selectable.
     updateSelectizeInput(session, "coda_parts", choices = numeric_cols,
-                          selected = if (length(wt_cols) >= 3) wt_cols else NULL)
+                          selected = if (length(wt_cols) >= 3) coda_default_parts(d, wt_cols) else NULL)
   })
 
   result <- eventReactive(input$coda_run, {
@@ -58,7 +60,29 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     # only ever reachable via the download button, never actually displayed.
     pca_ilr <- tryCatch(compositional_pca(ilr_res$ilr), error = function(e) { shiny::validate(paste("Error running PCA on ILR:", e$message)) })
 
-    list(clr = clr, ilr = ilr_res$ilr, pca = pca, pca_ilr = pca_ilr, n = nrow(d_complete), parts = parts)
+    zero_summary <- coda_zero_summary(d_complete, parts)
+    zero_r2 <- coda_zero_pattern_r2(d_complete, parts, pca$scores)
+
+    list(clr = clr, ilr = ilr_res$ilr, pca = pca, pca_ilr = pca_ilr, n = nrow(d_complete), parts = parts,
+         zero_summary = zero_summary, zero_r2 = zero_r2)
+  })
+
+  # Zero warnings (yellow box) and the per-part zero table. Returning NULL
+  # when there is no run yet is right here: the status line already says
+  # what is missing.
+  output$coda_zero_warning <- renderUI({
+    res <- tryCatch(result(), error = function(e) NULL)
+    if (is.null(res)) return(NULL)
+    lapply(coda_zero_notes(res$zero_summary, res$zero_r2), function(msg)
+      div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 10px; font-size: 13px; margin: 10px 0;",
+          strong("Zeros: "), msg))
+  })
+
+  output$coda_zero_table <- renderTable({
+    zs <- result()$zero_summary
+    data.frame(Part = zs$Part, `Zeros (%)` = sprintf("%.1f", zs$Zero_pct),
+               `Pseudo-count` = ifelse(is.na(zs$Pseudo_count), "-", format(zs$Pseudo_count, digits = 3)),
+               check.names = FALSE)
   })
 
   coda_placeholder_msg <- "Upload data, select 3 or more compositional (Wt%) columns, and click \"Transform & Run PCA\"."

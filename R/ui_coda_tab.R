@@ -33,7 +33,7 @@ create_coda_tab <- function(id) {
           column(6,
             h4("Compositional Parts"),
             selectizeInput(ns("coda_parts"), "Element / Wt% columns (select 3 or more):", choices = NULL, multiple = TRUE),
-            helpText("Columns matching \"(Wt%)\" are pre-selected automatically when available.")
+            helpText("Columns matching \"(Wt%)\" with at most 10% zeros are pre-selected (all of them if fewer than 3 qualify). Parts with many zeros can be added, but a component may then just reflect which elements were detected - the warning and the zero table below say how much.")
           )
         ),
 
@@ -41,7 +41,8 @@ create_coda_tab <- function(id) {
 
         fluidRow(
           column(12,
-            verbatimTextOutput(ns("coda_status"))
+            verbatimTextOutput(ns("coda_status")),
+            uiOutput(ns("coda_zero_warning"))
           )
         ),
 
@@ -62,7 +63,10 @@ create_coda_tab <- function(id) {
           column(4,
             h4("Variance Explained"),
             tableOutput(ns("coda_variance_table")),
-            helpText("Identical for both bases, since ILR is an isometry of CLR.")
+            helpText("Identical for both bases, since ILR is an isometry of CLR."),
+            h4("Zeros in the selected parts"),
+            tableOutput(ns("coda_zero_table")),
+            helpText("Share of particles where the part is zero, and the pseudo-count that replaces those zeros before taking logs.")
           ),
           column(4,
             h4("Download data"),

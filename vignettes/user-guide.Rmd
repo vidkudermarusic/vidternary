@@ -231,9 +231,11 @@ save/load preset system for repeat use.
 ## Extreme Value Analysis
 
 **Purpose:** fits a Gumbel extreme-value model to per-control-area maximum
-inclusion sizes (Murakami's method) and predicts the largest inclusion
-expected in a larger inspection area. See the Statistical Appendix for the
-formula and the meaning of "return period."
+inclusion sizes (Murakami's method) and gives the return level and an
+interval for the largest inclusion expected in a larger inspection area.
+See the Statistical Appendix for the formula and the meaning of "return
+period" (the return level is exceeded once per T control areas on average;
+it is not the size of the largest inclusion in T areas).
 
 **Steps:**
 

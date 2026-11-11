@@ -1,6 +1,6 @@
 # ---- UI: "Extreme Value Analysis" tab ----
 # Murakami / ASTM E2283 extreme value statistics for inclusion rating:
-# predicts the largest inclusion expected over a larger inspection area
+# return level and largest-inclusion interval for a larger inspection area
 # from the distribution of per-field (or per-group) block maxima. See
 # R/extreme_value_analysis.R for the statistics/plotting and
 # R/server_evs.R for the Shiny wiring.
@@ -17,13 +17,14 @@ create_evs_tab <- function(id) {
     fluidRow(
       column(12,
         h3("Extreme Value Statistics (Murakami / ASTM E2283)"),
-        helpText("Predicts the size of the largest inclusion expected over a larger inspection area, from the distribution of per-field maximum inclusion sizes (Gumbel probability plot)."),
+        helpText("Estimates the size of inclusions expected over a larger inspection area, from the distribution of per-field maximum inclusion sizes (Gumbel probability plot)."),
 
         info_box(" How it works",
           tags$ul(
             tags$li("The inspected area is split into equal 'control areas' of one or more whole SEM fields-of-view each, identified by a field/frame ID column in your data."),
             tags$li("The largest inclusion (by sqrtArea) in each control area is its block maximum."),
-            tags$li("Block maxima are fit to a Gumbel probability plot; the fitted line predicts the largest inclusion over T control areas."),
+            tags$li("Block maxima are fit to a Gumbel probability plot; the fitted line gives the return level for T control areas - the size exceeded on average once per T control areas."),
+            tags$li("The largest inclusion actually found in T control areas is random. It lies above the return level in about 63% of cases, so it is compared with a separate 95% interval for the largest inclusion over T control areas. Both intervals come from a parametric bootstrap, because ordinary regression intervals are far too narrow for ordered block maxima."),
             tags$li(strong("A real field/frame ID column is required."),
               " Each distinct value of that column is one field of known physical size, so with 1 field per control area T = 100 means a real area 100x one field. ",
               "The method has no valid meaning without genuine per-field grouping - splitting a flat row list into N arbitrary chunks is not a set of control areas (it depends on sort order and forces equal inclusion counts rather than equal areas), so that fallback has been removed."),
@@ -77,6 +78,7 @@ create_evs_tab <- function(id) {
         fluidRow(
           column(12,
             verbatimTextOutput(ns("evs_status")),
+            uiOutput(ns("evs_area_warning")),
             uiOutput(ns("evs_gof_warning"))
           )
         ),
@@ -85,7 +87,7 @@ create_evs_tab <- function(id) {
           column(4,
             h4("Prediction"),
             numericInput(ns("evs_return_period"), "Return period T (multiples of the control area):", value = 100, min = 1.01, step = 1),
-            helpText("E.g. T = 100 predicts the largest inclusion expected over 100x one control area."),
+            helpText("E.g. T = 100 gives the return level exceeded on average once per 100 control areas, and an interval for the largest inclusion expected over 100x one control area."),
             uiOutput(ns("evs_return_period_note")),
             downloadButton(ns("evs_download_plot"), "Download plot (PNG)"),
             br(), br(),

@@ -228,3 +228,18 @@ test_that("all six plotting functions return real ggplot objects", {
   expect_s3_class(create_csr_envelope_plot(env), "ggplot")
   expect_s3_class(create_kernel_intensity_plot(dens), "ggplot")
 })
+
+test_that("K, L and the CSR envelope keep the isotropic correction above spatstat's 3000-point limit", {
+  set.seed(8)
+  pp <- build_point_pattern(stats::runif(3500), stats::runif(3500))
+  expect_no_message(k <- compute_ripley_k(pp))
+  expect_equal(k$correction[1], "iso")
+  l <- compute_l_function(pp)
+  expect_equal(l$correction[1], "iso")
+
+  # The envelope's observed curve is the same isotropic L(r), not the
+  # border-corrected one spatstat would otherwise switch to.
+  env <- compute_csr_envelope(pp, nsim = 4, global = FALSE)
+  iso <- spatstat.explore::Lest(pp, nlarge = Inf)
+  expect_equal(env$obs, iso$iso[seq_along(env$obs)], tolerance = 1e-8)
+})

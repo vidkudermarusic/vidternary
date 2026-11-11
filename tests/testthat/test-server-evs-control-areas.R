@@ -84,7 +84,7 @@ test_that("fields per control area changes the block maxima the fit uses", {
 
     tbl <- output[["evs-evs_summary_table"]]
     expect_match(tbl, "Fields inspected")
-    expect_match(tbl, "Control areas inspected \\(T for the inspected area\\)")
+    expect_match(tbl, "Control areas inspected")
     expect_false(grepl("Fields left out", tbl))
   })
 })
@@ -101,7 +101,7 @@ test_that("an incomplete last control area is reported in the summary table", {
   })
 })
 
-test_that("the note gives T for the inspected area, and warns only when T is smaller", {
+test_that("the note explains the return level, and warns only when T is smaller", {
   testServer(make_evs_ca_server(), {
     upload <- make_evs_numbered_upload(n_fields = 16)
     session$setInputs(`evs-evs_files` = upload)
@@ -110,8 +110,14 @@ test_that("the note gives T for the inspected area, and warns only when T is sma
     session$setInputs(`evs-evs_fit` = 1)
 
     note <- output[["evs-evs_return_period_note"]]$html
-    expect_match(note, "You inspected 8 control areas (16 fields, 2 per control area). T = 8 predicts", fixed = TRUE)
+    expect_match(note, "You inspected 8 control areas (16 fields, 2 per control area). The return level", fixed = TRUE)
+    expect_match(note, "above the return level in about 66% of cases", fixed = TRUE)
     expect_false(grepl("is smaller than", note))
+
+    tbl <- output[["evs-evs_summary_table"]]
+    expect_match(tbl, "confidence interval of the return level (bootstrap)", fixed = TRUE)
+    expect_match(tbl, "interval for the largest inclusion over T control areas (bootstrap)", fixed = TRUE)
+    expect_match(tbl, "Chance the largest inclusion over T areas exceeds the return level", fixed = TRUE)
 
     session$setInputs(`evs-evs_return_period` = 5)
     note <- output[["evs-evs_return_period_note"]]$html
@@ -144,5 +150,15 @@ test_that("a pre-analysis filter that empties a field does not shrink the inspec
     tbl <- output[["evs-evs_summary_table"]]
     expect_equal(summary_value(tbl, "Control areas in the fit (n)"), "12")
     expect_equal(summary_value(tbl, "Control areas inspected"), "16")
+  })
+})
+
+test_that("a normal consecutive field series gives no field-ID warning box", {
+  testServer(make_evs_ca_server(), {
+    session$setInputs(`evs-evs_files` = make_evs_numbered_upload(n_fields = 16))
+    session$setInputs(`evs-evs_area_col` = "area", `evs-evs_group_col` = "field",
+                      `evs-evs_fields_per_area` = 2)
+    session$setInputs(`evs-evs_fit` = 1)
+    expect_equal(nchar(paste(output[["evs-evs_area_warning"]]$html, collapse = "")), 0)
   })
 })
