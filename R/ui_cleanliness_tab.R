@@ -18,6 +18,11 @@ cleanliness_settings_ui <- function(ns) {
           selectInput(ns("clean_family_col"), "Family / class column:", choices = NULL)),
         conditionalPanel("input.clean_family_source == 'eds'", ns = ns,
           numericInput(ns("clean_min_signal"), "Smallest inclusion signal to classify (wt%):", value = 5, min = 0, step = 1),
+          fluidRow(
+            column(6, numericInput(ns("clean_beam_kv"), "Accelerating voltage (kV):", value = 15, min = 1, max = 40, step = 1)),
+            column(6, selectInput(ns("clean_range_matrix"), "Matrix:", choices = c("Fe", "Ni", "Co", "Cu", "Ti", "Al"), selected = "Fe"))
+          ),
+          checkboxInput(ns("clean_skip_small"), "Give no family to particles smaller than the electron range", value = TRUE),
           helpText("N, O and C are not used (Ti-N and Cr-O peak overlaps, carbon contamination), so 'Ti-rich' covers nitrides, carbonitrides and Ti oxides."))
       ),
       column(4,
@@ -78,7 +83,7 @@ create_cleanliness_tab <- function(id) {
 
         info_box(" How it works",
           tags$ul(
-            tags$li(strong("Chemical family: "), "each particle is a sulfide, aluminate, silicate or Ti-rich particle, whichever weighs most as a compound (S as MnS, Al/Mg/Ca as oxides, Si as SiO2, Ti as TiN)."),
+            tags$li(strong("Chemical family: "), "each particle is a sulfide, aluminate, silicate or Ti-rich particle, whichever weighs most as a compound (S as MnS, Al/Mg/Ca as oxides, Si as SiO2, Ti as TiN). Particles smaller than the electron range of the beam (about 1 um in steel at 15 kV) get no family: their spectrum is mostly matrix."),
             tags$li(strong("Stringers: "), "particles of one family lined up along the working direction, within the gap and offset set below, form one object; three or more are a stringer."),
             tags$li(strong("Type: "), "sulfides that are elongated or in a stringer are type A; stringers of compact particles type B; other elongated inclusions type C; compact single particles type D, or DS from 13 um diameter. Each type has a fine and a thick series by width."),
             tags$li(strong("Rating: "), "the inspected area is cut into 0.5 mm2 fields from the particle coordinates. Per field, the total length (A, B, C), the number of particles (D) or the largest diameter (DS) gives a chart index from 0.5 to 3. The worst field is method A, the mean over all fields method B."),
@@ -126,6 +131,15 @@ create_cleanliness_tab <- function(id) {
           tabPanel("Indices",
             h4("Number density and area fraction"),
             tableOutput(ns("clean_indices_table")),
+            h4("Is the particle large enough for its analysis?"),
+            helpText("Particles smaller than the electron range of the beam give a spectrum that is mostly matrix. The median matrix content per class shows it on your own data."),
+            tableOutput(ns("clean_reliability_table")),
+            h4("Shares of the chemical families and of the inclusion types"),
+            helpText("Families: particles with a family. Types: rated particles. The interval resamples whole SEM fields, because particles of one kind come in groups."),
+            fluidRow(
+              column(6, tableOutput(ns("clean_family_shares_table"))),
+              column(6, tableOutput(ns("clean_type_shares_table")))
+            ),
             h4("Particles per size class"),
             plotOutput(ns("clean_size_plot"), height = "380px"),
             tableOutput(ns("clean_size_table"))

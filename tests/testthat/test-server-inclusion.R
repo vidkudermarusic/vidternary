@@ -143,7 +143,7 @@ test_that("the two downloads produce a real PNG and a workbook with the results"
     expect_equal(readBin(png_path, "raw", 4), as.raw(c(0x89, 0x50, 0x4e, 0x47)))
     xlsx_path <- output[[out("incl_download_table")]]
     expect_true(file.exists(xlsx_path))
-    expect_equal(openxlsx::getSheetNames(xlsx_path), c("Particles", "Summary", "Settings", "Sources"))
+    expect_equal(openxlsx::getSheetNames(xlsx_path), c("Particles", "Summary", "Settings", "Sources", "Class shares"))
     p <- openxlsx::read.xlsx(xlsx_path, sheet = "Particles")
     expect_equal(nrow(p), nrow(d))
     expect_equal(p$class[1:3], c("Spinel-type", "Alumina", "C12A7"))

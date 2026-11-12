@@ -110,7 +110,8 @@ create_hex_ternary_tab <- function(id) {
               ),
               fluidRow(
                 column(4, selectizeInput(ns("hex_element_7"), HEX_ELEMENT_SLOT_LABELS[7], choices = NULL, multiple = TRUE))
-              )
+              ),
+              uiOutput(ns("hex_overlap_warning"))
             )
           )
         ),

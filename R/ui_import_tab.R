@@ -37,6 +37,7 @@ create_import_tab <- function(id) {
             tags$li(strong("Roles: "), "each column the analyses need (area, length, position ...) is matched to a column of the file from its name. Check the proposal and correct it - only the Oxford AZtec Feature export has been checked against real files; for other systems the proposal is an educated guess."),
             tags$li(strong("Units: "), "lengths become um, the area um2, positions mm. The unit is read from the column name; set it by hand when the name does not say."),
             tags$li(strong("Chemistry: "), "element columns are renamed to 'El.(Wt%)'. Atomic percent is converted to weight percent."),
+            tags$li(strong("Reliability: "), "optionally two columns say whether each particle is large enough for its EDS analysis to describe it, from the electron range of the beam in the matrix."),
             tags$li(strong("Profile: "), "save the mapping as a profile and load it for the next file of the same instrument. Several files can be converted in one go with one mapping.")
           )
         ),
@@ -70,7 +71,14 @@ create_import_tab <- function(id) {
           ),
           column(4,
             radioButtons(ns("import_basis"), "The element columns are in:", choices = c("Weight percent" = "wt", "Atomic percent" = "at"), selected = "wt"),
-            checkboxInput(ns("import_keep_other"), "Keep the columns that are not mapped", value = TRUE)
+            checkboxInput(ns("import_keep_other"), "Keep the columns that are not mapped", value = TRUE),
+            checkboxInput(ns("import_add_reliability"), "Add size-reliability columns", value = TRUE),
+            conditionalPanel("input.import_add_reliability", ns = ns,
+              fluidRow(
+                column(6, numericInput(ns("import_beam_kv"), "Voltage (kV):", value = 15, min = 1, max = 40, step = 1)),
+                column(6, selectInput(ns("import_range_matrix"), "Matrix:", choices = c("Fe", "Ni", "Co", "Cu", "Ti", "Al"), selected = "Fe"))
+              ),
+              helpText("Adds 'Size.to.range' (particle diameter divided by the electron range of the beam; filter with > 1) and 'Composition.reliability'."))
           )
         ),
 

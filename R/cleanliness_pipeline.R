@@ -14,7 +14,8 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
   list(standard = std$name, axis_angle = 0, max_gap = std$max_gap, max_offset = std$max_offset,
        aspect_limit = std$aspect_limit, min_members = std$min_members, min_width = 2,
        field_area_mm2 = std$field_area_mm2, coord_unit = "mm", inspected_area_mm2 = NULL,
-       min_signal_pct = 5, size_breaks = c(1, 2, 5, 10, 20), saltykov_classes = 10,
+       min_signal_pct = 5, beam_kv = 15, range_matrix = "Fe", min_size_to_range = 1,
+       size_breaks = c(1, 2, 5, 10, 20), saltykov_classes = 10,
        steel_density = 7.9, measured_ppm = NULL, n_boot = 2000)
 }
 
@@ -53,8 +54,9 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
 #'   number of SEM fields so that a filter does not shrink them.
 #' @return A list: `particles`, `objects`, `grid`, `field_ratings`,
 #'   `rating_summary`, `rating_by_family`, `indices`, `size_classes`,
-#'   `stereology`, `saltykov`, `mass_balance`, `inspected_area_mm2`,
-#'   `notes`, `settings`.
+#'   `reliability` ([reliability_summary()]), `range_um`, `family_shares`,
+#'   `type_shares` ([class_share_intervals()]), `stereology`, `saltykov`,
+#'   `mass_balance`, `inspected_area_mm2`, `notes`, `settings`.
 #' @export
 run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = data) {
   st <- utils::modifyList(cleanliness_default_settings(settings$standard %||% "ISO 4967"), settings)
@@ -85,6 +87,19 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
                           stringsAsFactors = FALSE)
   particles$ecd <- 2 * sqrt(particles$area / pi)
   particles$aspect <- particles$length / particles$breadth
+
+  # Is the particle large enough for its spectrum to describe it? Below the
+  # electron range the analysis is mostly matrix, so the EDS family of such
+  # a particle is not used (a family taken from a column of the file is).
+  reliability <- size_reliability(particles$ecd, st$beam_kv, st$range_matrix)
+  particles$size_to_range <- reliability$size_to_range
+  particles$reliability <- as.character(reliability$reliability)
+  if (!has("family") && isTRUE(st$min_size_to_range > 0)) {
+    particles$family[particles$size_to_range < st$min_size_to_range] <- "too small to classify"
+  }
+  matrix_col <- tryCatch(inclusion_element_columns(names(data))[[st$range_matrix]], error = function(e) NULL)
+  matrix_pct <- if (is.null(matrix_col)) NULL else num(matrix_col)[valid]
+  reliability_table <- reliability_summary(particles$reliability, matrix_pct)
   if (has("direction")) particles$direction <- num(cols$direction)[valid]
   if (has("field")) particles$field <- data[[cols$field]][valid]
 
@@ -123,6 +138,14 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
                                  n_fields = n_fields, n_boot = st$n_boot)
   size_classes <- size_class_table(particles$ecd, particles$family, inspected, st$size_breaks)
 
+  # Shares of the families (classified particles) and of the types (rated
+  # particles), resampling SEM fields when they are known.
+  share_field <- function(sel) if (has("field")) particles$field[sel] else NULL
+  classified <- !particles$family %in% c("too small to classify", "unclassified")
+  family_shares <- class_share_intervals(particles$family[classified], share_field(classified), n_boot = st$n_boot)
+  rated <- !is.na(particles$type)
+  type_shares <- class_share_intervals(particles$type[rated], share_field(rated), n_boot = st$n_boot)
+
   groups <- indices$group
   stereology <- do.call(rbind, lapply(groups, function(g) {
     d <- if (g == "All") particles$ecd else particles$ecd[particles$family == g]
@@ -135,7 +158,9 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
   st$inspected_area_mm2 <- inspected
   result <- list(particles = particles, objects = objects, grid = grid, field_ratings = field_ratings,
                  rating_summary = rating_summary, rating_by_family = rating_by_family, indices = indices,
-                 size_classes = size_classes, stereology = stereology, saltykov = saltykov,
+                 size_classes = size_classes, reliability = reliability_table,
+                 range_um = attr(reliability, "range_um"), family_shares = family_shares, type_shares = type_shares,
+                 stereology = stereology, saltykov = saltykov,
                  mass_balance = mass_balance, inspected_area_mm2 = inspected, bbox = bbox,
                  n_rows = nrow(data), n_valid = sum(valid), standard = std, settings = st)
   result$notes <- cleanliness_notes(result, has_direction = has("direction"), bbox_area = bbox_area)
@@ -168,11 +193,25 @@ cleanliness_notes <- function(result, has_direction = TRUE, bbox_area = NA_real_
       "The inspected area entered (%.2f mm2) differs from the area spanned by the coordinates (%.2f mm2) by more than 20 %%. Check the coordinate unit and the area.",
       result$inspected_area_mm2, bbox_area))
   }
-  n_small <- sum(p$ecd < 1)
+  n_small <- sum(p$size_to_range < 1)
+  not_classified <- sum(p$family == "too small to classify")
   if (n_small > 0.5 * nrow(p)) {
     warn <- c(warn, sprintf(
-      "%.0f %% of the particles are smaller than 1 um. Their EDS spectra are mostly steel matrix, so their chemical family is unreliable (in Mo-bearing steels they often read as sulfide because S K overlaps Mo L) and they dominate the counts per family. The chart rating is not affected (only particles from %g um width are rated); for the indices and the stereology consider the pre-analysis filter, e.g. Area > 1.",
-      100 * n_small / nrow(p), st$min_width))
+      "%.0f %% of the particles are smaller than the electron range of the beam (%.2f um in %s at %g kV). Their EDS spectra are mostly steel matrix%s. They still count in the totals, the size classes and the stereology; consider the pre-analysis filter (e.g. Area > 1) to leave them out. The chart rating is not affected (only particles from %g um width are rated).",
+      100 * n_small / nrow(p), result$range_um, st$range_matrix, st$beam_kv,
+      if (not_classified > 0) ", so they were given no chemical family ('too small to classify')"
+      else ", so their chemical family is unreliable (in Mo-bearing steels they often read as sulfide because S K overlaps Mo L)",
+      st$min_width))
+  } else if (not_classified > 0) {
+    note <- c(note, sprintf(
+      "%d particles (%.1f %%) are smaller than the electron range of the beam (%.2f um in %s at %g kV) and were given no chemical family ('too small to classify').",
+      not_classified, 100 * not_classified / nrow(p), result$range_um, st$range_matrix, st$beam_kv))
+  }
+  partly <- sum(p$reliability == "partly matrix")
+  if (partly > 0) {
+    note <- c(note, sprintf(
+      "%d particles (%.1f %%) are between 1 and 2 electron ranges in size: the elements found in them are right, but their amounts are diluted by matrix signal.",
+      partly, 100 * partly / nrow(p)))
   }
   n_thin <- sum(is.na(p$object))
   note <- c(note, sprintf(
@@ -214,6 +253,9 @@ cleanliness_result_tables <- function(result) {
     `Rating fields` = result$grid$fields,
     Objects = result$objects,
     Indices = result$indices,
+    `Size reliability` = result$reliability,
+    `Family shares` = if (nrow(result$family_shares)) result$family_shares else empty,
+    `Type shares` = if (nrow(result$type_shares)) result$type_shares else empty,
     `Size classes` = result$size_classes,
     Stereology = result$stereology,
     Saltykov = result$saltykov %||% empty,

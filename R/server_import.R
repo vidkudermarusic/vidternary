@@ -140,9 +140,24 @@ create_server_import <- function(input, output, session, rv, show_message, log_o
     shiny::validate(shiny::need(length(profile$mapping) + nrow(profile$elements) > 0,
                                  "Assign at least one column to a role before converting."))
     keep <- !identical(input$import_keep_other, FALSE)
+    add_reliability <- !identical(input$import_add_reliability, FALSE)
+    kv <- input$import_beam_kv
     out <- lapply(seq_along(tables), function(i) {
       if (is.character(tables[[i]])) return(tables[[i]])
-      tryCatch(apply_import_profile(tables[[i]], profile, keep_other = keep), error = function(e) conditionMessage(e))
+      tryCatch({
+        t <- apply_import_profile(tables[[i]], profile, keep_other = keep)
+        notes <- attr(t, "standardize_notes")
+        # Needs a particle size; a table without one is converted without the columns.
+        if (add_reliability && any(c("ECD.(um)", "Area.(um2)") %in% names(t))) {
+          matrix <- input$import_range_matrix %||% "Fe"
+          kv <- if (is.null(kv) || !is.finite(kv) || kv <= 0) 15 else kv
+          t <- add_size_reliability(t, kv, matrix)
+          notes <- c(notes, sprintf("Size-reliability columns added: electron range %.2f um in %s at %g kV.",
+                                    electron_range_um(kv, matrix), matrix, kv))
+        }
+        attr(t, "standardize_notes") <- notes
+        t
+      }, error = function(e) conditionMessage(e))
     })
     names(out) <- files$name
     ok <- vapply(out, is.data.frame, logical(1))

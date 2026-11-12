@@ -238,6 +238,40 @@ its median ECD is 2.8 um against 1.95 um; chemistry differs with R2 = 4 % on
 eight elements; return levels for T = 380 are 14.1, 12.2 and 15.7 um with
 overlapping intervals.
 
+## Reliability of the EDS analysis (branch `nove-funkcije`, 2026-11-12)
+
+* **Peak overlaps** (`R/eds_overlap.R`). Groups: Ti-N, Cr-O, Ti-V,
+  S-Mo-Pb-Bi. A yellow box appears as soon as the columns chosen for one
+  diagram or analysis hold two elements of a group: Ternary Plots (axes,
+  size and colour per diagram, and the outlier columns), Multiple Ternary
+  Creator, Hexagonal diagram (anywhere in the hexagon), Compositional
+  Analysis, Data Comparison (outlier columns), Batch Comparison, Inclusion
+  Presets (elements the preset reads, minus the ignored ones). It is a
+  warning only - nothing is blocked. Not wired: Plot Builder, and the
+  pre-analysis filters of EVS and the spatial tabs.
+* **Particle size** (`R/eds_size_reliability.R`). Electron range after
+  Kanaya & Okayama, R = 0.0276 A E^1.67 / (Z^0.89 rho); 0.99 um in Fe at
+  15 kV. Classes: below the range "matrix-dominated", up to twice the range
+  "partly matrix", above "reliable". The factor 2 is a convention of this
+  app. The range is that of the matrix; in a lighter inclusion the beam
+  spreads further, so it is a lower bound. Formula entered from memory.
+  Steel Cleanliness gives particles below the range the family "too small
+  to classify" (can be switched off; a class column of the file is never
+  overridden). Data Import can add `Size.to.range` and
+  `Composition.reliability` to the standard table.
+* **Class shares** (`R/class_share_intervals.R`). Percentile bootstrap over
+  SEM fields; Wilson interval, labelled as assuming independent particles,
+  when there is no field column. In Steel Cleanliness (families and types)
+  and Inclusion Presets (classes).
+
+Batch 1, all detections (checked 2026-11-12): 98.0 % of the particles are
+below the range, with a median Fe content of 46 wt%; 1.2 % partly matrix
+(35 wt%); 0.8 % reliable (12 wt%). With the size check the "sulfides" drop
+from 816 to 14 - the others were matrix spectra with S read from the Mo L
+line. Family shares: Ti-rich 76 % [61, 90], silicate 14 % [1, 29] (wide,
+because the silicates sit in a few fields), sulfide 6 % [3, 9], aluminate
+4 % [1, 7].
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

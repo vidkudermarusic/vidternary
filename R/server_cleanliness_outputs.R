@@ -75,8 +75,26 @@ cleanliness_display_tables <- function(res) {
     `Rating field` = o$field, `X (mm)` = sprintf("%.3f", o$x / 1000), `Y (mm)` = sprintf("%.3f", o$y / 1000),
     check.names = FALSE, stringsAsFactors = FALSE)
 
+  rel <- res$reliability
+  reliability <- data.frame(
+    `Composition from EDS` = c("matrix-dominated: smaller than the electron range",
+                               "partly matrix: 1 to 2 electron ranges", "reliable: larger"),
+    Particles = rel$n, `Share (%)` = sprintf("%.1f", rel$share_pct),
+    `Median matrix element (wt%)` = ifelse(is.na(rel$median_matrix_pct), "-", sprintf("%.1f", rel$median_matrix_pct)),
+    check.names = FALSE, stringsAsFactors = FALSE)
+  shares <- function(d, label) {
+    if (is.null(d) || nrow(d) == 0) return(data.frame(Note = "No particles to count."))
+    out <- data.frame(Class = d$class, Particles = d$n, `Share (%)` = sprintf("%.1f", d$share_pct),
+                      `95% interval (%)` = sprintf("[%.1f, %.1f]", d$lower_pct, d$upper_pct), Interval = d$method,
+                      check.names = FALSE, stringsAsFactors = FALSE)
+    names(out)[1] <- label
+    out
+  }
+
   list(rating = rating(res$rating_summary), rating_family = rating(res$rating_by_family, TRUE),
-       indices = indices, sizes = sizes, stereology = stereology, saltykov = saltykov,
+       indices = indices, sizes = sizes, reliability = reliability,
+       family_shares = shares(res$family_shares, "Chemical family"), type_shares = shares(res$type_shares, "Type"),
+       stereology = stereology, saltykov = saltykov,
        phases = phases, elements = elements, stringers = stringers)
 }
 
@@ -115,6 +133,9 @@ register_cleanliness_outputs <- function(input, output, result) {
   output$clean_stringer_table <- renderTable(tables()$stringers, align = "l")
   output$clean_indices_table <- renderTable(tables()$indices, align = "l")
   output$clean_size_table <- renderTable(tables()$sizes, align = "l")
+  output$clean_reliability_table <- renderTable(tables()$reliability, align = "l")
+  output$clean_family_shares_table <- renderTable(tables()$family_shares, align = "l")
+  output$clean_type_shares_table <- renderTable(tables()$type_shares, align = "l")
   output$clean_stereology_table <- renderTable(tables()$stereology, align = "l")
   output$clean_saltykov_table <- renderTable(tables()$saltykov, align = "l")
   output$clean_mass_phase_table <- renderTable(tables()$phases, align = "l")

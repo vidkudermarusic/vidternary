@@ -809,6 +809,46 @@ compounds assumed.
 
 ---
 
+# Reliability of the EDS analysis
+
+## Particle size against the electron range
+
+The beam spreads in the specimen. Its reach is estimated with the electron
+range of Kanaya & Okayama (1972),
+
+$$R\,[\mu m] = \frac{0.0276\,A\,E_0^{1.67}}{Z^{0.89}\,\rho}$$
+
+with $A$ the atomic weight, $Z$ the atomic number and $\rho$ the density
+(g/cm³) of the matrix and $E_0$ the beam energy in keV. A particle smaller
+than $R$ gives a spectrum that is mostly matrix; up to $2R$ the elements
+found are right but diluted. The factor 2 is a convention of this app, and
+$R$ is a lower bound: in a lighter inclusion the beam spreads further.
+
+```{r range-example}
+electron_range_um(kv = c(15))            # iron
+electron_range_um(kv = 20)
+size_reliability(c(0.4, 1.5, 5), kv = 15)
+```
+
+## Interval of a class share
+
+Particles of one class come in groups, so they are not independent draws.
+The interval of a share is therefore a **bootstrap over SEM fields**: whole
+fields are drawn with replacement and the share recomputed. A class
+concentrated in a few fields gets a wide interval. Without field IDs the
+Wilson score interval is given instead; it assumes independence and is then
+too narrow.
+
+```{r share-example}
+# 40 fields with 10 particles of class a; one field holds 100 of class b
+field <- c(rep(1:40, each = 10), rep(41, 100))
+class <- c(rep("a", 400), rep("b", 100))
+class_share_intervals(class, field, n_boot = 500)[, 1:5]   # fields resampled
+class_share_intervals(class)[, 1:5]                        # particles taken as independent
+```
+
+---
+
 # Comparing batches
 
 **What it answers:** do two or more batches differ in their inclusions -
@@ -894,6 +934,7 @@ p-values are adjusted by Holm's method.
 - Egozcue, J.J., Pawlowsky-Glahn, V., Mateu-Figueras, G., Barceló-Vidal, C. (2003). Isometric Logratio Transformations for Compositional Data Analysis. *Mathematical Geology*, 35(3), 279-300. <https://doi.org/10.1023/A:1023818214614>
 - Holm, S. (1979). A Simple Sequentially Rejective Multiple Test Procedure. *Scandinavian Journal of Statistics*, 6(2), 65-70.
 - Jolliffe, I.T. (2002). *Principal Component Analysis*, 2nd ed. Springer. <https://doi.org/10.1007/b98835>
+- Kanaya, K., Okayama, S. (1972). Penetration and energy-loss theory of electrons in solid targets. *Journal of Physics D: Applied Physics*, 5(1), 43-58. <https://doi.org/10.1088/0022-3727/5/1/308>
 - Leys, C., Ley, C., Klein, O., Bernard, P., Licata, L. (2013). Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology*, 49(4), 764-766. <https://doi.org/10.1016/j.jesp.2013.03.013>
 - Liu, F.T., Ting, K.M., Zhou, Z.-H. (2008). Isolation Forest. *2008 Eighth IEEE International Conference on Data Mining*, 413-422. <https://doi.org/10.1109/ICDM.2008.17>
 - Mardia, K.V., Jupp, P.E. (2000). *Directional Statistics*. Wiley. <https://doi.org/10.1002/9780470316979>

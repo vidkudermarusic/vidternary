@@ -184,6 +184,9 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     }
   )
 
+  # EDS peak overlaps (eds_overlap.R) among the chosen parts.
+  output$coda_overlap_warning <- renderUI(eds_overlap_ui(input$coda_parts, "the analysis"))
+
   # Save / load of this tab's settings (settings_io.R).
   register_settings_io(input, output, session, tab = "coda", prefix = "coda")
 

@@ -37,6 +37,7 @@ set_import_mapping <- function(session, upload = import_upload(), ...) {
     import_role_x = "X_stage.[mm]", import_role_y = "Y_stage.[mm]",
     import_unit_area = "auto", import_unit_length = "auto", import_unit_breadth = "auto", import_unit_x = "auto", import_unit_y = "auto",
     import_elements = c("Al.At%", "O.At%", "Ti.At%"), import_basis = "at", import_keep_other = TRUE,
+    import_add_reliability = FALSE,
     import_profile_name = "Test SEM"
   ), list(...))
   names(values) <- paste0("import-", names(values))

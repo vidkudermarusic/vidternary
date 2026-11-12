@@ -23,8 +23,9 @@ number of SEM fields so that a filter does not shrink them.}
 \value{
 A list: \code{particles}, \code{objects}, \code{grid}, \code{field_ratings},
 \code{rating_summary}, \code{rating_by_family}, \code{indices}, \code{size_classes},
-\code{stereology}, \code{saltykov}, \code{mass_balance}, \code{inspected_area_mm2},
-\code{notes}, \code{settings}.
+\code{reliability} (\code{\link[=reliability_summary]{reliability_summary()}}), \code{range_um}, \code{family_shares},
+\code{type_shares} (\code{\link[=class_share_intervals]{class_share_intervals()}}), \code{stereology}, \code{saltykov},
+\code{mass_balance}, \code{inspected_area_mm2}, \code{notes}, \code{settings}.
 }
 \description{
 Chemical family (\code{\link[=classify_inclusion_family]{classify_inclusion_family()}}, or a column of the

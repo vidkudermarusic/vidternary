@@ -381,6 +381,29 @@ in the other tabs.
   the Data Import tab is needed when names, units or the percent basis
   differ.
 
+## Reliability of the EDS analysis
+
+Three checks run by themselves and tell you when a result may be an
+artefact of the measurement:
+
+- **EDS peak overlap** (yellow box next to the element choices): the chosen
+  columns hold elements whose lines overlap - Ti with N, Cr with O, Ti with
+  V, or two of S, Mo, Pb, Bi. One can be reported in place of the other, so
+  do not read a pattern that involves both as real. Leave one out or check a
+  few spectra.
+- **Is the particle large enough?** (Steel Cleanliness, tab *Indices*; Data
+  Import, option *Add size-reliability columns*): a particle smaller than
+  the electron range of the beam - about 1 um in steel at 15 kV - gives a
+  spectrum that is mostly matrix. Steel Cleanliness gives such particles no
+  chemical family. Set the accelerating voltage you measured with. In the
+  standard table from Data Import, filter with `Size.to.range > 1`.
+- **Interval of a class share** (Steel Cleanliness and Inclusion Presets):
+  "62 % TiN" is an estimate. The interval next to it resamples whole SEM
+  fields, because particles of one kind come in groups; a class that sits in
+  a few fields gets a wide interval. Without a field column the interval
+  assumes independent particles and is too narrow - the note says which one
+  you see.
+
 ## Saving settings, reports and scripts
 
 The analysis tabs (Extreme Value Analysis, Steel Cleanliness, Batch

@@ -8,21 +8,6 @@
 # spread is tested separately (distance of each particle to its batch
 # centroid, Anderson 2006).
 
-# EDS lines that overlap: an element of a group can be reported in place of
-# another, so two of them should not be read as independent measurements.
-.eds_overlap_groups <- list(c("Ti", "N"), c("Cr", "O"), c("Ti", "V"), c("S", "Mo", "Pb", "Bi"))
-
-#' EDS peak overlaps among a set of elements
-#'
-#' @param elements Element symbols.
-#' @return Character vector, one entry per overlap group with two or more
-#'   of its elements present (e.g. `"Ti - N"`); empty when there is none.
-#' @export
-eds_overlaps <- function(elements) {
-  hits <- lapply(.eds_overlap_groups, function(g) intersect(g, elements))
-  vapply(hits[lengths(hits) >= 2], paste, character(1), collapse = " - ")
-}
-
 # Pseudo-F and R2 of a one-way layout from group sums (Euclidean distances).
 .permanova_stat <- function(coords, group, n_groups, ss_total, grand) {
   n_g <- tabulate(group, nbins = n_groups)

@@ -80,6 +80,9 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/import_roles.R` | Column roles (area, length, position ...), their name patterns, unit and element-column detection, atomic weights for conversion. |
 | `R/import_standardize.R` | Conversion to the standard table: fixed names and units, computed ECD / aspect ratio, atomic to weight percent. |
 | `R/import_profiles.R` | Import profiles: detect, save, read and apply a column mapping. |
+| `R/eds_overlap.R` | Overlapping EDS lines (Ti-N, Cr-O, Ti-V, S-Mo-Pb-Bi) among chosen columns; the warning box every tab with element choices shows. |
+| `R/eds_size_reliability.R` | Electron range (Kanaya-Okayama), reliability class of a particle by its size, columns for the standard table. |
+| `R/class_share_intervals.R` | Share of each inclusion class with a bootstrap-over-fields or Wilson interval. |
 | `R/settings_io.R` | Save / load the settings of a tab as JSON; shared UI block and server wiring. |
 | `R/report_html.R` | Self-contained HTML report builder (no pandoc), file provenance with checksum, script helpers. |
 | `R/cleanliness_report.R` | HTML report and reproduction script of a cleanliness analysis. |

@@ -33,6 +33,7 @@ create_coda_tab <- function(id) {
           column(6,
             h4("Compositional Parts"),
             selectizeInput(ns("coda_parts"), "Element / Wt% columns (select 3 or more):", choices = NULL, multiple = TRUE),
+            uiOutput(ns("coda_overlap_warning")),
             helpText("Columns matching \"(Wt%)\" with at most 10% zeros are pre-selected (all of them if fewer than 3 qualify). Parts with many zeros can be added, but a component may then just reflect which elements were detected - the warning and the zero table below say how much.")
           )
         ),

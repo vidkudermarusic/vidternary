@@ -9,8 +9,9 @@ test_that("the families of the synthetic particles are recognised", {
   r <- clean_result()
   # compared by name: the order of table() depends on the locale
   n <- table(r$particles$family)
-  expect_setequal(names(n), c("aluminate", "silicate", "sulfide", "Ti-rich", "unclassified"))
-  expect_equal(as.integer(n[c("aluminate", "silicate", "sulfide", "Ti-rich", "unclassified")]), c(3, 1, 1, 5, 22))
+  # the 22 specks of 0.35 um are below the electron range (0.99 um): no family
+  expect_setequal(names(n), c("aluminate", "silicate", "sulfide", "Ti-rich", "too small to classify"))
+  expect_equal(as.integer(n[c("aluminate", "silicate", "sulfide", "Ti-rich", "too small to classify")]), c(3, 1, 1, 5, 22))
   expect_equal(r$n_valid, 32)
 })
 
@@ -86,15 +87,16 @@ test_that("the mass balance uses the area fractions per family", {
   expect_setequal(mb$phases$family, c("aluminate", "silicate", "sulfide", "Ti-rich"))
   expect_equal(mb$phases$volume_ppm[mb$phases$family == "sulfide"], pi / 4 * 50 * 3 / 2)
   expect_equal(mb$elements$measured_ppm[mb$elements$element == "S"], 100)
-  expect_equal(attr(mb, "skipped"), "unclassified")
+  expect_equal(attr(mb, "skipped"), "too small to classify")
 })
 
 test_that("the notes warn about the small area and the many specks", {
   n <- clean_result()$notes
   expect_true(any(grepl("inspected area is 2.00 mm2", n$warnings, fixed = TRUE)))
-  expect_true(any(grepl("smaller than 1 um", n$warnings, fixed = TRUE)))
+  expect_true(any(grepl("69 % of the particles are smaller than the electron range of the beam (0.99 um in Fe at 15 kV)", n$warnings, fixed = TRUE)))
+  expect_true(any(grepl("given no chemical family ('too small to classify')", n$warnings, fixed = TRUE)))
   expect_true(any(grepl("22 of 32 particles", n$notes, fixed = TRUE)))
-  expect_true(any(grepl("22 particles (68.8 %) have no clear chemical family", n$notes, fixed = TRUE)))
+  expect_false(any(grepl("no clear chemical family", n$notes, fixed = TRUE)))
   expect_false(any(grepl("No particle-direction column", n$notes)))
 })
 
@@ -106,7 +108,7 @@ test_that("a filter does not shrink the inspected area or the number of fields",
   expect_equal(nrow(r$grid$fields), 6)
   expect_equal(nrow(r$particles), 10)
   expect_equal(r$rating_summary$worst_index, clean_result()$rating_summary$worst_index)
-  expect_false(any(grepl("smaller than 1 um", r$notes$warnings)))
+  expect_false(any(grepl("smaller than the electron range", r$notes$warnings)))
   # without the unfiltered data the area would come out too small
   expect_lt(clean_result(data = big)$inspected_area_mm2, 2)
 })

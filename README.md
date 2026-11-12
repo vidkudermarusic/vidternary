@@ -40,6 +40,7 @@ The package is organized into logical modules, each handling specific functional
 - **`R/stereology_saltykov.R`**, **`R/stereology_mass_balance.R`** — particles per volume (Fullman, Schwartz-Saltykov) and O/S/N bound in the inclusions
 - **`R/batch_density.R`**, **`R/batch_size_distribution.R`**, **`R/batch_composition.R`**, **`R/batch_evs.R`**, **`R/batch_plots.R`**, **`R/batch_pipeline.R`**, **`R/batch_report.R`** — batch comparison: Poisson rate ratios and dispersion of counts per field, k-sample Anderson-Darling permutation test, permutation MANOVA on ilr coordinates, extreme-value estimate per batch, plots, `run_batch_comparison()`, report and script
 - **`R/import_read_table.R`**, **`R/import_roles.R`**, **`R/import_standardize.R`**, **`R/import_profiles.R`** — data import: Excel / delimited-text reader, column-role and unit detection, conversion to the standard table (units, atomic to weight percent), saved profiles
+- **`R/eds_overlap.R`**, **`R/eds_size_reliability.R`**, **`R/class_share_intervals.R`** — reliability of the EDS analysis: overlapping lines among chosen columns, electron range and size classes, class shares with a bootstrap over SEM fields
 - **`R/settings_io.R`**, **`R/report_html.R`**, **`R/cleanliness_report.R`**, **`R/evs_report.R`** — reproducibility: tab settings as JSON, self-contained HTML reports, scripts that repeat an analysis
 - **`R/spatial_clustering_analysis.R`** — Clark-Evans nearest-neighbour CSR test with Donnelly edge correction; pure stats behind the Spatial Clustering tab
 - **`R/compositional_data_analysis.R`** — CLR / ILR log-ratio transforms + PCA; pure stats behind the Compositional Analysis tab
@@ -124,6 +125,11 @@ shiny::runApp(app)
 ### Plot Builder
 - Pick plot type (violin/box/bar/histogram/scatter), X/Y axis, color/group, and log scales from your data's own columns — no fixed schema required
 - Save the current configuration as a named preset and reload it later
+
+### Reliability of the EDS analysis
+- **Peak overlaps**: every tab where elements are chosen warns when the choice combines elements whose EDS lines overlap (Ti-N, Cr-O, Ti-V, S-Mo-Pb-Bi)
+- **Particle size**: particles smaller than the electron range of the beam (Kanaya-Okayama, about 1 um in steel at 15 kV) give a spectrum that is mostly matrix; Steel Cleanliness gives them no chemical family and Data Import can add the flag as columns
+- **Class shares**: the shares of inclusion classes come with an interval that resamples whole SEM fields, because particles of one kind come in groups
 
 ### Reproducibility
 - **Settings**: the analysis tabs save all their inputs as a JSON file and load them again

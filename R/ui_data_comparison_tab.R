@@ -74,6 +74,7 @@ create_data_comparison_tab <- function(id) {
                 column(4, selectInput(ns("comparison_mv_reference"), "Reference:", choices = NULL)),
                 column(4, selectizeInput(ns("comparison_mv_columns"), "Columns for analysis:", choices = NULL, multiple = TRUE))
               ),
+              uiOutput(ns("comparison_mv_overlap_warning")),
 
               # Mahalanobis parameters - independent of the Ternary Plots
               # tab's own lambda/omega/threshold-mode inputs. Feeds both the

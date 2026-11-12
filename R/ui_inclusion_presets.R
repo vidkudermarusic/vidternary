@@ -83,7 +83,8 @@ create_inclusion_presets_panel <- function(ns) {
         downloadButton(ns("incl_download_table"), "Save results (xlsx)", class = "btn-primary", style = "margin: 0 8px;")
       ),
       fluidRow(
-        column(6, h5("Classes"), tableOutput(ns("incl_summary_table"))),
+        column(6, h5("Classes"), tableOutput(ns("incl_summary_table")),
+               div(style = "font-size: 11px; color: #555;", textOutput(ns("incl_share_note")))),
         column(6, h5("Particles"), tableOutput(ns("incl_status_table")))
       ),
       h5("Settings"),

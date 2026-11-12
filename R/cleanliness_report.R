@@ -59,6 +59,12 @@ cleanliness_report <- function(result, provenance = NULL, script = NULL, filters
       if (has_direction) create_direction_rose(result$particles$direction[rated], result$particles$length[rated], st$axis_angle),
       tab$stringers)),
     list(title = "Number density and area fraction", content = list(tab$indices, create_size_class_plot(result$size_classes), tab$sizes)),
+    list(title = "Reliability of the EDS classification", content = list(
+      sprintf("Electron range of the beam: %.2f um in %s at %g kV (Kanaya-Okayama). A particle smaller than that gives a spectrum that is mostly matrix.",
+              result$range_um, st$range_matrix, st$beam_kv),
+      tab$reliability,
+      "Shares of the chemical families (particles with a family) and of the inclusion types (rated particles), with 95% intervals:",
+      tab$family_shares, tab$type_shares)),
     list(title = "Stereology and mass balance", content = list(
       tab$stereology, if (!is.null(result$saltykov)) create_saltykov_plot(result$saltykov), tab$saltykov,
       "O, S and N bound in the inclusions, each family taken as one pure compound:", tab$phases, tab$elements)),
