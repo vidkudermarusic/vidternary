@@ -32,6 +32,8 @@ Suggests:
     testthat,
     knitr,
     rmarkdown,
-    devtools
+    devtools,
+    withr,
+    vegan
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)

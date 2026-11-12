@@ -184,6 +184,9 @@ create_server_coda <- function(input, output, session, rv, show_message, log_ope
     }
   )
 
+  # Save / load of this tab's settings (settings_io.R).
+  register_settings_io(input, output, session, tab = "coda", prefix = "coda")
+
   return(list(
     module_name = "server_coda"
   ))

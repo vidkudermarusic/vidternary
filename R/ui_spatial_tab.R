@@ -78,6 +78,7 @@ create_spatial_tab <- function(id) {
           column(12, create_pre_filter_ui(ns, "spatial"))
         ),
 
+        fluidRow(column(12, settings_io_ui(ns, "spatial"))),
         centered_action_button_row(ns("spatial_analyze"), "Analyze Spatial Pattern", margin_top = "10px"),
 
         fluidRow(

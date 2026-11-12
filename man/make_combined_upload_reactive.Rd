@@ -19,8 +19,8 @@ the spatial tabs, where pooling specimens is invalid). Default \code{TRUE}.}
 A \code{shiny::reactive({...})} yielding the combined data frame.
 }
 \description{
-Reads every row of \code{input[[file_input_id]]} via
-\code{openxlsx::read.xlsx(sheet = 1)}, drops files that failed to read, tags a
+Reads every row of \code{input[[file_input_id]]} via \code{\link[=read_particle_table]{read_particle_table()}}
+(Excel sheet 1, or delimited text), drops files that failed to read, tags a
 \code{source_file} column (from each file's own name, via
 \code{tools::file_path_sans_ext()}) when more than one file was read, and - if
 more than one data frame remains - row-binds them on their common columns.

@@ -37,6 +37,7 @@ create_coda_tab <- function(id) {
           )
         ),
 
+        fluidRow(column(12, settings_io_ui(ns, "coda"))),
         centered_action_button_row(ns("coda_run"), "Transform & Run PCA", margin_top = "10px"),
 
         fluidRow(

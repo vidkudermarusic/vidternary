@@ -82,6 +82,23 @@ create_server_logic <- function(input, output, session) {
     create_server_evs(input, output, session, rv, show_message, log_operation)
   })
 
+  # Import steel cleanliness functions: chart rating, stringers, indices,
+  # stereology (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("cleanliness", function(input, output, session) {
+    create_server_cleanliness(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import batch comparison functions (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("batch", function(input, output, session) {
+    create_server_batch(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import data import functions: any particle export into the standard
+  # table (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("import", function(input, output, session) {
+    create_server_import(input, output, session, rv, show_message, log_operation)
+  })
+
   # Import spatial clustering analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
   moduleServer("spatial", function(input, output, session) {
     create_server_spatial(input, output, session, rv, show_message, log_operation)
