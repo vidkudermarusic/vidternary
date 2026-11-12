@@ -37,5 +37,9 @@ utils::globalVariables(c(
   "nnd",
   "sqrt_area_max",
   "pct", "n",
+  "mid", "per_mm3_clipped", "x_min", "x_max", "y_min", "y_max",
+  "x_start", "y_start", "x_end", "y_end", "type", "angle", "share",
+  "size_class", "per_mm2", "group", "lower", "upper",
+  "batch", "value", "size", "part", "difference",
   "all_selected_elements", "file_base", "ternary_points1", "matrika"
 ))

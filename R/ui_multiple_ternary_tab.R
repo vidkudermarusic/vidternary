@@ -68,6 +68,8 @@ create_multiple_ternary_tab <- function(id) {
                 )
               ),
 
+              uiOutput(ns("multiple_overlap_warning")),
+
               h5("Optional Parameters"),
               fluidRow(
                 column(6,

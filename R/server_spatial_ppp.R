@@ -258,6 +258,9 @@ create_server_spatial_ppp <- function(input, output, session, rv, show_message, 
     }
   )
 
+  # Save / load of this tab's settings (settings_io.R).
+  register_settings_io(input, output, session, tab = "spatial_ppp", prefix = "ppp")
+
   return(list(
     module_name = "server_spatial_ppp"
   ))

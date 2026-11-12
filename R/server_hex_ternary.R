@@ -151,6 +151,11 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
     list(src = hex_result_path(), contentType = "image/png", width = "100%")
   }, deleteFile = FALSE)
 
+  # EDS peak overlaps (eds_overlap.R) anywhere in the hexagon: its six
+  # triangles are read side by side.
+  output$hex_overlap_warning <- renderUI(eds_overlap_ui(
+    unlist(lapply(1:7, function(i) input[[paste0("hex_element_", i)]])), "the hexagonal diagram"))
+
   return(list(
     module_name = "server_hex_ternary"
   ))

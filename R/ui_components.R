@@ -13,6 +13,9 @@
 #   ui_hex_ternary_tab.R         - create_hex_ternary_tab()
 #   ui_plot_builder_tab.R        - create_plot_builder_tab()
 #   ui_evs_tab.R                 - create_evs_tab()
+#   ui_cleanliness_tab.R         - create_cleanliness_tab()
+#   ui_batch_tab.R               - create_batch_tab()
+#   ui_import_tab.R              - create_import_tab()
 #   ui_spatial_tab.R              - create_spatial_tab()
 #   ui_spatial_ppp_tab.R          - create_spatial_ppp_tab()
 #   ui_coda_tab.R                 - create_coda_tab()
@@ -34,7 +37,7 @@ cite_link <- function(label, doi_url = NULL) {
 # Main UI function
 #' Build the full app UI: page shell, header, and tabset
 #'
-#' Assembles the page's global styling/JS, header, and all 11 tabs (via
+#' Assembles the page's global styling/JS, header, and all 14 tabs (via
 #' each tab's own `create_*_tab()`). No shared save-location picker - see
 #' this file's own header comment for why.
 #'
@@ -115,9 +118,12 @@ create_main_ui <- function() {
       create_hex_ternary_tab("hex_ternary"),
       create_plot_builder_tab("plot_builder"),
       create_evs_tab("evs"),
+      create_cleanliness_tab("cleanliness"),
+      create_batch_tab("batch"),
       create_spatial_tab("spatial"),
       create_spatial_ppp_tab("spatial_ppp"),
       create_coda_tab("coda"),
+      create_import_tab("import"),
       create_analysis_log_tab("analysis_log")
     ),  # Close main tabsetPanel
 
@@ -170,9 +176,9 @@ create_file_selection_column <- function(file_input_id, label = NULL, multiple =
   if (is.null(label)) label <- if (multiple) "Select Excel File(s)" else "Select Excel File"
   tagList(
     h4("File Selection"),
-    fileInput(file_input_id, label, multiple = multiple, accept = c(".xlsx", ".xls")),
-    helpText(if (multiple) "Each file's Sheet 1 is read and combined."
-             else "One file (one specimen) - Sheet 1 is read. Analyse each specimen separately.")
+    fileInput(file_input_id, label, multiple = multiple, accept = c(".xlsx", ".csv", ".txt", ".tsv")),
+    helpText(if (multiple) "Each file's Sheet 1 is read and combined. Text files (.csv, .txt) are read too."
+             else "One file (one specimen) - Sheet 1 is read. Analyse each specimen separately. Text files (.csv, .txt) are read too.")
   )
 }
 

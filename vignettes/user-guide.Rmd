@@ -61,6 +61,9 @@ on any other tab. The table below shows what each tab expects:
 | Hexagonal Ternary Diagram | one upload box | exactly 1 |
 | Plot Builder | one upload box | any number (rows combined) |
 | Extreme Value Analysis | one upload box | any number (rows combined) |
+| Steel Cleanliness | one upload box | one file (one specimen) |
+| Batch Comparison | one upload box | 2 or more files, one per batch (kept apart) |
+| Data Import | one upload box | any number (converted one by one) |
 | Spatial Clustering | one upload box | any number (rows combined) |
 | Compositional Analysis | one upload box | any number (rows combined) |
 | Analysis Log | *(none - reads the session's activity log)* | - |
@@ -265,6 +268,161 @@ it is not the size of the largest inclusion in T areas).
   tail prediction should be treated cautiously (it may indicate a mixed
   inclusion population or one outlier control area skewing the fit).
 
+## Fatigue limit from the largest inclusion (in Extreme Value Analysis)
+
+Below the Fit Summary, the **Fatigue Limit Estimate** panel turns the
+predicted largest inclusion into a fatigue limit with Murakami's
+$\sqrt{area}$ model.
+
+1. Fit the extreme value model and set the return period T.
+2. Enter the **Vickers hardness** of the steel, where the inclusion lies
+   (at the surface, just below it, inside the part) and the stress ratio R.
+3. Read the table: fatigue limit for the return level, and the range that
+   follows from each of the two size intervals.
+4. Optional: enter the area of one control area and the stressed volume of
+   the part to get the return period T = V / V0 that belongs to that volume,
+   then type it into the return-period box.
+
+The model is stated as accurate to about 10 % for HV 70 to 720; outside it a
+warning appears. The value is the stress amplitude below which a crack
+starting at that inclusion does not grow - it says nothing about failures
+that start elsewhere.
+
+## Steel Cleanliness
+
+**Purpose:** turns an automated SEM/EDS particle list into the numbers
+steelmakers report: a chart rating after ISO 4967 / ASTM E45, stringers,
+particles per mm2 and area fraction, and the O, S and N bound in the
+inclusions.
+
+**Steps:**
+
+1. Upload one file (one specimen). The area, length, breadth, direction,
+   position and field columns are picked automatically where their names
+   are recognisable - check them.
+2. Check the **inspected area** (filled in from the range of the
+   coordinates) and the coordinate unit.
+3. Choose the standard. This sets the stringer distances and the elongation
+   limit; change them only if you have a reason.
+4. Set the **working direction** (degrees from the X axis) - stringers are
+   searched along it.
+5. Optional: a pre-analysis filter such as `Area > 1`, and the bulk O / S /
+   N analysis to compare the mass balance with.
+6. Click **Run Cleanliness Analysis** and read the four result tabs.
+   **Download all tables** saves everything, settings and notes included.
+
+**Tips & gotchas:**
+
+- An SEM run covers a few mm2; the standards ask for 160 to 200 mm2 under a
+  light microscope. Read the result as an estimate for the inspected area,
+  not as a rating to the standard - the yellow box says how many rating
+  fields the result rests on.
+- Only particles from 2 um width are rated. All particles count in the
+  indices and the stereology, so filter out the sub-micrometre detections
+  there: their EDS spectrum is mostly steel and their family is unreliable.
+- "Ti-rich" covers nitrides, carbonitrides and Ti oxides alike, because N, O
+  and C are not used for the classification.
+- Without a SEM field ID column the area fraction has no confidence
+  interval.
+
+## Batch Comparison
+
+**Purpose:** decides whether batches (heats, specimens) differ in their
+inclusions, and says by how much.
+
+**Steps:**
+
+1. Upload one file per batch (two or more). The file name is the batch
+   label; only columns present in every file can be chosen.
+2. Check the area column, the SEM field ID column and - for the inspected
+   area - the coordinate columns, or type the inspected area(s) in mm2.
+3. Choose the elements to compare (optional). Pre-selected are the element
+   columns with at most 10 % zero readings, without C, N and O.
+4. Set the fields per control area and the return period T for the
+   largest-inclusion estimate, as in the Extreme Value Analysis tab.
+5. Add a pre-analysis filter if needed (e.g. `Area > 1`) and click
+   **Compare Batches**.
+
+**Reading the result:**
+
+- **Overview** lists the batches side by side and answers "do they differ?"
+  for amount, size and chemistry.
+- **Amount**, **Size**, **Composition** and **Largest inclusion** show a
+  plot, the numbers per batch and every pair of batches.
+- Look at the ratios, quantiles and R2 first. With many particles a
+  difference too small to matter is still "significant".
+- If the yellow box says the particles are clustered, do not rely on the
+  Poisson p-values for the number density; use the test on counts per field.
+
+## Data Import
+
+**Purpose:** makes a particle export from any automated SEM system usable
+in the other tabs.
+
+**Steps:**
+
+1. Upload the file(s): `.xlsx`, `.csv`, `.txt` or `.tsv`. The line under the
+   upload box says how each file was read (delimiter, decimal mark).
+2. Check the proposed **column roles** and correct them. Set the unit by
+   hand where the column name does not say it.
+3. Check the **element columns** and say whether they are weight or atomic
+   percent.
+4. Click **Convert**, look at the preview and the notes, and download the
+   standard table. Upload that file in the analysis tabs.
+5. Optional: name the mapping and **save it as a profile**; next time load
+   the profile instead of mapping by hand.
+
+**Tips & gotchas:**
+
+- Only the Oxford AZtec Feature export has been checked against real files.
+  For other systems the proposal is a guess from the column names.
+- The file must start with the header line; remove title lines above it.
+- Text files can also be uploaded directly in the single-file analysis tabs;
+  the Data Import tab is needed when names, units or the percent basis
+  differ.
+
+## Reliability of the EDS analysis
+
+Three checks run by themselves and tell you when a result may be an
+artefact of the measurement:
+
+- **EDS peak overlap** (yellow box next to the element choices): the chosen
+  columns hold elements whose lines overlap - Ti with N, Cr with O, Ti with
+  V, or two of S, Mo, Pb, Bi. One can be reported in place of the other, so
+  do not read a pattern that involves both as real. Leave one out or check a
+  few spectra.
+- **Is the particle large enough?** (Steel Cleanliness, tab *Indices*; Data
+  Import, option *Add size-reliability columns*): a particle smaller than
+  the electron range of the beam - about 1 um in steel at 15 kV - gives a
+  spectrum that is mostly matrix. Steel Cleanliness gives such particles no
+  chemical family. Set the accelerating voltage you measured with. In the
+  standard table from Data Import, filter with `Size.to.range > 1`.
+- **Interval of a class share** (Steel Cleanliness and Inclusion Presets):
+  "62 % TiN" is an estimate. The interval next to it resamples whole SEM
+  fields, because particles of one kind come in groups; a class that sits in
+  a few fields gets a wide interval. Without a field column the interval
+  assumes independent particles and is too narrow - the note says which one
+  you see.
+
+## Saving settings, reports and scripts
+
+The analysis tabs (Extreme Value Analysis, Steel Cleanliness, Batch
+Comparison, Spatial Clustering, Point Pattern Analysis, Compositional
+Analysis) have a **Settings of this tab** box:
+
+- **Save settings (JSON)** writes every input of the tab to a small file.
+- **Load settings** sets them again. Upload the data file first - column
+  choices can only be restored once the columns are known. Anything that
+  could not be set is listed under the box.
+
+Extreme Value Analysis, Steel Cleanliness and Batch Comparison also offer:
+
+- **Download report (HTML)**: one file with the tables, plots, settings and
+  notes of the run, the name and MD5 checksum of the data file, and the
+  script. It opens in any browser and needs no internet connection.
+- **Download R script**: an R script that repeats the run without the app.
+  Set the file path at its top and run it with the package installed.
+
 ## Spatial Clustering
 
 **Purpose:** the Clark-Evans nearest-neighbour test, checking whether
@@ -364,6 +522,11 @@ narrow it down, and **Clear Log / Export Log** to manage it.
 | Flag unusual values in one or two elements | **Ternary Plots** -> IQR / Z-score / MAD |
 | Flag unusual points across several elements at once | **Ternary Plots** or **Data Comparison** -> Mahalanobis or Isolation Forest |
 | Predict the largest inclusion in a bigger inspection area than you sampled | **Extreme Value Analysis** |
+| Estimate a fatigue limit from the predicted largest inclusion | **Extreme Value Analysis** (fatigue panel) |
+| Rate inclusions after ISO 4967 / ASTM E45, find stringers, report particles per mm2 and area fraction | **Steel Cleanliness** |
+| Decide whether two or more batches differ in amount, size or chemistry of inclusions | **Batch Comparison** |
+| Use a file from another SEM system, a .csv export, or atomic percent | **Data Import** |
+| Repeat an analysis later, or hand it to someone else | **Save settings**, **Download report**, **Download R script** in the analysis tabs |
 | Check whether inclusions are clustered/banded in space | **Spatial Clustering** |
 | Run PCA on Wt% chemistry without breaking the sum-to-100% constraint | **Compositional Analysis** |
 | Review or save what happened this session, or debug an error | **Analysis Log** |

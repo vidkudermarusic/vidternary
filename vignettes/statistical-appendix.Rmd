@@ -689,20 +689,265 @@ rose diagram built from a handful of points.
 
 ---
 
+# Fatigue limit from the largest inclusion (Murakami's √area model)
+
+**What it answers:** if fatigue failure starts at the largest inclusion,
+what stress amplitude can the steel carry indefinitely?
+
+$$\sigma_w = C\,\frac{HV + 120}{(\sqrt{area})^{1/6}}\left(\frac{1-R}{2}\right)^{\alpha},
+\qquad \alpha = 0.226 + HV \cdot 10^{-4}$$
+
+with $\sigma_w$ in MPa, $\sqrt{area}$ in µm, $HV$ in kgf/mm², $R$ the
+stress ratio, and $C = 1.43$ for an inclusion at the surface, $1.41$ for one
+just below the surface and $1.56$ for one inside the part (Murakami & Endo,
+1994). The model is stated as accurate to about 10 % for HV 70 to 720 and
+$\sqrt{area}$ below about 1000 µm.
+
+The app applies it to the EVS return level and to the ends of both
+intervals. A larger inclusion gives a lower fatigue limit, so the upper end
+of a size interval becomes the lower end of the fatigue interval.
+
+To apply a 2D inspection to a part, the return period has to match the
+stressed volume $V$: one control area $S_0$ stands for the volume
+$V_0 = S_0 \cdot h$ with $h$ the mean of the block maxima, and $T = V/V_0$.
+
+```{r fatigue-example}
+# sqrt(area) = 15 um, HV 180, inclusion at the surface, fully reversed load
+murakami_fatigue_limit(15, hv = 180)
+# the same inclusion inside the part
+murakami_fatigue_limit(15, hv = 180, location = "internal")
+# control area 0.05 mm2, mean block maximum 4.8 um, stressed volume 1000 mm3
+evs_volume_return_period(1000, 0.05, 4.8)$return_period
+```
+
+**When it can't be trusted:** when failure does not start at an inclusion
+(surface roughness, corrosion pits, soft matrix), outside the hardness
+range, and when $T$ does not correspond to the stressed volume.
+
+---
+
+# Steel cleanliness: chart rating, indices and stereology
+
+## Chart rating from SEM data (ISO 4967 / ASTM E45)
+
+The chart methods rate square fields of 0.5 mm² by comparing them with
+pictures. Per field and inclusion type the index $i$ (0.5 to 3) follows from
+a measured value:
+
+| Type | Measured per field | Minimum for $i$ = 0.5 / 1 / 1.5 / 2 / 2.5 / 3 |
+|---|---|---|
+| A (sulfide) | total length, µm | 37 / 127 / 261 / 436 / 649 / 898 |
+| B (aluminate) | total length, µm | 17 / 77 / 184 / 343 / 555 / 822 |
+| C (silicate) | total length, µm | 18 / 76 / 176 / 320 / 510 / 746 |
+| D (globular oxide) | number of particles | 1 / 4 / 9 / 16 / 25 / 36 |
+| DS (single globular) | diameter, µm | 13 / 19 / 27 / 38 / 53 / 76 |
+
+Each type is rated in a fine and a thick series by width (A 2-4 / 4-12 µm,
+B 2-9 / 9-15, C 2-5 / 5-12, D 2-8 / 8-13). The app re-cuts the inspected
+area into 0.5 mm² fields from the particle coordinates, joins particles in
+line into stringers (gap up to 40 µm, offset up to 10 µm, three or more),
+assigns the type from chemistry and shape, and reports the worst field
+(method A) and the mean index over all fields (method B).
+
+```{r rating-example}
+# 300 um of sulfide length in one field, 5 globular oxides, one 30 um particle
+cleanliness_rating_index("A", 300)
+cleanliness_rating_index("D", 5)
+cleanliness_rating_index("DS", 30)
+```
+
+**When it can't be trusted:** an SEM run covers a few mm², the standards
+ask for 160 to 200 mm² at 100x under a light microscope, and an SEM sees
+smaller and more particles. The result is an estimate for the inspected
+area, not a rating to the standard (ASTM E2142).
+
+## Number density and area fraction
+
+Particles per mm² come with an exact Poisson interval. The area fraction is
+dominated by a few large particles, so its interval is a bootstrap over SEM
+fields (fields resampled with replacement, empty fields included).
+
+```{r poisson-example}
+poisson_count_ci(c(0, 10, 100))
+```
+
+## From sections to volume (stereology)
+
+A polished section cuts each particle at a random height. For spheres:
+
+- **Delesse:** volume fraction $V_V$ = area fraction $A_A$ (no shape
+  assumption needed).
+- **Fullman:** $N_V = \frac{2}{\pi} N_A \,\overline{(1/d)}$ and the mean
+  sphere diameter $\bar D = \pi / (2\,\overline{(1/d)})$.
+- **Schwartz-Saltykov:** with $k$ size classes of width $\Delta$, a sphere
+  of diameter $j\Delta$ gives a section in class $i$ with probability
+  $(\sqrt{j^2-(i-1)^2}-\sqrt{j^2-i^2})/j$, so
+  $N_A(i) = \sum_{j \ge i} N_V(j)\,\Delta\,(\sqrt{j^2-(i-1)^2}-\sqrt{j^2-i^2})$,
+  solved from the largest class down.
+
+```{r saltykov-example}
+# sections of equal 10 um spheres, 5e5 per mm3, on 4 mm2
+n <- 20000
+d <- 10 * sqrt(1 - ((seq_len(n) - 0.5) / n)^2)
+fullman_number_density(d, 4)$per_mm3
+round(saltykov_unfold(d, 4, n_classes = 5, d_max = 10)$per_mm3)
+```
+
+**Mass balance:** the volume fraction of a phase times its density over the
+density of the steel is its mass fraction; the formula of the phase gives
+the O, S or N it holds. Compared with the bulk analysis this shows whether
+the SEM run saw a representative amount of inclusions.
+
+```{r mass-balance-example}
+inclusion_mass_balance(c(aluminate = 100, sulfide = 40), measured = c(O = 30, S = 20))$elements
+```
+
+**When it can't be trusted:** elongated or clustered particles are not
+spheres; sections below the detection limit are missing, so the smallest
+classes are underestimated; real inclusions are mixed phases, not the pure
+compounds assumed.
+
+---
+
+# Reliability of the EDS analysis
+
+## Particle size against the electron range
+
+The beam spreads in the specimen. Its reach is estimated with the electron
+range of Kanaya & Okayama (1972),
+
+$$R\,[\mu m] = \frac{0.0276\,A\,E_0^{1.67}}{Z^{0.89}\,\rho}$$
+
+with $A$ the atomic weight, $Z$ the atomic number and $\rho$ the density
+(g/cm³) of the matrix and $E_0$ the beam energy in keV. A particle smaller
+than $R$ gives a spectrum that is mostly matrix; up to $2R$ the elements
+found are right but diluted. The factor 2 is a convention of this app, and
+$R$ is a lower bound: in a lighter inclusion the beam spreads further.
+
+```{r range-example}
+electron_range_um(kv = c(15))            # iron
+electron_range_um(kv = 20)
+size_reliability(c(0.4, 1.5, 5), kv = 15)
+```
+
+## Interval of a class share
+
+Particles of one class come in groups, so they are not independent draws.
+The interval of a share is therefore a **bootstrap over SEM fields**: whole
+fields are drawn with replacement and the share recomputed. A class
+concentrated in a few fields gets a wide interval. Without field IDs the
+Wilson score interval is given instead; it assumes independence and is then
+too narrow.
+
+```{r share-example}
+# 40 fields with 10 particles of class a; one field holds 100 of class b
+field <- c(rep(1:40, each = 10), rep(41, 100))
+class <- c(rep("a", 400), rep("b", 100))
+class_share_intervals(class, field, n_boot = 500)[, 1:5]   # fields resampled
+class_share_intervals(class)[, 1:5]                        # particles taken as independent
+```
+
+---
+
+# Comparing batches
+
+**What it answers:** do two or more batches differ in their inclusions -
+and by how much?
+
+## Amount of inclusions
+
+Counts of independent particles are Poisson distributed. Two counts
+$n_1, n_2$ on inspected areas $A_1, A_2$ are compared exactly: given their
+sum, $n_1$ is binomial with probability $A_1/(A_1+A_2)$ when the densities
+are equal. The estimate is the **density ratio**
+$(n_1/A_1)/(n_2/A_2)$ with its exact interval.
+
+Inclusions are rarely independent: they come in clusters and stringers. The
+**index of dispersion** of the counts per SEM field,
+$\mathrm{var}(c)/\mathrm{mean}(c)$, is 1 for random scatter and larger for
+clustered particles; Poisson p-values are then too small. A
+**Kruskal-Wallis test on the counts per field** treats the field, not the
+particle, as the unit and does not have that problem.
+
+```{r batch-density-example}
+compare_densities(c(A = 200, B = 100), area_mm2 = c(2, 2))$pairs
+field_count_dispersion(c(1, 1, 2, 2, 2, 3, 7, 7, 7, 7, 7, 7), n_fields = 10)$dispersion
+```
+
+## Size distribution
+
+The **k-sample Anderson-Darling** statistic (Scholz & Stephens, 1987)
+compares the whole empirical distributions and weights the tails more than
+Kolmogorov-Smirnov does - and the tail is where the harmful inclusions are.
+The tie-adjusted form is used, because particle areas are multiples of the
+pixel area. The p-value is the share of **permutations of the batch labels**
+with a statistic at least as large as the observed one, so its smallest
+possible value is $1/(B+1)$ for $B$ permutations.
+
+```{r batch-size-example}
+set.seed(1)
+size <- c(rlnorm(100, log(2), 0.5), rlnorm(100, log(2.6), 0.5))
+ad_ksample_test(size, rep(c("A", "B"), each = 100), n_perm = 199)[c("statistic", "p_value")]
+```
+
+## Chemistry
+
+The chosen elements are transformed to isometric log-ratio coordinates, in
+which Euclidean distance is the Aitchison distance between compositions. A
+**permutation MANOVA** (Anderson, 2001) compares the variation between the
+batch centroids with the variation within the batches:
+
+$$F = \frac{SS_{between}/(k-1)}{SS_{within}/(N-k)}, \qquad
+R^2 = \frac{SS_{between}}{SS_{total}}$$
+
+with the p-value from permuting the batch labels. $R^2$ is the share of the
+total variation the batches explain - the number to read first. The test
+also reacts to batches that differ only in spread, so the spread (distance
+of each particle to its batch centroid) is tested separately. The clr mean
+of each batch minus the clr mean of all particles shows which elements
+differ; $\exp(\text{difference})$ is the factor.
+
+```{r batch-composition-example}
+set.seed(2)
+chem <- data.frame(Ti = c(rnorm(80, 40, 4), rnorm(80, 48, 4)), Cr = rnorm(160, 12, 1))
+chem$Fe <- 100 - chem$Ti - chem$Cr
+cmp <- compare_compositions(chem, c("Ti", "Cr", "Fe"), rep(c("A", "B"), each = 80), n_perm = 199)
+round(unlist(cmp$overall[c("f", "r2", "p_value")]), 3)
+```
+
+**When it can't be trusted:** all three tests treat particles (or fields) as
+independent draws; one cluster of similar particles can make two batches
+"differ". With thousands of particles, differences far too small to matter
+are significant - judge by the ratio, the quantiles and $R^2$. Pairwise
+p-values are adjusted by Holm's method.
+
+---
+
 # References
 
 - Aitchison, J. (1986). *The Statistical Analysis of Compositional Data*. Chapman and Hall, London.
 - Anderson, T.W., Darling, D.A. (1952). Asymptotic Theory of Certain "Goodness of Fit" Criteria Based on Stochastic Processes. *Annals of Mathematical Statistics*, 23(2), 193-212. <https://doi.org/10.1214/aoms/1177729437>
+- Anderson, M.J. (2001). A new method for non-parametric multivariate analysis of variance. *Austral Ecology*, 26(1), 32-46. <https://doi.org/10.1111/j.1442-9993.2001.01070.pp.x>
+- Anderson, M.J. (2006). Distance-based tests for homogeneity of multivariate dispersions. *Biometrics*, 62(1), 245-253. <https://doi.org/10.1111/j.1541-0420.2005.00440.x>
 - Clark, P.J., Evans, F.C. (1954). Distance to Nearest Neighbor as a Measure of Spatial Relationships in Populations. *Ecology*, 35(4), 445-453. <https://doi.org/10.2307/1931034>
 - Donnelly, K. (1978). Simulations to Determine the Variance and Edge-Effect of Total Nearest-Neighbour Distance. In I. Hodder (Ed.), *Simulation Studies in Archaeology*, pp. 91-95. Cambridge University Press.
 - Egozcue, J.J., Pawlowsky-Glahn, V., Mateu-Figueras, G., Barceló-Vidal, C. (2003). Isometric Logratio Transformations for Compositional Data Analysis. *Mathematical Geology*, 35(3), 279-300. <https://doi.org/10.1023/A:1023818214614>
+- Holm, S. (1979). A Simple Sequentially Rejective Multiple Test Procedure. *Scandinavian Journal of Statistics*, 6(2), 65-70.
 - Jolliffe, I.T. (2002). *Principal Component Analysis*, 2nd ed. Springer. <https://doi.org/10.1007/b98835>
+- Kanaya, K., Okayama, S. (1972). Penetration and energy-loss theory of electrons in solid targets. *Journal of Physics D: Applied Physics*, 5(1), 43-58. <https://doi.org/10.1088/0022-3727/5/1/308>
 - Leys, C., Ley, C., Klein, O., Bernard, P., Licata, L. (2013). Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology*, 49(4), 764-766. <https://doi.org/10.1016/j.jesp.2013.03.013>
 - Liu, F.T., Ting, K.M., Zhou, Z.-H. (2008). Isolation Forest. *2008 Eighth IEEE International Conference on Data Mining*, 413-422. <https://doi.org/10.1109/ICDM.2008.17>
 - Mardia, K.V., Jupp, P.E. (2000). *Directional Statistics*. Wiley. <https://doi.org/10.1002/9780470316979>
 - Martín-Fernández, J.A., Barceló-Vidal, C., Pawlowsky-Glahn, V. (2003). Dealing with Zeros and Missing Values in Compositional Data Sets Using Nonparametric Imputation. *Mathematical Geology*, 35(3), 253-278. <https://doi.org/10.1023/A:1023866030544>
+- Fullman, R.L. (1953). Measurement of Particle Sizes in Opaque Bodies. *Transactions AIME*, 197, 447-452.
+- ISO 4967:2013. *Steel - Determination of content of non-metallic inclusions - Micrographic method using standard diagrams*. International Organization for Standardization.
+- Murakami, Y., Endo, M. (1994). Effects of Defects, Inclusions and Inhomogeneities on Fatigue Strength. *International Journal of Fatigue*, 16(3), 163-182. <https://doi.org/10.1016/0142-1123(94)90001-9>
 - Murakami, Y. (1994). Inclusion Rating by Statistics of Extreme Values and Its Application to Fatigue Strength Prediction and Quality Control of Materials. *Journal of Research of the National Institute of Standards and Technology*, 99(4), 345-351. <https://doi.org/10.6028/jres.099.032>
+- Scholz, F.W., Stephens, M.A. (1987). K-Sample Anderson-Darling Tests. *Journal of the American Statistical Association*, 82(399), 918-924. <https://doi.org/10.1080/01621459.1987.10478517>
 - Stephens, M.A. (1977). Goodness of Fit for the Extreme Value Distribution. *Biometrika*, 64(3), 583-588. <https://doi.org/10.1093/biomet/64.3.583>
 - Tukey, J.W. (1977). *Exploratory Data Analysis*. Addison-Wesley, Reading, MA.
 - Vode, F., Tehovnik, F., Kosec, G., Steiner Petrovič, D. (2022). Classification of Hot-Rolled Plates Using the Mahalanobis Distance of NMIs in Ti-Stabilized Austenitic Stainless-Steel Produced by Secondary Metallurgy. *Materials*, 15(2), 684. <https://doi.org/10.3390/ma15020684>
+- Underwood, E.E. (1970). *Quantitative Stereology*. Addison-Wesley, Reading, MA.
+- ASTM E45. *Standard Test Methods for Determining the Inclusion Content of Steel*. ASTM International.
+- ASTM E2142. *Standard Test Methods for Rating and Classifying Inclusions in Steel Using the Scanning Electron Microscope*. ASTM International.
 - ASTM E2283-08(2019). *Standard Practice for Extreme Value Analysis of Nonmetallic Inclusions in Steel and Other Microstructural Features*. ASTM International.

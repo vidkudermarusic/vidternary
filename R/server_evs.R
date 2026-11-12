@@ -101,6 +101,11 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     fit$n_leftover_fields <- areas$n_leftover_fields
     fit$n_missing_fields <- areas$n_missing_fields
     fit$area_notes <- evs_area_notes(areas, nrow(block_maxima), fields_per_area)
+    # What the report and the script need to repeat this fit.
+    fit$filters <- collect_pre_filters(input, "evs", input$evs_filter_cols)
+    fit$area_col <- input$evs_area_col
+    fit$field_col <- input$evs_group_col
+    fit$file <- list(name = input$evs_files$name[1], datapath = input$evs_files$datapath[1])
     fit
   })
 
@@ -269,6 +274,47 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
     df
   })
 
+  # Fatigue limit after Murakami (fatigue_murakami.R) for the prediction
+  # above. Blank until a fit exists; asks for the hardness once it does.
+  output$evs_fatigue_table <- renderTable({
+    pred <- prediction()
+    req(pred)
+    hv <- input$evs_hv
+    shiny::validate(shiny::need(!is.null(hv) && is.finite(hv) && hv > 0,
+                                 "Enter the Vickers hardness of the steel to estimate the fatigue limit."))
+    ratio <- if (is.null(input$evs_stress_ratio) || !is.finite(input$evs_stress_ratio)) -1 else input$evs_stress_ratio
+    tab <- tryCatch(evs_fatigue_limit(pred, hv, input$evs_incl_location %||% "surface", ratio),
+                    error = function(e) shiny::validate(e$message))
+    data.frame(
+      Quantity = tab$quantity,
+      `sqrtArea (um)` = ifelse(is.na(tab$sqrt_area_um), sprintf("[%.2f, %.2f]", tab$sqrt_area_lower, tab$sqrt_area_upper),
+                               sprintf("%.2f", tab$sqrt_area_um)),
+      `Fatigue limit, stress amplitude (MPa)` = ifelse(is.na(tab$fatigue_limit_mpa),
+                                                       sprintf("[%.0f, %.0f]", tab$fatigue_lower, tab$fatigue_upper),
+                                                       sprintf("%.0f", tab$fatigue_limit_mpa)),
+      check.names = FALSE, stringsAsFactors = FALSE)
+  })
+
+  output$evs_fatigue_notes <- renderUI({
+    pred <- tryCatch(prediction(), error = function(e) NULL)
+    hv <- input$evs_hv
+    if (is.null(pred) || is.null(hv) || !is.finite(hv) || hv <= 0) return(NULL)
+    notes <- murakami_validity_notes(pred$upper, hv)
+    if (length(notes) == 0) return(NULL)
+    div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px; margin-bottom: 8px;",
+        lapply(notes, tags$div))
+  })
+
+  output$evs_volume_note <- renderText({
+    fit <- tryCatch(fit_result(), error = function(e) NULL)
+    s0 <- input$evs_control_area_mm2
+    v <- input$evs_volume_mm3
+    if (is.null(fit) || is.null(s0) || is.null(v) || !is.finite(s0) || !is.finite(v) || s0 <= 0 || v <= 0) return("")
+    r <- evs_volume_return_period(v, s0, mean(fit$block_maxima$sqrt_area_max))
+    sprintf("Control volume V0 = S0 x h = %.4g mm3 (h = mean block maximum = %.2f um). T = V / V0 = %.0f - enter it as the return period above.",
+            r$control_volume_mm3, r$thickness_um, r$return_period)
+  })
+
   # Both download handlers below call fit_result() - an eventReactive gated
   # on input$evs_fit - with no server-side gating on the buttons themselves
   # (see ui_evs_tab.R: neither downloadButton sits inside a
@@ -294,6 +340,43 @@ create_server_evs <- function(input, output, session, rv, show_message, log_oper
       writexl::write_xlsx(safe_reactive_result(function() fit_result(), evs_download_placeholder_msg)$block_maxima, file)
     }
   )
+
+  # Report and script (evs_report.R): the fit as it was made, with the
+  # return period and hardness as they are set now.
+  evs_stress_ratio <- function() {
+    if (is.null(input$evs_stress_ratio) || !is.finite(input$evs_stress_ratio)) -1 else input$evs_stress_ratio
+  }
+  evs_script_lines <- function(fit) {
+    evs_script(fit$file$name %||% "data.xlsx", fit$area_col, fit$field_col, fit$fields_per_area,
+               input$evs_return_period %||% 100, fit$filters, input$evs_hv,
+               input$evs_incl_location %||% "surface", evs_stress_ratio())
+  }
+
+  output$evs_download_report <- downloadHandler(
+    filename = function() paste0("evs_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html"),
+    content = function(file) {
+      fit <- safe_reactive_result(function() fit_result(), evs_download_placeholder_msg)
+      pred <- prediction()
+      if (is.null(pred)) stop("Set a return period T greater than 1 before downloading the report.")
+      hv <- input$evs_hv
+      fatigue <- if (!is.null(hv) && is.finite(hv) && hv > 0) {
+        tryCatch(evs_fatigue_limit(pred, hv, input$evs_incl_location %||% "surface", evs_stress_ratio()), error = function(e) NULL)
+      }
+      provenance <- report_provenance(fit$file$name %||% "data", fit$file$datapath, fit$n_rows_before_filter)
+      writeLines(evs_report(fit, pred, fatigue, provenance, evs_script_lines(fit), fit$filters), file, useBytes = TRUE)
+    }
+  )
+
+  output$evs_download_script <- downloadHandler(
+    filename = function() paste0("evs_analysis_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".R"),
+    content = function(file) {
+      fit <- safe_reactive_result(function() fit_result(), evs_download_placeholder_msg)
+      writeLines(enc2utf8(evs_script_lines(fit)), file, useBytes = TRUE)
+    }
+  )
+
+  # Save / load of this tab's settings (settings_io.R).
+  register_settings_io(input, output, session, tab = "evs", prefix = "evs")
 
   return(list(
     module_name = "server_evs"

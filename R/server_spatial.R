@@ -191,6 +191,9 @@ create_server_spatial <- function(input, output, session, rv, show_message, log_
     }
   )
 
+  # Save / load of this tab's settings (settings_io.R).
+  register_settings_io(input, output, session, tab = "spatial", prefix = "spatial")
+
   return(list(
     module_name = "server_spatial"
   ))

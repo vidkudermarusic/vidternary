@@ -9,7 +9,10 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 - **Multiple Ternary Creator** — batch-generates one ternary plot per uploaded file using a shared element mapping and per-element filters
 - **Hexagonal Ternary Diagram** — composites 6 triangular ternary plots that share a central element/combination into one hexagonal image
 - **Plot Builder** — a generic chart builder: pick plot type (violin/box/bar/histogram/scatter/rose), X/Y axis, color/group, and log scales from dropdowns populated from your data's own columns, with named presets you can save and reload
-- **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the return level (and an interval for the largest inclusion) expected over a larger inspection area
+- **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the return level (and an interval for the largest inclusion) expected over a larger inspection area; with the steel's Vickers hardness it also gives a fatigue-limit estimate (Murakami's √area model)
+- **Steel Cleanliness** — chart rating after ISO 4967 / ASTM E45 from automated SEM/EDS data (types A, B, C, D, DS per 0.5 mm² field; worst field and mean), stringer detection, particles per mm² and area fraction with confidence intervals, and stereology (Fullman, Schwartz-Saltykov, O/S/N bound in the inclusions)
+- **Batch Comparison** — one file per batch (heat, specimen): number density and area fraction with intervals, size distributions (k-sample Anderson-Darling, permutation), chemistry (permutation MANOVA on log-ratio coordinates) and the extreme-value return level per batch, each with a test and a measure of how large the difference is
+- **Data Import** — turns the particle export of any automated SEM system (.xlsx, .csv, .txt; decimal commas and atomic percent included) into the app's standard table; the column mapping can be saved as a profile
 - **Spatial Clustering** — Clark-Evans nearest-neighbour test on inclusion X/Y positions: are they randomly scattered, clustered, or more evenly spread than chance predicts (asymptotic + Monte Carlo p-values)
 - **Compositional Analysis** — CLR / ILR log-ratio transforms plus PCA for Wt% chemistry data, avoiding the closure-problem artifacts of running ordinary statistics on raw percentages
 - **Analysis Log** — a running, filterable/searchable log of operations performed during the session
@@ -32,6 +35,13 @@ The package is organized into logical modules, each handling specific functional
 - **`R/multivariate.R`** — Mahalanobis distance, Isolation Forest
 - **`R/statistical_filters.R`** — IQR / Z-score / MAD filtering (positive/high-value outliers only)
 - **`R/extreme_value_analysis.R`** — Murakami / ASTM E2283 extreme value statistics (block maxima + Gumbel fit); pure stats behind the Extreme Value Analysis tab
+- **`R/fatigue_murakami.R`** — fatigue limit from the largest inclusion (Murakami's √area model) and the return period that matches a stressed volume
+- **`R/cleanliness_family.R`**, **`R/cleanliness_stringers.R`**, **`R/cleanliness_rating_tables.R`**, **`R/cleanliness_rating_objects.R`**, **`R/cleanliness_rating.R`**, **`R/cleanliness_indices.R`**, **`R/cleanliness_plots.R`**, **`R/cleanliness_pipeline.R`** — steel cleanliness: chemical family from EDS, stringers, the numbers of ISO 4967 / ASTM E45, typed objects, field rating, number density / area fraction, plots, and `run_cleanliness_analysis()` which runs them all
+- **`R/stereology_saltykov.R`**, **`R/stereology_mass_balance.R`** — particles per volume (Fullman, Schwartz-Saltykov) and O/S/N bound in the inclusions
+- **`R/batch_density.R`**, **`R/batch_size_distribution.R`**, **`R/batch_composition.R`**, **`R/batch_evs.R`**, **`R/batch_plots.R`**, **`R/batch_pipeline.R`**, **`R/batch_report.R`** — batch comparison: Poisson rate ratios and dispersion of counts per field, k-sample Anderson-Darling permutation test, permutation MANOVA on ilr coordinates, extreme-value estimate per batch, plots, `run_batch_comparison()`, report and script
+- **`R/import_read_table.R`**, **`R/import_roles.R`**, **`R/import_standardize.R`**, **`R/import_profiles.R`** — data import: Excel / delimited-text reader, column-role and unit detection, conversion to the standard table (units, atomic to weight percent), saved profiles
+- **`R/eds_overlap.R`**, **`R/eds_size_reliability.R`**, **`R/class_share_intervals.R`** — reliability of the EDS analysis: overlapping lines among chosen columns, electron range and size classes, class shares with a bootstrap over SEM fields
+- **`R/settings_io.R`**, **`R/report_html.R`**, **`R/cleanliness_report.R`**, **`R/evs_report.R`** — reproducibility: tab settings as JSON, self-contained HTML reports, scripts that repeat an analysis
 - **`R/spatial_clustering_analysis.R`** — Clark-Evans nearest-neighbour CSR test with Donnelly edge correction; pure stats behind the Spatial Clustering tab
 - **`R/compositional_data_analysis.R`** — CLR / ILR log-ratio transforms + PCA; pure stats behind the Compositional Analysis tab
 - **`R/stats_display_utils.R`** — tidy, DT-ready descriptive/correlation stat tables for the Data Comparison tab
@@ -46,7 +56,7 @@ The package is organized into logical modules, each handling specific functional
 
 ### UI (Shiny)
 - **`R/ui_components.R`** — page shell and main tabset
-- **`R/ui_ternary_plots_tab.R`**, **`R/ui_data_comparison_tab.R`**, **`R/ui_multiple_ternary_tab.R`**, **`R/ui_hex_ternary_tab.R`**, **`R/ui_plot_builder_tab.R`**, **`R/ui_evs_tab.R`**, **`R/ui_spatial_tab.R`**, **`R/ui_coda_tab.R`**, **`R/ui_analysis_log_tab.R`** — one `create_*_tab()` per application tab
+- **`R/ui_ternary_plots_tab.R`**, **`R/ui_data_comparison_tab.R`**, **`R/ui_multiple_ternary_tab.R`**, **`R/ui_hex_ternary_tab.R`**, **`R/ui_plot_builder_tab.R`**, **`R/ui_evs_tab.R`**, **`R/ui_cleanliness_tab.R`**, **`R/ui_batch_tab.R`**, **`R/ui_import_tab.R`**, **`R/ui_spatial_tab.R`**, **`R/ui_coda_tab.R`**, **`R/ui_analysis_log_tab.R`** — one `create_*_tab()` per application tab
 
 ### Server (Shiny Backend)
 - **`R/server_logic.R`** — wires every tab's server module together
@@ -55,6 +65,9 @@ The package is organized into logical modules, each handling specific functional
 - **`R/server_hex_ternary.R`** — Hexagonal Ternary Diagram handlers
 - **`R/server_plot_builder.R`** — Plot Builder handlers
 - **`R/server_evs.R`**, **`R/server_spatial.R`**, **`R/server_coda.R`** — Shiny wiring for the Extreme Value Analysis / Spatial Clustering / Compositional Analysis tabs (front-ends to the matching `*_analysis.R` modules)
+- **`R/server_cleanliness.R`** (+ `_outputs.R`) — Steel Cleanliness tab: upload, column detection, the run, and its tables, plots and downloads
+- **`R/server_batch.R`** (+ `_outputs.R`) — Batch Comparison tab
+- **`R/server_import.R`** — Data Import tab
 - **`R/server_data_comparison.R`** (+ `_upload.R`, `_stats.R`, `_multivariate.R`, `_preview.R`) — Data Comparison tab
 - **`R/server_analysis_log.R`** — Analysis Log tab
 - **`R/server_status_outputs.R`** — app-shell status text
@@ -112,6 +125,16 @@ shiny::runApp(app)
 ### Plot Builder
 - Pick plot type (violin/box/bar/histogram/scatter), X/Y axis, color/group, and log scales from your data's own columns — no fixed schema required
 - Save the current configuration as a named preset and reload it later
+
+### Reliability of the EDS analysis
+- **Peak overlaps**: every tab where elements are chosen warns when the choice combines elements whose EDS lines overlap (Ti-N, Cr-O, Ti-V, S-Mo-Pb-Bi)
+- **Particle size**: particles smaller than the electron range of the beam (Kanaya-Okayama, about 1 um in steel at 15 kV) give a spectrum that is mostly matrix; Steel Cleanliness gives them no chemical family and Data Import can add the flag as columns
+- **Class shares**: the shares of inclusion classes come with an interval that resamples whole SEM fields, because particles of one kind come in groups
+
+### Reproducibility
+- **Settings**: the analysis tabs save all their inputs as a JSON file and load them again
+- **Report**: Steel Cleanliness, Extreme Value Analysis and Batch Comparison write a self-contained HTML report (tables, plots, settings, notes, file checksum)
+- **Script**: the same tabs write an R script that repeats the analysis without the app
 
 ### Data Quality Assessment
 - Missing-value and outlier summaries
