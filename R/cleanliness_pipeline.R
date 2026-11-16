@@ -16,7 +16,7 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
        field_area_mm2 = std$field_area_mm2, coord_unit = "mm", inspected_area_mm2 = NULL,
        min_signal_pct = 5, beam_kv = 15, range_matrix = "Fe", min_size_to_range = 1,
        size_breaks = c(1, 2, 5, 10, 20), saltykov_classes = 10,
-       steel_density = 7.9, measured_ppm = NULL, n_boot = 2000)
+       steel_density = 7.9, measured_ppm = NULL, n_boot = 2000, max_rating_fields = 20000)
 }
 
 # Inspected area as c(xmin, xmax, ymin, ymax) in um.
@@ -56,7 +56,8 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
 #'   `rating_summary`, `rating_by_family`, `indices`, `size_classes`,
 #'   `reliability` ([reliability_summary()]), `range_um`, `family_shares`,
 #'   `type_shares` ([class_share_intervals()]), `stereology`, `saltykov`,
-#'   `mass_balance`, `inspected_area_mm2`, `notes`, `settings`.
+#'   `mass_balance`, `inspected_area_mm2`, `n_fields` (SEM fields inspected,
+#'   `NULL` without a field column), `notes`, `settings`.
 #' @export
 run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = data) {
   st <- utils::modifyList(cleanliness_default_settings(settings$standard %||% "ISO 4967"), settings)
@@ -105,6 +106,9 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
 
   bbox <- .cleanliness_bbox(all_data, cols, unit_factor)
   bbox_area <- (bbox[2] - bbox[1]) * (bbox[4] - bbox[3]) / 1e6
+  # A wrong coordinate unit shows here, before any per-field table is built.
+  .check_rating_field_count(bbox, st$field_area_mm2, st$max_rating_fields,
+                            unit = if (identical(st$coord_unit, "um")) "um" else "mm")
   inspected <- st$inspected_area_mm2
   if (is.null(inspected) || !is.finite(inspected) || inspected <= 0) inspected <- bbox_area
   if (!is.finite(inspected) || inspected <= 0) {
@@ -117,7 +121,7 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
   built <- build_rating_objects(particles, std, st$axis_angle, st$min_width)
   particles$object <- built$object
   objects <- built$objects
-  grid <- rating_field_grid(objects$x, objects$y, st$field_area_mm2, bbox)
+  grid <- rating_field_grid(objects$x, objects$y, st$field_area_mm2, bbox, max_fields = st$max_rating_fields)
   objects$field <- grid$field
   particles$type <- objects$type[match(particles$object, objects$object)]
   field_ratings <- rate_fields(objects, grid)
@@ -161,7 +165,7 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
                  size_classes = size_classes, reliability = reliability_table,
                  range_um = attr(reliability, "range_um"), family_shares = family_shares, type_shares = type_shares,
                  stereology = stereology, saltykov = saltykov,
-                 mass_balance = mass_balance, inspected_area_mm2 = inspected, bbox = bbox,
+                 mass_balance = mass_balance, inspected_area_mm2 = inspected, bbox = bbox, n_fields = n_fields,
                  n_rows = nrow(data), n_valid = sum(valid), standard = std, settings = st)
   result$notes <- cleanliness_notes(result, has_direction = has("direction"), bbox_area = bbox_area)
   result

@@ -5,9 +5,9 @@
 \alias{read_settings_file}
 \title{Write and read a settings file}
 \usage{
-write_settings_file(settings, tab, path)
+write_settings_file(settings, tab, path, kind = "tab settings", extra = NULL)
 
-read_settings_file(path, tab = NULL)
+read_settings_file(path, tab = NULL, kind = "tab settings")
 }
 \arguments{
 \item{settings}{From \code{\link[=collect_settings]{collect_settings()}}.}
@@ -15,11 +15,17 @@ read_settings_file(path, tab = NULL)
 \item{tab}{Id of the tab the settings belong to.}
 
 \item{path}{File to write or read (JSON).}
+
+\item{kind}{What the file holds: \code{"tab settings"}, or \code{"project"} for
+the settings of all tabs (see \code{\link[=register_project_io]{register_project_io()}}).}
+
+\item{extra}{Named list of further entries to store in the file (e.g.
+the names of the data files); read back as \code{extra}.}
 }
 \value{
 \code{write_settings_file()} returns \code{path} invisibly;
 \code{read_settings_file()} returns a list: \code{tab}, \code{saved}, \code{version},
-\code{settings}.
+\code{settings}, \code{extra}.
 }
 \description{
 Write and read a settings file

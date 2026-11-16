@@ -923,6 +923,60 @@ p-values are adjusted by Holm's method.
 
 ---
 
+# Planning a measurement
+
+**What it answers:** how much area has to be inspected for the number
+density to be known to a wanted precision, or for a difference between two
+batches to show?
+
+A number density is a count $N$ over an area $A$. If the counts per SEM
+field vary $D$ times more than Poisson scatter (index of dispersion,
+variance over mean of the counts per field), then
+
+$$\frac{SE(N/A)}{N/A} = \sqrt{\frac{D}{N}} = \sqrt{\frac{D}{\lambda A}}$$
+
+with $\lambda$ the density. The area for a relative half-width $r$ of the
+confidence interval is therefore $A = z^2 D / (\lambda r^2)$. For two
+batches inspected on the same area each, a density ratio $\rho$ is found
+with power $1-\beta$ in a two-sided test at level $\alpha$ when
+
+$$A = \frac{(z_{1-\alpha/2} + z_{1-\beta})^2\, D\, (1 + 1/\rho)}{\lambda\, (\ln \rho)^2}.$$
+
+$D$ belongs to the field size it was measured at, so the plan assumes more
+fields of the same size. A measured $D < 1$ is replaced by 1.
+
+```{r planning-example}
+area_for_density_precision(density_per_mm2 = 100, rel_halfwidth = 0.10)                  # random scatter
+area_for_density_precision(density_per_mm2 = 100, rel_halfwidth = 0.10, dispersion = 3)  # clustered
+area_for_density_ratio(density_per_mm2 = 100, ratio = 1.2, dispersion = 3)               # per batch
+detectable_density_ratio(area_mm2 = 2, density_per_mm2 = 100, dispersion = 3)
+```
+
+## Repeated runs
+
+For $k$ runs of one specimen with counts $n_i$ on areas $A_i$, the pooled
+density $\hat\lambda = \sum n_i / \sum A_i$ gives the expected counts
+$\hat\lambda A_i$, and $X^2 = \sum (n_i - \hat\lambda A_i)^2 / (\hat\lambda A_i) / D$
+is compared with a chi-squared distribution with $k-1$ degrees of freedom.
+The variance between the run densities is split into the part counting
+explains, $D\hat\lambda / A$, and the rest; the repeatability limit is
+$1.96\sqrt{2}$ times the total standard deviation.
+
+```{r repeatability-example}
+r <- density_repeatability(c(run_1 = 200, run_2 = 215, run_3 = 190), area_mm2 = 2)
+c(observed = r$sd_observed, counting = r$sd_counting, p = r$p_value, limit = r$limit_per_mm2)
+```
+
+## Acceptance limits
+
+A measured value $x$ with interval $[l, u]$ against an upper limit $L$:
+*pass* if $u \le L$, *pass, not certain* if $x \le L < u$, *fail, not
+certain* if $l \le L < x$, *fail* if $l > L$. This is a rule of this app,
+not the decision rule of a standard. For the number density the interval
+is the exact Poisson one, or $x \pm z\sqrt{DN}/A$ when $D > 1$.
+
+---
+
 # References
 
 - Aitchison, J. (1986). *The Statistical Analysis of Compositional Data*. Chapman and Hall, London.

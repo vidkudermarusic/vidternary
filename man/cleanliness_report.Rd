@@ -4,7 +4,13 @@
 \alias{cleanliness_report}
 \title{HTML report of a cleanliness analysis}
 \usage{
-cleanliness_report(result, provenance = NULL, script = NULL, filters = list())
+cleanliness_report(
+  result,
+  provenance = NULL,
+  script = NULL,
+  filters = list(),
+  acceptance = NULL
+)
 }
 \arguments{
 \item{result}{From \code{\link[=run_cleanliness_analysis]{run_cleanliness_analysis()}}.}
@@ -15,6 +21,9 @@ cleanliness_report(result, provenance = NULL, script = NULL, filters = list())
 
 \item{filters}{Pre-analysis filters that were applied (for the settings
 section).}
+
+\item{acceptance}{From \code{\link[=assess_acceptance]{assess_acceptance()}}, to add the comparison
+with the acceptance limits (or \code{NULL}).}
 }
 \value{
 The HTML document as one string (see \code{\link[=build_html_report]{build_html_report()}}).

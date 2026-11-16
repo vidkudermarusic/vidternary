@@ -99,8 +99,9 @@ cleanliness_display_tables <- function(res) {
 }
 
 # Registers the Steel Cleanliness tab's outputs. `result` is the
-# eventReactive from create_server_cleanliness().
-register_cleanliness_outputs <- function(input, output, result) {
+# eventReactive from create_server_cleanliness(); `acceptance` the reactive
+# with the result of assess_acceptance() (or NULL).
+register_cleanliness_outputs <- function(input, output, result, acceptance = NULL) {
   placeholder <- "Upload a file, check the columns, and click \"Run Cleanliness Analysis\"."
   download_placeholder <- "Upload a file and click \"Run Cleanliness Analysis\" before downloading."
   tables <- reactive(cleanliness_display_tables(result()))
@@ -141,6 +142,26 @@ register_cleanliness_outputs <- function(input, output, result) {
   output$clean_mass_phase_table <- renderTable(tables()$phases, align = "l")
   output$clean_mass_element_table <- renderTable(tables()$elements, align = "l")
 
+  # A finished assessment, or NULL (no result yet, no limits, bad input).
+  assessed <- function() {
+    if (is.null(acceptance)) return(NULL)
+    a <- tryCatch(acceptance(), error = function(e) NULL)
+    if (is.null(a) || nrow(a$table) == 0) NULL else a
+  }
+  output$clean_acceptance_table <- renderTable({
+    shiny::validate(shiny::need(!is.null(acceptance), "Acceptance is not available."))
+    acceptance_display_table(acceptance())
+  }, align = "l")
+  output$clean_acceptance_summary <- renderUI({
+    a <- assessed()
+    if (is.null(a)) return(NULL)
+    colours <- switch(a$verdict,
+      "pass" = c("#155724", "#d4edda", "#c3e6cb"), "fail" = c("#721c24", "#f8d7da", "#f5c6cb"),
+      c("#856404", "#fff3cd", "#ffeeba"))
+    div(style = sprintf("color: %s; background-color: %s; border: 1px solid %s; border-radius: 4px; padding: 10px; font-size: 14px; margin: 10px 0;",
+                        colours[1], colours[2], colours[3]), strong(a$summary))
+  })
+
   output$clean_map_plot <- renderPlot(print(create_stringer_map(result())))
   output$clean_rose_plot <- renderPlot({
     p <- result()$particles
@@ -159,7 +180,10 @@ register_cleanliness_outputs <- function(input, output, result) {
     filename = function() paste0("steel_cleanliness_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
       res <- safe_reactive_result(function() result(), download_placeholder)
-      writexl::write_xlsx(cleanliness_result_tables(res), file)
+      sheets <- cleanliness_result_tables(res)
+      a <- assessed()
+      if (!is.null(a)) sheets <- c(list(Acceptance = cbind(a$table, summary = c(a$summary, rep("", nrow(a$table) - 1)))), sheets)
+      writexl::write_xlsx(sheets, file)
     }
   )
   output$clean_download_map <- downloadHandler(
@@ -175,7 +199,7 @@ register_cleanliness_outputs <- function(input, output, result) {
     content = function(file) {
       res <- safe_reactive_result(function() result(), download_placeholder)
       provenance <- report_provenance(res$file$name %||% "data", res$file$datapath, res$n_rows_before_filter)
-      writeLines(cleanliness_report(res, provenance, script_lines(res), res$filters), file, useBytes = TRUE)
+      writeLines(cleanliness_report(res, provenance, script_lines(res), res$filters, acceptance = assessed()), file, useBytes = TRUE)
     }
   )
   output$clean_download_script <- downloadHandler(

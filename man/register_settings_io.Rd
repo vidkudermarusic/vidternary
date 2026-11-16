@@ -13,7 +13,10 @@ register_settings_io(
   exclude = character(0),
   send = NULL,
   retries = 3,
-  retry_ms = 700
+  retry_ms = 700,
+  kind = "tab settings",
+  extra = NULL,
+  describe = NULL
 )
 }
 \arguments{
@@ -31,10 +34,19 @@ the default uses \code{session$sendInputMessage()}. Replaceable for tests.}
 \item{retries}{How often values that have not arrived are sent again.}
 
 \item{retry_ms}{Milliseconds between the attempts.}
+
+\item{kind, extra}{Passed to \code{\link[=write_settings_file]{write_settings_file()}}; \code{extra} is a
+function returning the list to store, called when saving.}
+
+\item{describe}{Function \verb{(loaded, unsettled)} that words the status
+line after loading (\code{loaded} from \code{\link[=read_settings_file]{read_settings_file()}}, \code{unsettled}
+the ids given up on); the default names the ids.}
 }
 \value{
 A list with \code{pending} (reactive: values that have not arrived
-yet) and \code{unsettled} (reactive: ids of the values given up on).
+yet), \code{unsettled} (reactive: ids of the values given up on), \code{loaded}
+(reactive: the file loaded last, or \code{NULL}) and \code{apply} (function
+that sends a list of settings to the inputs, with the same retries).
 }
 \description{
 Wire the save / load settings buttons of a tab

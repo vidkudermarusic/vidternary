@@ -272,6 +272,55 @@ line. Family shares: Ti-rich 76 % [61, 90], silicate 14 % [1, 29] (wide,
 because the silicates sit in a few fields), sulfide 6 % [3, 9], aluminate
 4 % [1, 7].
 
+## Planning, acceptance, folder summary, project file (branch `nove-funkcije`, 2026-11-12)
+
+* **Measurement Planning** tab (`R/planning_*.R`, `plan_measurement()`). The
+  relative standard error of a number density is sqrt(D / N), with N the
+  particle count and D the index of dispersion of the counts per SEM field.
+  From that: area for a wanted precision, area per batch to detect a density
+  ratio (two-sided test on the log ratio, given power), and the smallest
+  ratio the pilot area detects. D below 1 is not used (the plan never
+  promises more than Poisson). Checked by simulation with negative-binomial
+  field counts (D = 3): coverage of the predicted interval 95 %, power of
+  the planned comparison 80 %. Assumption: a larger measurement means more
+  fields of the same size. The largest-inclusion plan refits simulated
+  Gumbel samples with the app's own probability-plot fit.
+* **Repeated runs** (`R/repeatability.R`): chi-squared test of the counts
+  against the areas, divided by D; scatter between runs split into counting
+  and the rest; repeatability limit 1.96 * sqrt(2) * SD. Not built: matching
+  the same particles between two runs by position.
+* **Acceptance limits** (`R/acceptance_criteria.R`): upper limits only.
+  Verdicts pass / pass, not certain / fail, not certain / fail, from the
+  value and its interval. The number-density interval is widened by D when
+  the particles are clustered. Chart indices and the largest particle found
+  have no interval and are judged by value. This is this app's own rule, not
+  the decision rule of any standard.
+* **Folder Summary** tab (`R/folder_*.R`): every file through
+  `run_cleanliness_analysis()` and the EVS fit with the same settings; a
+  file that fails stays in the table with the reason. No tests between
+  files (that is Batch Comparison). A browser cannot pick a folder, so the
+  tab takes a multi-file selection; `process_folder()` takes a directory.
+* **Project file** (`R/project_io.R`): the plain inputs of all tabs in one
+  JSON with the names of the uploaded files. Data files are not stored and
+  cannot be restored by the page; settings that need a file are sent again
+  when that file is uploaded.
+* **Example data** (`inst/extdata/examples`, written by
+  `data-raw/make_example_data.R`): SIMULATED, no real steel. Two runs of one
+  specimen and one other heat; clustered (D about 2.6), with stringers and
+  many particles below the electron range. The page loads them into the
+  open tab's upload box through the browser (fetch + DataTransfer).
+
+## Audit pass 7, fix 1: limit on the number of rating fields (2026-11-13)
+
+Coordinates in um read as mm turned a 2 x 1 mm scan into 2000 x 1000 mm
+and 4,003,035 rating fields; the per-field tables then used all memory.
+`rating_field_grid()` now has `max_fields` (default 20000, i.e. 10000 mm2
+of 0.5 mm2 fields; `Inf` switches it off) and `run_cleanliness_analysis()`
+checks the count right after the coordinate range is known (setting
+`max_rating_fields`). The error names the span, the field count and the
+coordinate unit that is set. Folder Summary lists such a file as failed
+with that reason. The other 14 findings of pass 7 are open.
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

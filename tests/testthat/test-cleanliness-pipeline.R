@@ -178,6 +178,27 @@ test_that("missing columns and unusable data give a clear error", {
   expect_error(clean_result(data = d), "No particle has a valid")
 })
 
+test_that("coordinates in um read as mm stop with a message at once, instead of exhausting the memory", {
+  d <- make_cleanliness_data()
+  d[[CLEAN_COLS$x]] <- d[[CLEAN_COLS$x]] * 1000
+  d[[CLEAN_COLS$y]] <- d[[CLEAN_COLS$y]] * 1000
+  elapsed <- system.time(
+    expect_error(run_cleanliness_analysis(d, CLEAN_COLS),
+                 "span 2,000 x 1,000 mm, which would be cut into 4,003,035 rating fields.*The coordinate unit is set to mm: if the coordinates are in um, change it to um")
+  )[["elapsed"]]
+  expect_lt(elapsed, 5)
+  # with the right unit the same file is analysed as before
+  ok <- run_cleanliness_analysis(d, CLEAN_COLS, list(coord_unit = "um", n_boot = 200))
+  ref <- run_cleanliness_analysis(make_cleanliness_data(), CLEAN_COLS, list(n_boot = 200))
+  expect_equal(ok$rating_summary, ref$rating_summary)
+  expect_equal(ok$inspected_area_mm2, 2)
+  # the limit is a setting, so a script can raise it for a genuinely large map
+  expect_equal(cleanliness_default_settings()$max_rating_fields, 20000)
+  expect_error(run_cleanliness_analysis(make_cleanliness_data(), CLEAN_COLS, list(max_rating_fields = 5)), "6 rating fields of 0.5 mm2 (at most 5", fixed = TRUE)
+  # the filtered rows do not hide it: the area is that of the whole file
+  expect_error(run_cleanliness_analysis(d[1:3, ], CLEAN_COLS, all_data = d), "4,003,035 rating fields")
+})
+
 test_that("the export tables cover every part of the result", {
   tabs <- cleanliness_result_tables(clean_result())
   expect_true(all(c("Rating", "Rating by family", "Field ratings", "Objects", "Indices", "Size classes",

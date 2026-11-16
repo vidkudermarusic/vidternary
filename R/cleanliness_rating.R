@@ -8,6 +8,32 @@
 # Rating series in report order.
 .rating_series <- c("A fine", "A thick", "B fine", "B thick", "C fine", "C thick", "D fine", "D thick", "DS")
 
+# Number of rating fields an inspected area would be cut into, checked
+# against a limit BEFORE anything is built per field. Coordinates in um that
+# are read as mm make a 2 x 1 mm scan 2000 x 1000 mm: four million fields,
+# and the tables built per field then exhaust the memory. `bbox` is
+# c(xmin, xmax, ymin, ymax) in um; `unit` is the coordinate unit chosen by
+# the user ("mm" or "um"), named in the message when it is known.
+.check_rating_field_count <- function(bbox, field_area_mm2, max_fields, unit = NULL) {
+  side <- sqrt(field_area_mm2) * 1000
+  width <- bbox[2] - bbox[1]
+  height <- bbox[4] - bbox[3]
+  tol <- 1e-9 * side
+  n <- max(1, ceiling((width - tol) / side)) * max(1, ceiling((height - tol) / side))
+  if (is.finite(max_fields) && n > max_fields) {
+    hint <- if (identical(unit, "mm")) {
+      " The coordinate unit is set to mm: if the coordinates are in um, change it to um."
+    } else if (identical(unit, "um")) {
+      " The coordinate unit is set to um: check that the right coordinate columns are chosen."
+    } else " Check the coordinate unit (um or mm) and the coordinate columns."
+    stop(sprintf("The coordinates span %s x %s mm, which would be cut into %s rating fields of %g mm2 (at most %s are allowed). No specimen is that large.%s",
+                 format(signif(width / 1000, 4), big.mark = ",", scientific = FALSE), format(signif(height / 1000, 4), big.mark = ",", scientific = FALSE),
+                 format(n, big.mark = ",", scientific = FALSE), field_area_mm2, format(max_fields, big.mark = ",", scientific = FALSE), hint),
+         call. = FALSE)
+  }
+  invisible(n)
+}
+
 #' Cut the inspected area into square rating fields
 #'
 #' Fields are laid from the lower-left corner of the inspected area. Fields
@@ -19,15 +45,20 @@
 #' @param field_area_mm2 Area of one rating field. Default 0.5.
 #' @param bbox Inspected area as `c(xmin, xmax, ymin, ymax)` in um;
 #'   default: the range of `x` and `y`.
+#' @param max_fields Largest number of rating fields allowed. An area that
+#'   needs more stops with an error, because it nearly always means the
+#'   coordinates are in another unit than assumed. Default 20000 (10000 mm2
+#'   of 0.5 mm2 fields); `Inf` switches the check off.
 #' @return A list: `field` (field number of each point, `NA` outside the
 #'   area), `fields` (data frame: `field`, `col`, `row`, `x_min`, `x_max`,
 #'   `y_min`, `y_max`, `covered_fraction`, `complete`), `side` (um), `nx`,
 #'   `ny`.
 #' @export
-rating_field_grid <- function(x, y, field_area_mm2 = 0.5, bbox = NULL) {
+rating_field_grid <- function(x, y, field_area_mm2 = 0.5, bbox = NULL, max_fields = 20000) {
   if (!is.finite(field_area_mm2) || field_area_mm2 <= 0) stop("The rating field area must be greater than zero.", call. = FALSE)
   if (is.null(bbox)) bbox <- c(range(x, na.rm = TRUE), range(y, na.rm = TRUE))
   if (!all(is.finite(bbox))) stop("The inspected area cannot be worked out: no valid coordinates.", call. = FALSE)
+  .check_rating_field_count(bbox, field_area_mm2, max_fields)
   side <- sqrt(field_area_mm2) * 1000
   width <- bbox[2] - bbox[1]
   height <- bbox[4] - bbox[3]

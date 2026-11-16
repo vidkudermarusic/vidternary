@@ -15,6 +15,8 @@
 #   ui_evs_tab.R                 - create_evs_tab()
 #   ui_cleanliness_tab.R         - create_cleanliness_tab()
 #   ui_batch_tab.R               - create_batch_tab()
+#   ui_folder_tab.R              - create_folder_tab()
+#   ui_planning_tab.R            - create_planning_tab()
 #   ui_import_tab.R              - create_import_tab()
 #   ui_spatial_tab.R              - create_spatial_tab()
 #   ui_spatial_ppp_tab.R          - create_spatial_ppp_tab()
@@ -37,7 +39,7 @@ cite_link <- function(label, doi_url = NULL) {
 # Main UI function
 #' Build the full app UI: page shell, header, and tabset
 #'
-#' Assembles the page's global styling/JS, header, and all 14 tabs (via
+#' Assembles the page's global styling/JS, header, and all 16 tabs (via
 #' each tab's own `create_*_tab()`). No shared save-location picker - see
 #' this file's own header comment for why.
 #'
@@ -109,6 +111,9 @@ create_main_ui <- function() {
 
     hr(),
 
+    # Project file and example data (project_io.R, example_data.R)
+    fluidRow(column(6, project_io_ui()), column(6, example_data_ui())),
+
     # Main Tabset Panel
     tabsetPanel(
       create_ternary_plots_tab("ternary_plots"),
@@ -120,6 +125,8 @@ create_main_ui <- function() {
       create_evs_tab("evs"),
       create_cleanliness_tab("cleanliness"),
       create_batch_tab("batch"),
+      create_folder_tab("folder"),
+      create_planning_tab("planning"),
       create_spatial_tab("spatial"),
       create_spatial_ppp_tab("spatial_ppp"),
       create_coda_tab("coda"),

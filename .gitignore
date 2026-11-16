@@ -57,3 +57,5 @@ cache/
 
 # Keep the inclusion preset tables (*.csv is ignored above)
 !inst/extdata/inclusion_presets/*.csv
+# Keep the simulated example files (*.xlsx is ignored above)
+!inst/extdata/examples/*.xlsx

@@ -354,6 +354,76 @@ inclusions, and says by how much.
 - If the yellow box says the particles are clustered, do not rely on the
   Poisson p-values for the number density; use the test on counts per field.
 
+## Acceptance limits (in Steel Cleanliness and Folder Summary)
+
+Enter the upper limits of your specification in the **Acceptance limits**
+box: particles per mm2, area fraction, the largest inclusion found, the
+largest inclusion expected (the extreme-value return level) and chart
+indices typed as `A=2, B=1.5, D fine=1, DS=1`. Empty boxes mean no limit.
+
+The **Acceptance** tab of the result gives one row per limit:
+
+| Verdict | Meaning |
+|---|---|
+| pass | value and its whole interval are within the limit |
+| pass, not certain | value within the limit, but the interval reaches above it |
+| fail, not certain | value above the limit, but the interval reaches below it |
+| fail | value and its whole interval are above the limit |
+
+"Not certain" means a repeat of the measurement could give the other
+verdict; a larger inspected area narrows the interval. Chart indices and
+the largest inclusion found have no interval and are judged by their value
+alone. Limits can be changed without running the analysis again.
+
+## Folder Summary
+
+For many files at once - the specimens of a week, a heat, a trial.
+
+1. Click **Select all files of the folder**, open the folder and select
+   everything (Ctrl+A).
+2. Check the columns (only columns present in every file are offered).
+3. Optionally enter acceptance limits and a pre-analysis filter.
+4. Click **Analyse All Files**.
+
+Each file is analysed on its own, as in Steel Cleanliness, and gets one
+row: particles, number density and area fraction with intervals, sizes,
+chart indices, the largest-inclusion estimate and, with limits, a verdict.
+A file that cannot be analysed is listed with the reason. Downloads: all
+tables, one summary report, and a zip with a full report per file.
+
+The files are set side by side, not tested against each other - use Batch
+Comparison to ask whether batches differ. From a script:
+
+```{r folder-example, eval = FALSE}
+result <- process_folder("C:/data/week_46", report = "week_46.html",
+                         limits = acceptance_limits(per_mm2 = 300, ratings = parse_rating_limits("DS=1")))
+result$summary
+```
+
+## Measurement Planning
+
+Answers "how much area is enough?" before more instrument time is spent.
+Upload a pilot run - or several repeated runs of the same specimen - and
+click **Make the Plan**.
+
+- **Number density**: how precise the density is now, the area needed for
+  the precision you want, and the area each of two batches needs so that a
+  given density ratio is detected. Halving the interval takes four times
+  the area.
+- **Clustering**: with a SEM field column the plan measures how much the
+  counts per field vary beyond random scatter (index of dispersion) and
+  enlarges every area by that factor. Without the column the areas are a
+  lower bound.
+- **Largest inclusion**: how the interval of the extreme-value return level
+  narrows with 2, 4, 8 and 16 times the control areas.
+- **Repeated runs**: whether the runs differ by more than counting scatter,
+  and the repeatability limit - the difference two runs of one specimen
+  stay within. A difference between batches below that limit cannot be
+  told from a mere repeat.
+
+The plan covers counting statistics on one specimen. Differences between
+sections, positions in the product or heats need their own specimens.
+
 ## Data Import
 
 **Purpose:** makes a particle export from any automated SEM system usable
@@ -422,6 +492,20 @@ Extreme Value Analysis, Steel Cleanliness and Batch Comparison also offer:
   script. It opens in any browser and needs no internet connection.
 - **Download R script**: an R script that repeats the run without the app.
   Set the file path at its top and run it with the package installed.
+
+## Project file and example data (top of the page)
+
+- **Save project (JSON)** writes the settings of every tab into one file,
+  with the names of the data files each tab had loaded. **Load project**
+  sets them again. Data files are not stored in the project and a web page
+  cannot open them for you: the status line names the files each tab is
+  waiting for, and the settings of a tab are filled in as soon as its file
+  is loaded - before or after the project.
+- **Load example data into the open tab** puts simulated particle files
+  into the upload box of the tab you are looking at, so every tab can be
+  tried without a measurement of your own. The files are two runs of one
+  specimen and one other heat. They are simulated and describe no real
+  steel. **Download the example files (zip)** gives the same files.
 
 ## Spatial Clustering
 

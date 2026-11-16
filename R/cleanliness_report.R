@@ -33,9 +33,11 @@ cleanliness_script <- function(file_name, cols, settings, filters = list()) {
 #' @param script Script lines from [cleanliness_script()], or `NULL`.
 #' @param filters Pre-analysis filters that were applied (for the settings
 #'   section).
+#' @param acceptance From [assess_acceptance()], to add the comparison
+#'   with the acceptance limits (or `NULL`).
 #' @return The HTML document as one string (see [build_html_report()]).
 #' @export
-cleanliness_report <- function(result, provenance = NULL, script = NULL, filters = list()) {
+cleanliness_report <- function(result, provenance = NULL, script = NULL, filters = list(), acceptance = NULL) {
   tab <- cleanliness_display_tables(result)
   st <- result$settings
   settings <- data.frame(Setting = names(st),
@@ -74,6 +76,13 @@ cleanliness_report <- function(result, provenance = NULL, script = NULL, filters
       "Stereology: Delesse (volume fraction = area fraction), Fullman (1953), Schwartz-Saltykov unfolding; spheres assumed.",
       "Chemical family from S, Ti, Al, Mg, Ca and Si as compound mass; N, O and C are not used (Ti-N and Cr-O peak overlaps, carbon contamination)."))))
   )
+  if (!is.null(acceptance) && nrow(acceptance$table) > 0) {
+    sections <- append(sections, list(list(title = "Acceptance limits", content = list(
+      if (acceptance$verdict == "pass") acceptance$summary else report_warning(acceptance$summary),
+      acceptance_display_table(acceptance),
+      "'Not certain' means the interval of the measured value reaches across the limit. Chart indices and the largest inclusion found have no interval and are judged by their value alone."))),
+      after = 2)
+  }
   if (!is.null(script)) {
     sections <- c(sections, list(list(title = "R script that repeats this analysis", content = list(report_code(script)))))
   }

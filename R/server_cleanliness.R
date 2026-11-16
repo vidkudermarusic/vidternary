@@ -138,13 +138,30 @@ create_server_cleanliness <- function(input, output, session, rv, show_message, 
     res$cols <- cols
     res$filters <- collect_pre_filters(input, "clean", input$clean_filter_cols)
     res$file <- list(name = input$clean_files$name[1], datapath = input$clean_files$datapath[1])
+    # Areas and field IDs for the extreme-value limit of the acceptance check.
+    if (!is.null(cols$field)) {
+      res$evs_input <- list(area = suppressWarnings(as.numeric(d[[cols$area]])), field = d[[cols$field]],
+                            all_field = all_data[[cols$field]])
+    }
     log_operation("INFO", "Steel cleanliness analysis",
                   sprintf("%s, %d particles, %d rated objects, %.2f mm2", res$standard$name,
                           nrow(res$particles), sum(res$objects$rated), res$inspected_area_mm2))
     res
   })
 
-  register_cleanliness_outputs(input, output, result)
+  # Acceptance limits are read when they change, without a new run.
+  acceptance <- reactive({
+    res <- result()
+    acc <- tryCatch(read_acceptance_limits(input, "clean"), error = function(e) shiny::validate(e$message))
+    evs <- NULL
+    if (!is.null(acc$limits$return_level_um) && !is.null(res$evs_input)) {
+      evs <- acceptance_evs(res$evs_input$area, res$evs_input$field, res$evs_input$all_field,
+                            acc$fields_per_area, acc$return_period)
+    }
+    assess_acceptance(res, acc$limits, evs)
+  })
+
+  register_cleanliness_outputs(input, output, result, acceptance)
 
   # Save / load of this tab's settings (settings_io.R).
   register_settings_io(input, output, session, tab = "cleanliness", prefix = "clean")

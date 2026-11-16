@@ -44,26 +44,37 @@ collect_settings <- function(values, exclude = character(0)) {
 #' @param settings From [collect_settings()].
 #' @param tab Id of the tab the settings belong to.
 #' @param path File to write or read (JSON).
+#' @param kind What the file holds: `"tab settings"`, or `"project"` for
+#'   the settings of all tabs (see [register_project_io()]).
+#' @param extra Named list of further entries to store in the file (e.g.
+#'   the names of the data files); read back as `extra`.
 #' @return `write_settings_file()` returns `path` invisibly;
 #'   `read_settings_file()` returns a list: `tab`, `saved`, `version`,
-#'   `settings`.
+#'   `settings`, `extra`.
 #' @export
-write_settings_file <- function(settings, tab, path) {
-  out <- list(app = "vidternary", kind = "tab settings", tab = tab,
+write_settings_file <- function(settings, tab, path, kind = "tab settings", extra = NULL) {
+  out <- list(app = "vidternary", kind = kind, tab = tab,
               version = as.character(utils::packageVersion("vidternary")),
               saved = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
               # Vectors stay arrays, so a one-column selection reads back as a selection.
               settings = lapply(settings, function(v) if (length(v) == 1) jsonlite::unbox(v) else v))
-  jsonlite::write_json(out, path, pretty = TRUE, null = "null", na = "null", digits = NA)
+  out <- c(out, extra[setdiff(names(extra), names(out))])
+  jsonlite::write_json(out, path, pretty = TRUE, null = "null", na = "null", digits = NA, auto_unbox = FALSE)
   invisible(path)
 }
 
 #' @rdname write_settings_file
 #' @export
-read_settings_file <- function(path, tab = NULL) {
+read_settings_file <- function(path, tab = NULL, kind = "tab settings") {
   raw <- tryCatch(jsonlite::fromJSON(path, simplifyVector = TRUE),
                   error = function(e) stop("The settings file is not valid JSON.", call. = FALSE))
-  if (!identical(raw$kind, "tab settings")) stop("This file is not a vidternary settings file.", call. = FALSE)
+  if (!identical(raw$kind, kind)) {
+    if (identical(raw$kind, "project")) stop("This is a project file: load it with \"Load project\" at the top of the page.", call. = FALSE)
+    if (identical(raw$kind, "tab settings") && !is.null(raw$tab)) {
+      stop(sprintf("This file holds the settings of the '%s' tab: load it in that tab.", raw$tab), call. = FALSE)
+    }
+    stop(if (identical(kind, "project")) "This file is not a vidternary project file." else "This file is not a vidternary settings file.", call. = FALSE)
+  }
   if (!is.null(tab) && !identical(raw$tab, tab)) {
     stop(sprintf("These settings were saved from the '%s' tab and cannot be loaded into '%s'.", raw$tab, tab), call. = FALSE)
   }
@@ -73,7 +84,8 @@ read_settings_file <- function(path, tab = NULL) {
   # empty. A value written as null (an empty number box) is left alone.
   settings <- settings[!vapply(settings, is.null, logical(1))]
   settings <- lapply(settings, function(v) if (is.list(v) && length(v) == 0) character(0) else v)
-  list(tab = raw$tab, saved = raw$saved, version = raw$version, settings = settings)
+  list(tab = raw$tab, saved = raw$saved, version = raw$version, settings = settings,
+       extra = raw[setdiff(names(raw), c("app", "kind", "tab", "version", "saved", "settings"))])
 }
 
 #' Save / load buttons for the settings of a tab
@@ -104,11 +116,18 @@ settings_io_ui <- function(ns, prefix) {
 #'   the default uses `session$sendInputMessage()`. Replaceable for tests.
 #' @param retries How often values that have not arrived are sent again.
 #' @param retry_ms Milliseconds between the attempts.
+#' @param kind,extra Passed to [write_settings_file()]; `extra` is a
+#'   function returning the list to store, called when saving.
+#' @param describe Function `(loaded, unsettled)` that words the status
+#'   line after loading (`loaded` from [read_settings_file()], `unsettled`
+#'   the ids given up on); the default names the ids.
 #' @return A list with `pending` (reactive: values that have not arrived
-#'   yet) and `unsettled` (reactive: ids of the values given up on).
+#'   yet), `unsettled` (reactive: ids of the values given up on), `loaded`
+#'   (reactive: the file loaded last, or `NULL`) and `apply` (function
+#'   that sends a list of settings to the inputs, with the same retries).
 #' @export
 register_settings_io <- function(input, output, session, tab, prefix, exclude = character(0), send = NULL,
-                                 retries = 3, retry_ms = 700) {
+                                 retries = 3, retry_ms = 700, kind = "tab settings", extra = NULL, describe = NULL) {
   if (is.null(send)) send <- function(id, value) session$sendInputMessage(id, list(value = value))
   own <- paste0("^", prefix, "_settings_")
   exclude <- c(exclude, own, "_files?$", "_run$", "_fit$", "_analyze$", "_download", "_convert$")
@@ -116,27 +135,36 @@ register_settings_io <- function(input, output, session, tab, prefix, exclude = 
   attempts <- reactiveVal(0)
   unsettled <- reactiveVal(character(0))
   status <- reactiveVal("")
+  last_loaded <- reactiveVal(NULL)
   # A number box holds 8 where the file says 8.0: compare what is shown.
   arrived <- function(id, value) identical(as.character(input[[id]]), as.character(value))
 
   output[[paste0(prefix, "_settings_save")]] <- downloadHandler(
     filename = function() paste0(tab, "_settings_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".json"),
-    content = function(file) write_settings_file(collect_settings(reactiveValuesToList(input), exclude), tab, file)
+    content = function(file) write_settings_file(collect_settings(reactiveValuesToList(input), exclude), tab, file,
+                                                 kind = kind, extra = if (is.null(extra)) NULL else extra())
   )
+
+  # Sends the values and starts the watch that resends what has not arrived.
+  apply_settings <- function(settings) {
+    for (id in names(settings)) send(id, settings[[id]])
+    unsettled(character(0))
+    attempts(0)
+    pending(settings)
+  }
 
   observeEvent(input[[paste0(prefix, "_settings_load")]], {
     upload <- input[[paste0(prefix, "_settings_load")]]
-    loaded <- tryCatch(read_settings_file(upload$datapath[1], tab), error = function(e) conditionMessage(e))
+    loaded <- tryCatch(read_settings_file(upload$datapath[1], tab, kind), error = function(e) conditionMessage(e))
     if (is.character(loaded)) {
       status(paste("Could not load the settings:", loaded))
       return()
     }
     settings <- loaded$settings
     settings <- settings[!vapply(names(settings), function(id) any(vapply(exclude, grepl, logical(1), x = id)), logical(1))]
-    for (id in names(settings)) send(id, settings[[id]])
-    unsettled(character(0))
-    attempts(0)
-    pending(settings)
+    loaded$settings <- settings
+    last_loaded(loaded)
+    apply_settings(settings)
     status(sprintf("Loaded %d settings saved on %s.", length(settings), loaded$saved %||% "an unknown date"))
   })
 
@@ -160,10 +188,13 @@ register_settings_io <- function(input, output, session, tab, prefix, exclude = 
   output[[paste0(prefix, "_settings_status")]] <- renderText({
     msg <- status()
     left <- unsettled()
+    if (!is.null(describe) && !is.null(last_loaded()) && !grepl("^Could not", msg)) {
+      return(describe(last_loaded(), if (length(pending())) NULL else left))
+    }
     if (nzchar(msg) && length(left) > 0) {
       paste0(msg, sprintf(" %d could not be set, because the input is not shown or does not offer that value: %s.",
                           length(left), paste(left, collapse = ", ")))
     } else msg
   })
-  list(pending = pending, unsettled = unsettled)
+  list(pending = pending, unsettled = unsettled, loaded = last_loaded, apply = apply_settings)
 }

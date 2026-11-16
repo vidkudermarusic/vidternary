@@ -41,5 +41,6 @@ utils::globalVariables(c(
   "x_start", "y_start", "x_end", "y_end", "type", "angle", "share",
   "size_class", "per_mm2", "group", "lower", "upper",
   "batch", "value", "size", "part", "difference",
+  "area_mm2", "rel_halfwidth", "model",
   "all_selected_elements", "file_base", "ternary_points1", "matrika"
 ))

@@ -12,6 +12,8 @@ A comprehensive R package/Shiny app for creating ternary plots with advanced fil
 - **Extreme Value Analysis** — Murakami / ASTM E2283 extreme value statistics: fits a Gumbel probability plot to per-field maximum inclusion sizes and extrapolates the return level (and an interval for the largest inclusion) expected over a larger inspection area; with the steel's Vickers hardness it also gives a fatigue-limit estimate (Murakami's √area model)
 - **Steel Cleanliness** — chart rating after ISO 4967 / ASTM E45 from automated SEM/EDS data (types A, B, C, D, DS per 0.5 mm² field; worst field and mean), stringer detection, particles per mm² and area fraction with confidence intervals, and stereology (Fullman, Schwartz-Saltykov, O/S/N bound in the inclusions)
 - **Batch Comparison** — one file per batch (heat, specimen): number density and area fraction with intervals, size distributions (k-sample Anderson-Darling, permutation), chemistry (permutation MANOVA on log-ratio coordinates) and the extreme-value return level per batch, each with a test and a measure of how large the difference is
+- **Folder Summary** — all files of a folder analysed one by one with the same settings: one row per file (amount, size, chart indices, largest-inclusion estimate, acceptance verdict), a summary report and a report per file; `process_folder()` does the same from a script
+- **Measurement Planning** — from a pilot run: how precise the number density is, how much area a wanted precision or a difference between two batches takes (clustering included), how many control areas the largest-inclusion estimate needs; with repeated runs of one specimen, whether they agree beyond counting scatter
 - **Data Import** — turns the particle export of any automated SEM system (.xlsx, .csv, .txt; decimal commas and atomic percent included) into the app's standard table; the column mapping can be saved as a profile
 - **Spatial Clustering** — Clark-Evans nearest-neighbour test on inclusion X/Y positions: are they randomly scattered, clustered, or more evenly spread than chance predicts (asymptotic + Monte Carlo p-values)
 - **Compositional Analysis** — CLR / ILR log-ratio transforms plus PCA for Wt% chemistry data, avoiding the closure-problem artifacts of running ordinary statistics on raw percentages
@@ -41,6 +43,10 @@ The package is organized into logical modules, each handling specific functional
 - **`R/batch_density.R`**, **`R/batch_size_distribution.R`**, **`R/batch_composition.R`**, **`R/batch_evs.R`**, **`R/batch_plots.R`**, **`R/batch_pipeline.R`**, **`R/batch_report.R`** — batch comparison: Poisson rate ratios and dispersion of counts per field, k-sample Anderson-Darling permutation test, permutation MANOVA on ilr coordinates, extreme-value estimate per batch, plots, `run_batch_comparison()`, report and script
 - **`R/import_read_table.R`**, **`R/import_roles.R`**, **`R/import_standardize.R`**, **`R/import_profiles.R`** — data import: Excel / delimited-text reader, column-role and unit detection, conversion to the standard table (units, atomic to weight percent), saved profiles
 - **`R/eds_overlap.R`**, **`R/eds_size_reliability.R`**, **`R/class_share_intervals.R`** — reliability of the EDS analysis: overlapping lines among chosen columns, electron range and size classes, class shares with a bootstrap over SEM fields
+- **`R/planning_precision.R`**, **`R/planning_evs.R`**, **`R/repeatability.R`**, **`R/planning_pipeline.R`**, **`R/planning_plots.R`** — measurement planning: area for a precision or a density ratio, precision of the return level by simulation, repeatability of repeated runs, `plan_measurement()`
+- **`R/acceptance_criteria.R`**, **`R/acceptance_inputs.R`** — acceptance limits: each limit against the measured value and its interval (`assess_acceptance()`)
+- **`R/folder_pipeline.R`**, **`R/folder_report.R`** — folder summary: `run_folder_summary()`, `process_folder()`, summary report and archive of per-file reports
+- **`R/project_io.R`**, **`R/example_data.R`** — one project file for the settings of all tabs; simulated example files and the button that loads them into the open tab
 - **`R/settings_io.R`**, **`R/report_html.R`**, **`R/cleanliness_report.R`**, **`R/evs_report.R`** — reproducibility: tab settings as JSON, self-contained HTML reports, scripts that repeat an analysis
 - **`R/spatial_clustering_analysis.R`** — Clark-Evans nearest-neighbour CSR test with Donnelly edge correction; pure stats behind the Spatial Clustering tab
 - **`R/compositional_data_analysis.R`** — CLR / ILR log-ratio transforms + PCA; pure stats behind the Compositional Analysis tab
@@ -68,6 +74,8 @@ The package is organized into logical modules, each handling specific functional
 - **`R/server_cleanliness.R`** (+ `_outputs.R`) — Steel Cleanliness tab: upload, column detection, the run, and its tables, plots and downloads
 - **`R/server_batch.R`** (+ `_outputs.R`) — Batch Comparison tab
 - **`R/server_import.R`** — Data Import tab
+- **`R/server_folder.R`** — Folder Summary tab
+- **`R/server_planning.R`** — Measurement Planning tab
 - **`R/server_data_comparison.R`** (+ `_upload.R`, `_stats.R`, `_multivariate.R`, `_preview.R`) — Data Comparison tab
 - **`R/server_analysis_log.R`** — Analysis Log tab
 - **`R/server_status_outputs.R`** — app-shell status text
@@ -135,6 +143,12 @@ shiny::runApp(app)
 - **Settings**: the analysis tabs save all their inputs as a JSON file and load them again
 - **Report**: Steel Cleanliness, Extreme Value Analysis and Batch Comparison write a self-contained HTML report (tables, plots, settings, notes, file checksum)
 - **Script**: the same tabs write an R script that repeats the analysis without the app
+- **Project**: one JSON file with the settings of every tab and the names of the data files used (top of the page)
+- **Example data**: three simulated particle files ship with the package and load into any tab with one click (`example_data()` in a script)
+
+### Decisions
+- **Acceptance limits**: upper limits for number density, area fraction, largest inclusion (found, and expected from the extreme-value fit) and chart indices; each verdict says whether it holds beyond the uncertainty of the measurement (Steel Cleanliness and Folder Summary)
+- **Planning**: the area a wanted precision takes, before the instrument time is spent
 
 ### Data Quality Assessment
 - Missing-value and outlier summaries

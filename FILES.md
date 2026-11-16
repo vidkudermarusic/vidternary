@@ -83,6 +83,20 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/eds_overlap.R` | Overlapping EDS lines (Ti-N, Cr-O, Ti-V, S-Mo-Pb-Bi) among chosen columns; the warning box every tab with element choices shows. |
 | `R/eds_size_reliability.R` | Electron range (Kanaya-Okayama), reliability class of a particle by its size, columns for the standard table. |
 | `R/class_share_intervals.R` | Share of each inclusion class with a bootstrap-over-fields or Wilson interval. |
+| `R/planning_precision.R` | Precision of a number density on a given area; area for a wanted precision or for detecting a density ratio; detectable ratio. |
+| `R/planning_evs.R` | Precision of the EVS return level against the number of control areas, by simulation from the pilot fit. |
+| `R/repeatability.R` | Repeated runs of one specimen: scatter between runs against counting scatter, repeatability limit. |
+| `R/planning_pipeline.R` | `plan_measurement()`: the whole plan as one pure function, its notes and export tables. |
+| `R/planning_plots.R` | Precision-against-area curve; display tables of the plan. |
+| `R/ui_planning_tab.R`, `R/server_planning.R` | "Measurement Planning" tab. |
+| `R/acceptance_criteria.R` | Acceptance limits, the verdict per limit with its interval, display table, EVS fit of one specimen. |
+| `R/acceptance_inputs.R` | The limit input boxes shared by Steel Cleanliness and Folder Summary, and the function that reads them. |
+| `R/folder_pipeline.R` | `run_folder_summary()` (one row per file) and `process_folder()` (the same from a directory). |
+| `R/folder_report.R` | Display tables, export, summary report and zip archive of per-file reports. |
+| `R/ui_folder_tab.R`, `R/server_folder.R` | "Folder Summary" tab. |
+| `R/project_io.R` | One project file with the settings of all tabs and the names of the data files; resends settings when a file arrives. |
+| `R/example_data.R` | The simulated example files, `example_data()`, and the bar that loads them into the open tab. |
+| `data-raw/make_example_data.R` | Writes `inst/extdata/examples/*.xlsx` (simulated; not part of the built package). |
 | `R/settings_io.R` | Save / load the settings of a tab as JSON; shared UI block and server wiring. |
 | `R/report_html.R` | Self-contained HTML report builder (no pandoc), file provenance with checksum, script helpers. |
 | `R/cleanliness_report.R` | HTML report and reproduction script of a cleanliness analysis. |

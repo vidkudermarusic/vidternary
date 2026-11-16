@@ -213,3 +213,20 @@ test_that("the bulk analysis text is read, and empty text means none", {
   expect_null(parse_measured_ppm("   "))
   expect_equal(parse_measured_ppm("O=25, S=10"), c(O = 25, S = 10))
 })
+
+test_that("a wrong coordinate unit is reported in the tab instead of freezing it", {
+  d <- make_cleanliness_data()
+  d[[CLEAN_COLS$x]] <- d[[CLEAN_COLS$x]] * 1000
+  d[[CLEAN_COLS$y]] <- d[[CLEAN_COLS$y]] * 1000
+  testServer(make_cleanliness_server(), {
+    set_cleanliness_inputs(session, upload = make_cleanliness_upload(d))
+    session$setInputs(`cleanliness-clean_run` = 1)
+    # um coordinates with the unit box on mm: the message, not a hang
+    expect_error(output[["cleanliness-clean_status"]],
+                 "Cleanliness analysis failed: The coordinates span 2,000 x 1,000 mm.*if the coordinates are in um, change it to um")
+    # the unit corrected: the same file is analysed
+    session$setInputs(`cleanliness-clean_coord_unit` = "um", `cleanliness-clean_run` = 2)
+    expect_match(output[["cleanliness-clean_status"]], "32 particles analysed", fixed = TRUE)
+    expect_match(output[["cleanliness-clean_status"]], "Inspected area 2.00 mm2", fixed = TRUE)
+  })
+})

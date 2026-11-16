@@ -105,6 +105,26 @@ test_that("among fields with the same index the larger value is the worst", {
   expect_equal(s$worst_value[s$series == "A fine"], 100)
 })
 
+test_that("an area that needs an absurd number of rating fields is refused before the grid is built", {
+  # 2 x 1 mm in um read as mm: 2000 x 1000 mm, 2829 x 1415 fields of 0.5 mm2
+  expect_error(rating_field_grid(c(0, 2e6), c(0, 1e6), bbox = c(0, 2e6, 0, 1e6)),
+               "span 2,000 x 1,000 mm, which would be cut into 4,003,035 rating fields of 0.5 mm2 (at most 20,000 are allowed)", fixed = TRUE)
+  expect_error(rating_field_grid(c(0, 2e6), c(0, 1e6)), "Check the coordinate unit (um or mm) and the coordinate columns.", fixed = TRUE)
+  # the limit is on the number of fields: a 100 x 100 mm specimen is exactly 20000 fields and is allowed
+  side <- sqrt(0.5) * 1000
+  g <- rating_field_grid(c(0, 1), c(0, 1), bbox = c(0, 200 * side, 0, 100 * side))
+  expect_equal(nrow(g$fields), 20000)
+  expect_error(rating_field_grid(c(0, 1), c(0, 1), bbox = c(0, 201 * side, 0, 100 * side)), "20,100 rating fields")
+  # a smaller field area or a lower limit move it; Inf switches it off
+  expect_error(rating_field_grid(c(0, 1), c(0, 1), bbox = c(0, 2000, 0, 1000), max_fields = 5), "6 rating fields of 0.5 mm2 (at most 5", fixed = TRUE)
+  expect_equal(nrow(rating_field_grid(c(0, 1), c(0, 1), bbox = c(0, 2000, 0, 1000), max_fields = 6)$fields), 6)
+  expect_equal(nrow(rating_field_grid(c(0, 1), c(0, 1), bbox = c(0, 201 * side, 0, 100 * side), max_fields = Inf)$fields), 20100)
+  # the message names the unit the user chose
+  expect_error(.check_rating_field_count(c(0, 2e6, 0, 1e6), 0.5, 20000, unit = "mm"), "set to mm: if the coordinates are in um, change it to um")
+  expect_error(.check_rating_field_count(c(0, 2e6, 0, 1e6), 0.5, 20000, unit = "um"), "set to um: check that the right coordinate columns are chosen")
+  expect_equal(.check_rating_field_count(c(0, 2000, 0, 1000), 0.5, 20000), 6)
+})
+
 test_that("no objects at all gives a table of zeros", {
   o <- rating_objects("A", "fine", 1, length = 10)[0, ]
   g <- rating_grid(o)

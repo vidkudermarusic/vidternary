@@ -4,7 +4,7 @@
 \alias{rating_field_grid}
 \title{Cut the inspected area into square rating fields}
 \usage{
-rating_field_grid(x, y, field_area_mm2 = 0.5, bbox = NULL)
+rating_field_grid(x, y, field_area_mm2 = 0.5, bbox = NULL, max_fields = 20000)
 }
 \arguments{
 \item{x, y}{Coordinates to place (um).}
@@ -13,6 +13,11 @@ rating_field_grid(x, y, field_area_mm2 = 0.5, bbox = NULL)
 
 \item{bbox}{Inspected area as \code{c(xmin, xmax, ymin, ymax)} in um;
 default: the range of \code{x} and \code{y}.}
+
+\item{max_fields}{Largest number of rating fields allowed. An area that
+needs more stops with an error, because it nearly always means the
+coordinates are in another unit than assumed. Default 20000 (10000 mm2
+of 0.5 mm2 fields); \code{Inf} switches the check off.}
 }
 \value{
 A list: \code{field} (field number of each point, \code{NA} outside the

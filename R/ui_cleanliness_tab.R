@@ -63,7 +63,8 @@ cleanliness_settings_ui <- function(ns) {
         numericInput(ns("clean_steel_density"), "Steel density (g/cm3):", value = 7.9, min = 1, step = 0.05),
         textInput(ns("clean_measured"), "Bulk analysis to compare with (mass ppm, optional):", value = "", placeholder = "e.g. O=25, S=10, N=120")
       )
-    )
+    ),
+    fluidRow(column(12, acceptance_limits_ui(ns, "clean", "Changing a limit does not need a new run.")))
   )
 }
 
@@ -143,6 +144,12 @@ create_cleanliness_tab <- function(id) {
             h4("Particles per size class"),
             plotOutput(ns("clean_size_plot"), height = "380px"),
             tableOutput(ns("clean_size_table"))
+          ),
+          tabPanel("Acceptance",
+            h4("Does the specimen meet the limits?"),
+            uiOutput(ns("clean_acceptance_summary")),
+            tableOutput(ns("clean_acceptance_table")),
+            helpText("'Not certain' means the interval of the measured value reaches across the limit: a repeat of the measurement could give the other verdict. Chart indices and the largest inclusion found have no interval and are judged by their value alone.")
           ),
           tabPanel("Stereology and mass balance",
             h4("Particles per volume (Fullman) and volume fraction (Delesse)"),
