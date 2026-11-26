@@ -749,6 +749,17 @@ line into stringers (gap up to 40 µm, offset up to 10 µm, three or more),
 assigns the type from chemistry and shape, and reports the worst field
 (method A) and the mean index over all fields (method B).
 
+A fixed grid of fields can split a cluster of inclusions that lies on a
+field border, and the worst field then rates too low. The worst field is
+therefore searched with a **sliding window**: the 0.5 mm² field is laid at
+16 positions, shifted by a quarter of its side in each direction, and the
+highest index is kept (the fixed grid is one of the 16). Looking at more
+positions can only raise the maximum, so the sliding-window index is never
+lower than the fixed-grid one and is typically higher by up to one chart
+step (+0.5 in each of the three example files); state which was used when
+reporting. The mean index (method B) stays on the fixed, non-overlapping
+fields.
+
 ```{r rating-example}
 # 300 um of sulfide length in one field, 5 globular oxides, one 30 um particle
 cleanliness_rating_index("A", 300)
@@ -879,10 +890,14 @@ field_count_dispersion(c(1, 1, 2, 2, 2, 3, 7, 7, 7, 7, 7, 7), n_fields = 10)$dis
 The **k-sample Anderson-Darling** statistic (Scholz & Stephens, 1987)
 compares the whole empirical distributions and weights the tails more than
 Kolmogorov-Smirnov does - and the tail is where the harmful inclusions are.
-The tie-adjusted form is used, because particle areas are multiples of the
-pixel area. The p-value is the share of **permutations of the batch labels**
-with a statistic at least as large as the observed one, so its smallest
-possible value is $1/(B+1)$ for $B$ permutations.
+The tie-adjusted form ("version 2") is used, because particle areas are
+multiples of the pixel area. It is computed with the **kSamples** package
+(Scholz & Zhu), written by the first author of the method. The p-value is
+the share of **permutations of the batch labels** - kSamples' random splits
+of the pooled values into samples of the observed sizes - with a statistic
+at least as large as the observed one, counting the observed labelling
+itself (Phipson & Smyth, 2010), so its smallest possible value is $1/(B+1)$
+for $B$ permutations and it is never 0.
 
 ```{r batch-size-example}
 set.seed(1)
@@ -997,6 +1012,8 @@ is the exact Poisson one, or $x \pm z\sqrt{DN}/A$ when $D > 1$.
 - ISO 4967:2013. *Steel - Determination of content of non-metallic inclusions - Micrographic method using standard diagrams*. International Organization for Standardization.
 - Murakami, Y., Endo, M. (1994). Effects of Defects, Inclusions and Inhomogeneities on Fatigue Strength. *International Journal of Fatigue*, 16(3), 163-182. <https://doi.org/10.1016/0142-1123(94)90001-9>
 - Murakami, Y. (1994). Inclusion Rating by Statistics of Extreme Values and Its Application to Fatigue Strength Prediction and Quality Control of Materials. *Journal of Research of the National Institute of Standards and Technology*, 99(4), 345-351. <https://doi.org/10.6028/jres.099.032>
+- Phipson, B., Smyth, G.K. (2010). Permutation P-values Should Never Be Zero: Calculating Exact P-values When Permutations Are Randomly Drawn. *Statistical Applications in Genetics and Molecular Biology*, 9(1), Article 39. <https://doi.org/10.2202/1544-6115.1585>
+- Scholz, F., Zhu, A. (2025). *kSamples: K-Sample Rank Tests and their Combinations*. R package version 1.2-12. <https://CRAN.R-project.org/package=kSamples>
 - Scholz, F.W., Stephens, M.A. (1987). K-Sample Anderson-Darling Tests. *Journal of the American Statistical Association*, 82(399), 918-924. <https://doi.org/10.1080/01621459.1987.10478517>
 - Stephens, M.A. (1977). Goodness of Fit for the Extreme Value Distribution. *Biometrika*, 64(3), 583-588. <https://doi.org/10.1093/biomet/64.3.583>
 - Tukey, J.W. (1977). *Exploratory Data Analysis*. Addison-Wesley, Reading, MA.

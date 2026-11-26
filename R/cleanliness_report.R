@@ -54,7 +54,7 @@ cleanliness_report <- function(result, provenance = NULL, script = NULL, filters
     list(title = "Data and settings", content = list(provenance, settings)),
     list(title = "What to keep in mind", content = list(report_warning(result$notes$warnings), report_list(result$notes$notes))),
     list(title = sprintf("Chart rating (%s)", result$standard$name), content = list(
-      "Index per inclusion type and width series, for 0.5 mm2 rating fields cut from the particle coordinates. Worst field = method A, mean over all fields = method B.",
+      "Index per inclusion type and width series, for 0.5 mm2 rating fields cut from the particle coordinates. Worst field = method A (sliding window unless switched off, see the notes), mean over the fixed fields = method B.",
       tab$rating, "The same rating with each chemical family on its own:", tab$rating_family)),
     list(title = "Stringers", content = list(
       create_stringer_map(result),

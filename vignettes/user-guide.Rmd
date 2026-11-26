@@ -47,6 +47,19 @@ headers become the column names shown in every dropdown, so short,
 consistent, spreadsheet-safe names (e.g. `Al2O3_Wt%`, `ECD_um`,
 `StageX_mm`, `Field`, `Area_mm2`) work best.
 
+## SEM field IDs
+
+Tabs that use a SEM field ID column (Extreme Value Analysis, Steel
+Cleanliness, Batch Comparison, Measurement Planning, Folder Summary) count
+every number from the smallest to the largest ID as an inspected field: a
+number missing from the file is a field where nothing was detected. Number
+the fields 1, 2, 3, ... as the instrument visited them. The tabs warn when
+the IDs step by a common number (10, 20, 30, ...) or when more than 10 % of
+the numbers are missing (e.g. two plates numbered 101-106 and 201-206),
+because the number of fields, the intervals over fields and the index of
+dispersion are then wrong. Text IDs work too, but then only fields with at
+least one particle can be counted.
+
 ## Uploads are per tab, not global
 
 **There is no single "load your data once" step.** Each tab has its own
@@ -317,6 +330,13 @@ inclusions.
   light microscope. Read the result as an estimate for the inspected area,
   not as a rating to the standard - the yellow box says how many rating
   fields the result rests on.
+- The **worst field** (method A) is searched with a shifted window, so a
+  cluster on a field border is not split; it is never lower than on the
+  fixed grid and often one step (0.5) higher. Untick *Worst field: search
+  with a shifted window* to rate the fixed fields only, e.g. to compare
+  with older results. The tables keep both values (`worst_index` and
+  `worst_index_grid`).
+- A blank element cell counts as 0 (the element was not detected).
 - Only particles from 2 um width are rated. All particles count in the
   indices and the stereology, so filter out the sub-micrometre detections
   there: their EDS spectrum is mostly steel and their family is unreliable.

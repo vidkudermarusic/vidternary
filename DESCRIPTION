@@ -27,7 +27,8 @@ Imports:
     rlang,
     RANN,
     spatstat.geom,
-    spatstat.explore
+    spatstat.explore,
+    kSamples
 Suggests:
     testthat,
     knitr,

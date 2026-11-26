@@ -28,10 +28,25 @@ test_that("a particle that is mostly matrix is unclassified", {
   expect_equal(classify_inclusion_family(data.frame(S = 0.5, Ti = 0.5, Fe = 99), min_signal_pct = 1)$family, "sulfide")
 })
 
-test_that("a missing reading gives 'unclassified', not a family from the remaining elements", {
+test_that("a blank reading counts as 0: an element the export leaves empty was not detected", {
   r <- classify_inclusion_family(data.frame(S = c(30, NA), Ti = c(0, 40), Fe = c(70, 60)))
-  expect_equal(r$family, c("sulfide", "unclassified"))
-  expect_true(is.na(r$family_share[2]))
+  expect_equal(r$family, c("sulfide", "Ti-rich"))
+  expect_equal(r, classify_inclusion_family(data.frame(S = c(30, 0), Ti = c(0, 40), Fe = c(70, 60))))
+  # all marker readings blank: no signal, so no family
+  blank <- classify_inclusion_family(data.frame(S = NA_real_, Ti = NA_real_, Fe = 100))
+  expect_equal(blank$family, "unclassified")
+  expect_true(is.na(blank$family_share))
+})
+
+test_that("an export with blanks instead of zeros gives the same families", {
+  d <- make_cleanliness_data()
+  el <- grep("Wt%", names(d), fixed = TRUE, value = TRUE)
+  blanks <- d
+  for (cn in el) blanks[[cn]][blanks[[cn]] == 0] <- NA
+  expect_gt(sum(is.na(blanks[el])), 300)
+  expect_equal(classify_inclusion_family(blanks), classify_inclusion_family(d))
+  expect_equal(run_cleanliness_analysis(blanks, CLEAN_COLS, list(n_boot = 200))$rating_by_family,
+               run_cleanliness_analysis(d, CLEAN_COLS, list(n_boot = 200))$rating_by_family)
 })
 
 test_that("N, O and C never decide the family", {

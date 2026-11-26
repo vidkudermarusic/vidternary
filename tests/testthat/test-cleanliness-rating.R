@@ -133,3 +133,79 @@ test_that("no objects at all gives a table of zeros", {
   expect_true(all(s$worst_index == 0))
   expect_true(all(is.na(s$worst_field)))
 })
+
+# ---- worst field with a sliding window ----
+
+# 30 compact 5 um aluminates on a 6 x 5 lattice (50 um apart, too far for
+# stringers) centred on the corner where four fixed fields meet, plus two
+# sub-micrometre specks that pin the inspected area to 2 x 1.414 mm.
+corner_cluster_data <- function() {
+  side_mm <- sqrt(0.5)
+  speck <- function(x, y) clean_particle(x, y, 0.4, 0.3, list(TiN = 3), steel = 97)
+  grid <- expand.grid(dx = c(-125, -75, -25, 25, 75, 125), dy = c(-110, -60, -10, 40, 90))
+  rbind(speck(0, 0), speck(2, 1.414),
+        do.call(rbind, Map(function(dx, dy) clean_particle(side_mm + dx / 1000, side_mm + dy / 1000, 5, 5, list(Al2O3 = 70)),
+                           grid$dx, grid$dy)))
+}
+
+test_that("one window position is the fixed grid", {
+  res <- run_cleanliness_analysis(make_cleanliness_data(), CLEAN_COLS, list(n_boot = 100))
+  w <- worst_window_rating(res$objects, res$bbox, 0.5, steps = 1)
+  s <- summarise_rating(res$field_ratings, res$grid)
+  expect_equal(w$index, s$worst_index)
+  expect_equal(w$value, s$worst_value)
+  expect_equal(ifelse(w$value > 0, w$field, NA), ifelse(s$worst_value > 0, s$worst_field, NA))
+  expect_false(any(w$shifted, na.rm = TRUE))
+})
+
+test_that("a cluster on the corner of four fields is found whole by the sliding window", {
+  res <- run_cleanliness_analysis(corner_cluster_data(), CLEAN_COLS, list(n_boot = 100))
+  d <- res$rating_summary[res$rating_summary$series == "D fine", ]
+  # the fixed grid splits the 30 particles 9 / 9 / 6 / 6
+  expect_equal(d$worst_value_grid, 9)
+  expect_equal(d$worst_index_grid, 1.5)
+  # a shifted window holds all of them
+  expect_equal(d$worst_value, 30)
+  expect_equal(d$worst_index, 2.5)
+  expect_true(d$worst_shifted)
+  expect_true(is.na(d$worst_field))
+  expect_true(d$worst_field_complete)
+  # method B is still the mean over the fixed fields
+  expect_equal(d$mean_index, mean(res$field_ratings$index[res$field_ratings$series == "D fine"]))
+  expect_match(res$notes$notes, "laid at 16 positions, shifted by 1/4 of its side", fixed = TRUE, all = FALSE)
+
+  tab <- cleanliness_display_tables(res)$rating
+  expect_match(tab$`Worst field`[tab$Series == "D fine"], "^window at x 0[.][0-9]{3}, y 0[.][0-9]{3} mm$")
+  # the window's lower-left corner is a shifted grid position: a multiple of a quarter field from the area's corner
+  q <- sqrt(0.5) / 4
+  expect_lt(abs(d$worst_x_mm / q - round(d$worst_x_mm / q)), 1e-6)
+  expect_lt(abs(d$worst_y_mm / q - round(d$worst_y_mm / q)), 1e-6)
+
+  # switched off: the fixed grid, as before
+  fixed <- run_cleanliness_analysis(corner_cluster_data(), CLEAN_COLS, list(n_boot = 100, worst_window_steps = 1))
+  f <- fixed$rating_summary[fixed$rating_summary$series == "D fine", ]
+  expect_equal(c(f$worst_index, f$worst_value), c(1.5, 9))
+  expect_false(f$worst_shifted)
+  expect_match(fixed$notes$notes, "on the fixed grid of rating fields only", fixed = TRUE, all = FALSE)
+})
+
+test_that("the sliding window never rates lower than the fixed grid, and empty series stay empty", {
+  res <- run_cleanliness_analysis(make_cleanliness_data(), CLEAN_COLS, list(n_boot = 100))
+  s <- res$rating_summary
+  expect_true(all(s$worst_index >= s$worst_index_grid))
+  expect_true(all(s$worst_value >= s$worst_value_grid))
+  empty <- s[s$series == "C fine", ]
+  expect_equal(c(empty$worst_index, empty$worst_value), c(0, 0))
+  expect_true(is.na(empty$worst_field))
+  # the helper data has no cluster on a border: the worst fields are the fixed ones
+  expect_equal(s$worst_index, s$worst_index_grid)
+  expect_equal(s$worst_field, s$worst_field_grid)
+  expect_error(worst_window_rating(res$objects, res$bbox, steps = 0), "whole number of 1 or more")
+  expect_error(worst_window_rating(res$objects, res$bbox, steps = 2.5), "whole number of 1 or more")
+})
+
+test_that("the per-family rating uses the sliding window too", {
+  res <- run_cleanliness_analysis(corner_cluster_data(), CLEAN_COLS, list(n_boot = 100))
+  f <- res$rating_by_family
+  expect_equal(f$worst_index[f$family == "aluminate" & f$series == "D fine"], 2.5)
+})

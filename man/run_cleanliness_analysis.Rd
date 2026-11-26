@@ -26,7 +26,9 @@ A list: \code{particles}, \code{objects}, \code{grid}, \code{field_ratings},
 \code{reliability} (\code{\link[=reliability_summary]{reliability_summary()}}), \code{range_um}, \code{family_shares},
 \code{type_shares} (\code{\link[=class_share_intervals]{class_share_intervals()}}), \code{stereology}, \code{saltykov},
 \code{mass_balance}, \code{inspected_area_mm2}, \code{n_fields} (SEM fields inspected,
-\code{NULL} without a field column), \code{notes}, \code{settings}.
+\code{NULL} without a field column), \code{field_check}
+(\code{\link[=field_numbering_notes]{field_numbering_notes()}}, \code{NULL} without a field column), \code{notes},
+\code{settings}.
 }
 \description{
 Chemical family (\code{\link[=classify_inclusion_family]{classify_inclusion_family()}}, or a column of the

@@ -33,9 +33,13 @@ compound-equivalent mass: \strong{sulfide} (S counted as MnS), \strong{Ti-rich}
 (Ti counted as TiN), \strong{aluminate} (Al, Mg and Ca counted as Al2O3, MgO
 and CaO) or \strong{silicate} (Si counted as SiO2). A particle whose four
 families together stay below \code{min_signal_pct} is mostly steel matrix and
-is returned as \code{"unclassified"}, as is a particle with a missing reading.
+is returned as \code{"unclassified"}.
 }
 \details{
+A blank (missing) reading counts as 0: an element the export leaves
+empty was not detected in that particle. A particle whose marker
+readings are all blank therefore has no signal and is \code{"unclassified"}.
+
 N, O and C are not used (peak overlaps Ti-N and Cr-O, carbon
 contamination), so "Ti-rich" covers nitrides, carbonitrides and Ti
 oxides alike. In Mo-bearing steels the S K line overlaps Mo L: small

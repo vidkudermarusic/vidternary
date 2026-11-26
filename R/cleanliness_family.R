@@ -29,7 +29,11 @@
 #' (Ti counted as TiN), **aluminate** (Al, Mg and Ca counted as Al2O3, MgO
 #' and CaO) or **silicate** (Si counted as SiO2). A particle whose four
 #' families together stay below `min_signal_pct` is mostly steel matrix and
-#' is returned as `"unclassified"`, as is a particle with a missing reading.
+#' is returned as `"unclassified"`.
+#'
+#' A blank (missing) reading counts as 0: an element the export leaves
+#' empty was not detected in that particle. A particle whose marker
+#' readings are all blank therefore has no signal and is `"unclassified"`.
 #'
 #' N, O and C are not used (peak overlaps Ti-N and Cr-O, carbon
 #' contamination), so "Ti-rich" covers nitrides, carbonitrides and Ti
@@ -61,12 +65,11 @@ classify_inclusion_family <- function(data, element_cols = NULL, min_signal_pct 
     return(data.frame(family = character(0), family_share = numeric(0), signal_pct = numeric(0),
                       stringsAsFactors = FALSE))
   }
-  missing_reading <- rep(FALSE, n)
+  # A blank reading is an element that was not detected: it counts as 0.
   equiv <- vapply(factors, function(f) {
     total <- numeric(n)
     for (el in intersect(names(f), used)) {
       v <- suppressWarnings(as.numeric(data[[element_cols[[el]]]]))
-      missing_reading <<- missing_reading | is.na(v)
       total <- total + ifelse(is.na(v), 0, pmax(v, 0)) * f[[el]]
     }
     total
@@ -77,7 +80,7 @@ classify_inclusion_family <- function(data, element_cols = NULL, min_signal_pct 
   best <- max.col(equiv, ties.method = "first")
   family <- colnames(equiv)[best]
   share <- ifelse(signal > 0, equiv[cbind(seq_len(n), best)] / signal, NA_real_)
-  unclassified <- missing_reading | !is.finite(signal) | signal < min_signal_pct
+  unclassified <- !is.finite(signal) | signal < min_signal_pct
   family[unclassified] <- "unclassified"
   share[unclassified] <- NA_real_
 

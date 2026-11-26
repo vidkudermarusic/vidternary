@@ -122,10 +122,16 @@ run_batch_comparison <- function(batches, cols, settings = list(), all_batches =
     batch_evs_table(batches, cols$area, cols$field, st$fields_per_area, st$return_period, all_batches, st$n_boot)
   } else NULL
 
+  field_checks <- if (has_field) {
+    stats::setNames(lapply(names(batches), function(name) {
+      field_numbering_notes(all_batches[[name]][[cols$field]], label = sprintf("batch '%s'", name))
+    }), names(batches))
+  } else NULL
+
   st$inspected_area_mm2 <- unname(inspected)
   result <- list(summary = summary, density = density, field_counts = field_counts, size = size,
                  composition = composition, evs = evs, particles = particles, parts = parts,
-                 has_field = has_field, settings = st)
+                 has_field = has_field, field_checks = field_checks, settings = st)
   result$notes <- batch_notes(result)
   result
 }
@@ -140,6 +146,9 @@ batch_notes <- function(result) {
   warn <- character(0)
   note <- character(0)
 
+  # Field numbering of each batch: counted fields, rank test and dispersion.
+  warn <- c(warn, unlist(lapply(result$field_checks, `[[`, "warnings"), use.names = FALSE))
+  note <- c(note, unlist(lapply(result$field_checks, `[[`, "notes"), use.names = FALSE))
   clustered <- s$batch[!is.na(s$field_dispersion) & s$field_dispersion > 2]
   if (length(clustered)) {
     warn <- c(warn, sprintf(

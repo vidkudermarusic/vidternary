@@ -16,7 +16,8 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
        field_area_mm2 = std$field_area_mm2, coord_unit = "mm", inspected_area_mm2 = NULL,
        min_signal_pct = 5, beam_kv = 15, range_matrix = "Fe", min_size_to_range = 1,
        size_breaks = c(1, 2, 5, 10, 20), saltykov_classes = 10,
-       steel_density = 7.9, measured_ppm = NULL, n_boot = 2000, max_rating_fields = 20000)
+       steel_density = 7.9, measured_ppm = NULL, n_boot = 2000, max_rating_fields = 20000,
+       worst_window_steps = 4)
 }
 
 # Inspected area as c(xmin, xmax, ymin, ymax) in um.
@@ -57,7 +58,9 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
 #'   `reliability` ([reliability_summary()]), `range_um`, `family_shares`,
 #'   `type_shares` ([class_share_intervals()]), `stereology`, `saltykov`,
 #'   `mass_balance`, `inspected_area_mm2`, `n_fields` (SEM fields inspected,
-#'   `NULL` without a field column), `notes`, `settings`.
+#'   `NULL` without a field column), `field_check`
+#'   ([field_numbering_notes()], `NULL` without a field column), `notes`,
+#'   `settings`.
 #' @export
 run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = data) {
   st <- utils::modifyList(cleanliness_default_settings(settings$standard %||% "ISO 4967"), settings)
@@ -125,18 +128,24 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
   objects$field <- grid$field
   particles$type <- objects$type[match(particles$object, objects$object)]
   field_ratings <- rate_fields(objects, grid)
-  rating_summary <- summarise_rating(field_ratings, grid)
+  # Method A: the worst field is searched with the field shifted in steps
+  # of 1/worst_window_steps of its side, so a cluster on a field border is
+  # not split (worst_window_rating()). Method B stays on the fixed grid.
+  window_worst <- function(obj) worst_window_rating(obj, bbox, st$field_area_mm2, st$worst_window_steps)
+  rating_summary <- .apply_window_worst(summarise_rating(field_ratings, grid), window_worst(objects))
 
   by_family <- lapply(sort(unique(objects$family[objects$rated])), function(fam) {
     sel <- objects$family == fam
     g <- grid
     g$field <- grid$field[sel]
-    s <- summarise_rating(rate_fields(objects[sel, , drop = FALSE], g), g)
+    s <- .apply_window_worst(summarise_rating(rate_fields(objects[sel, , drop = FALSE], g), g),
+                             window_worst(objects[sel, , drop = FALSE]))
     cbind(family = fam, s[s$n_objects > 0, , drop = FALSE], stringsAsFactors = FALSE)
   })
   rating_by_family <- if (length(by_family)) do.call(rbind, by_family) else NULL
 
   n_fields <- if (has("field")) .cleanliness_n_fields(all_data[[cols$field]]) else NULL
+  field_check <- if (has("field")) field_numbering_notes(all_data[[cols$field]]) else NULL
   indices <- cleanliness_indices(particles$area, particles$family, inspected,
                                  field = if (has("field")) particles$field else NULL,
                                  n_fields = n_fields, n_boot = st$n_boot)
@@ -166,6 +175,7 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
                  range_um = attr(reliability, "range_um"), family_shares = family_shares, type_shares = type_shares,
                  stereology = stereology, saltykov = saltykov,
                  mass_balance = mass_balance, inspected_area_mm2 = inspected, bbox = bbox, n_fields = n_fields,
+                 field_check = field_check,
                  n_rows = nrow(data), n_valid = sum(valid), standard = std, settings = st)
   result$notes <- cleanliness_notes(result, has_direction = has("direction"), bbox_area = bbox_area)
   result
@@ -197,6 +207,9 @@ cleanliness_notes <- function(result, has_direction = TRUE, bbox_area = NA_real_
       "The inspected area entered (%.2f mm2) differs from the area spanned by the coordinates (%.2f mm2) by more than 20 %%. Check the coordinate unit and the area.",
       result$inspected_area_mm2, bbox_area))
   }
+  # Field numbering: counted fields, intervals over fields, dispersion.
+  warn <- c(warn, result$field_check$warnings)
+  note <- c(note, result$field_check$notes)
   n_small <- sum(p$size_to_range < 1)
   not_classified <- sum(p$family == "too small to classify")
   if (n_small > 0.5 * nrow(p)) {
@@ -235,6 +248,10 @@ cleanliness_notes <- function(result, has_direction = TRUE, bbox_area = NA_real_
   }
   note <- c(note,
     "Rating fields are cut from the particle coordinates; an object belongs to the field its centre lies in.",
+    if (isTRUE(st$worst_window_steps > 1)) sprintf(
+      "Worst field (method A): the 0.5 mm2 field was laid at %d positions, shifted by 1/%d of its side in each direction, so a cluster on a field border is not split. The mean index (method B) uses the fixed grid.",
+      st$worst_window_steps^2, st$worst_window_steps)
+    else "Worst field (method A) on the fixed grid of rating fields only: a cluster on a field border can be split and rated too low.",
     "An SEM detects far more and far smaller particles than the light microscope of the chart method, so these indices are not interchangeable with a chart rating (see ASTM E2142).")
   list(warnings = warn, notes = note)
 }

@@ -4,41 +4,37 @@
 # Kolmogorov-Smirnov - and the tail (the large inclusions) is what matters
 # for steel. Particle areas from an SEM are multiples of the pixel area, so
 # small sizes are heavily tied; the tie-adjusted (mid-rank) form of the
-# statistic is used. The p-value comes from permuting the batch labels, so
-# it does not rest on the asymptotic tables (or on the exact form of the
-# statistic): any statistic is valid in a permutation test.
-
-# Tie-adjusted k-sample Anderson-Darling statistic. `index` is the position
-# of each observation among the sorted distinct values (1..L), `multiplicity`
-# the number of pooled observations at each distinct value.
-.ad_ksample_statistic <- function(index, group, n_groups, multiplicity) {
-  n_total <- length(index)
-  n_distinct <- length(multiplicity)
-  pooled_below <- cumsum(multiplicity) - multiplicity / 2        # B_aj
-  denom <- pooled_below * (n_total - pooled_below) - n_total * multiplicity / 4
-  use <- denom > 0
-  total <- 0
-  for (g in seq_len(n_groups)) {
-    f <- tabulate(index[group == g], nbins = n_distinct)          # f_ij
-    n_g <- sum(f)
-    below <- cumsum(f) - f / 2                                    # M_aij
-    total <- total + sum((multiplicity / n_total * (n_total * below - n_g * pooled_below)^2 / denom)[use]) / n_g
-  }
-  (n_total - 1) / n_total * total
-}
+# statistic is used ("version 2" in Scholz & Stephens). The test is computed
+# by the kSamples package of Scholz & Zhu, written by the first author of
+# the method; the p-value comes from its random splits of the pooled values
+# into samples of the observed sizes, i.e. from permuting the batch labels.
+#
+# Two details of kSamples::ad.test() are handled here:
+# * it stores the version-2 statistic rounded to 3 significant digits but
+#   its standardised form T.AD = (AD - (k - 1)) / sigma to 5, so the
+#   statistic is taken back from T.AD and sigma;
+# * its simulated p-value is (number of splits with AD >= observed) / Nsim,
+#   which is 0 when no split reaches the observed value. The observed
+#   labelling is itself one of the possible splits, so the p-value reported
+#   is (count + 1) / (Nsim + 1), which is never 0 (Phipson & Smyth, 2010).
+# The project's own implementation of the statistic, used up to 2026-11,
+# agreed with kSamples to 4 digits on the test data.
 
 #' k-sample Anderson-Darling test with a permutation p-value
 #'
-#' Tests whether several samples come from one distribution. The statistic
-#' is the tie-adjusted k-sample Anderson-Darling statistic of Scholz &
-#' Stephens (1987); the p-value is the share of label permutations with a
-#' statistic at least as large as the observed one.
+#' Tests whether several samples come from one distribution, with
+#' [kSamples::ad.test()]. The statistic is the tie-adjusted k-sample
+#' Anderson-Darling statistic of Scholz & Stephens (1987); the p-value is
+#' the share of `n_perm` random relabellings, plus the observed one, whose
+#' statistic is at least as large as the observed one.
 #'
 #' @param x Numeric values (e.g. equivalent circle diameters).
 #' @param group Sample (batch) of each value.
 #' @param n_perm Number of permutations. Default 999.
 #' @param seed RNG seed; the caller's RNG state is restored afterwards.
-#' @return A list: `statistic`, `p_value`, `n_perm`, `n` (sample sizes).
+#' @return A list: `statistic`, `p_value` (permutation), `p_value_asymptotic`
+#'   (from the asymptotic distribution of Scholz & Stephens, for reference),
+#'   `n_perm`, `n` (sample sizes).
 #' @export
 ad_ksample_test <- function(x, group, n_perm = 999, seed = 42) {
   ok <- is.finite(x) & !is.na(group)
@@ -46,20 +42,17 @@ ad_ksample_test <- function(x, group, n_perm = 999, seed = 42) {
   group <- factor(group[ok])
   n <- table(group)
   if (nlevels(group) < 2 || any(n < 2)) stop("At least 2 samples with 2 or more values each are needed.", call. = FALSE)
+  if (length(n_perm) != 1 || !is.finite(n_perm) || n_perm < 1) stop("The number of permutations must be 1 or more.", call. = FALSE)
+  n_perm <- as.integer(n_perm)
 
-  distinct <- sort(unique(x))
-  index <- match(x, distinct)
-  multiplicity <- tabulate(index, nbins = length(distinct))
-  g <- as.integer(group)
+  samples <- split(x, group)
+  res <- .evs_with_seed(seed, kSamples::ad.test(samples, method = "simulated", Nsim = n_perm))
+  version2 <- unclass(res$ad)[2, ]
   k <- nlevels(group)
-  observed <- .ad_ksample_statistic(index, g, k, multiplicity)
-  permuted <- .evs_with_seed(seed, vapply(seq_len(n_perm), function(i) {
-    .ad_ksample_statistic(index, sample(g), k, multiplicity)
-  }, numeric(1)))
-  # A tiny tolerance so that a permutation equal to the observed labelling
-  # is not lost to rounding.
-  p <- (1 + sum(permuted >= observed * (1 - 1e-12))) / (1 + n_perm)
-  list(statistic = observed, p_value = p, n_perm = n_perm, n = stats::setNames(as.integer(n), names(n)))
+  statistic <- unname(version2[2]) * res$sig + (k - 1)
+  exceed <- round(unname(version2[4]) * n_perm)
+  list(statistic = statistic, p_value = (exceed + 1) / (n_perm + 1), p_value_asymptotic = unname(version2[3]),
+       n_perm = n_perm, n = stats::setNames(as.integer(n), names(n)))
 }
 
 #' Compare the size distributions of several batches

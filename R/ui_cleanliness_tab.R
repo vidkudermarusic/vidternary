@@ -47,7 +47,8 @@ cleanliness_settings_ui <- function(ns) {
         selectInput(ns("clean_standard"), "Standard:", choices = c("ISO 4967", "ASTM E45"), selected = "ISO 4967"),
         numericInput(ns("clean_field_area"), "Rating field area (mm2):", value = 0.5, min = 0.01, step = 0.1),
         numericInput(ns("clean_min_width"), "Narrowest particle that is rated (um):", value = 2, min = 0, step = 0.5),
-        numericInput(ns("clean_aspect_limit"), "Elongated from length / breadth of:", value = 3, min = 1, step = 0.5)
+        numericInput(ns("clean_aspect_limit"), "Elongated from length / breadth of:", value = 3, min = 1, step = 0.5),
+        checkboxInput(ns("clean_sliding_window"), "Worst field: search with a shifted window (16 positions)", value = TRUE)
       ),
       column(4,
         h4("Stringers"),
@@ -87,7 +88,7 @@ create_cleanliness_tab <- function(id) {
             tags$li(strong("Chemical family: "), "each particle is a sulfide, aluminate, silicate or Ti-rich particle, whichever weighs most as a compound (S as MnS, Al/Mg/Ca as oxides, Si as SiO2, Ti as TiN). Particles smaller than the electron range of the beam (about 1 um in steel at 15 kV) get no family: their spectrum is mostly matrix."),
             tags$li(strong("Stringers: "), "particles of one family lined up along the working direction, within the gap and offset set below, form one object; three or more are a stringer."),
             tags$li(strong("Type: "), "sulfides that are elongated or in a stringer are type A; stringers of compact particles type B; other elongated inclusions type C; compact single particles type D, or DS from 13 um diameter. Each type has a fine and a thick series by width."),
-            tags$li(strong("Rating: "), "the inspected area is cut into 0.5 mm2 fields from the particle coordinates. Per field, the total length (A, B, C), the number of particles (D) or the largest diameter (DS) gives a chart index from 0.5 to 3. The worst field is method A, the mean over all fields method B."),
+            tags$li(strong("Rating: "), "the inspected area is cut into 0.5 mm2 fields from the particle coordinates. Per field, the total length (A, B, C), the number of particles (D) or the largest diameter (DS) gives a chart index from 0.5 to 3. The worst field is method A - searched with the field shifted in quarter-field steps, so a cluster on a field border is not split; the mean over the fixed fields is method B."),
             tags$li(strong("Indices: "), "particles per mm2 with an exact Poisson interval, and area fraction in ppm with a bootstrap over SEM fields."),
             tags$li(strong("Stereology: "), "volume fraction equals area fraction (Delesse); particles per mm3 after Fullman and Schwartz-Saltykov, assuming spheres; O, S and N bound in the inclusions from the phase densities."),
             tags$li(strong("Limits: "), "an SEM run usually covers a few mm2, the standards ask for 160 to 200 mm2 and a light microscope at 100x. Read the result as an SEM-based estimate (", cite_link("ASTM E2142"), "), not as a certified rating. The index limits and widths were checked against the preview of ISO 4967:2013; the stringer distances and the ASTM E45 values were not checked against a full copy - compare them with yours before reporting."),

@@ -16,11 +16,14 @@ ad_ksample_test(x, group, n_perm = 999, seed = 42)
 \item{seed}{RNG seed; the caller's RNG state is restored afterwards.}
 }
 \value{
-A list: \code{statistic}, \code{p_value}, \code{n_perm}, \code{n} (sample sizes).
+A list: \code{statistic}, \code{p_value} (permutation), \code{p_value_asymptotic}
+(from the asymptotic distribution of Scholz & Stephens, for reference),
+\code{n_perm}, \code{n} (sample sizes).
 }
 \description{
-Tests whether several samples come from one distribution. The statistic
-is the tie-adjusted k-sample Anderson-Darling statistic of Scholz &
-Stephens (1987); the p-value is the share of label permutations with a
-statistic at least as large as the observed one.
+Tests whether several samples come from one distribution, with
+\code{\link[kSamples:ad.test]{kSamples::ad.test()}}. The statistic is the tie-adjusted k-sample
+Anderson-Darling statistic of Scholz & Stephens (1987); the p-value is
+the share of \code{n_perm} random relabellings, plus the observed one, whose
+statistic is at least as large as the observed one.
 }

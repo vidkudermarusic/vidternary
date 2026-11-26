@@ -1,7 +1,10 @@
-# Tests for R/batch_size_distribution.R: k-sample Anderson-Darling test.
+# Tests for R/batch_size_distribution.R: k-sample Anderson-Darling test,
+# computed by kSamples::ad.test().
 
 # The tie-adjusted statistic written out term by term (Scholz & Stephens,
-# 1987), to check the vectorised version against.
+# 1987), independent of kSamples: it checks that the version-2 (tie-adjusted)
+# statistic is the one taken from kSamples' result, and that it is recovered
+# from T.AD to about 5 digits.
 ad_statistic_by_hand <- function(x, group) {
   group <- factor(group)
   z <- sort(unique(x))
@@ -22,15 +25,34 @@ ad_statistic_by_hand <- function(x, group) {
   (n_total - 1) / n_total * total
 }
 
-test_that("the statistic agrees with the formula written out term by term", {
+test_that("the statistic agrees with the tie-adjusted formula written out term by term", {
   withr::with_seed(5, {
     x <- c(stats::rnorm(15), stats::rnorm(12, 0.5), stats::rnorm(9, -0.3))
   })
   g <- rep(c("a", "b", "c"), c(15, 12, 9))
-  expect_equal(ad_ksample_test(x, g, n_perm = 19)$statistic, ad_statistic_by_hand(x, g))
-  # and with heavy ties, as in pixel-quantised areas
+  expect_equal(ad_ksample_test(x, g, n_perm = 19)$statistic, ad_statistic_by_hand(x, g), tolerance = 1e-4)
+  # and with heavy ties, as in pixel-quantised areas - where version 1 (no
+  # tie adjustment) differs, so this tells the two versions apart
   tied <- round(x * 2) / 2
-  expect_equal(ad_ksample_test(tied, g, n_perm = 19)$statistic, ad_statistic_by_hand(tied, g))
+  expect_equal(ad_ksample_test(tied, g, n_perm = 19)$statistic, ad_statistic_by_hand(tied, g), tolerance = 1e-4)
+  v1 <- unclass(kSamples::ad.test(split(tied, g), method = "asymptotic")$ad)[1, 1]
+  expect_gt(abs(v1 - ad_statistic_by_hand(tied, g)), 0.1)
+})
+
+test_that("the result is kSamples' own, and the permutation p-value is never zero", {
+  withr::with_seed(5, x <- c(stats::rnorm(15), stats::rnorm(12, 0.5), stats::rnorm(9, -0.3)))
+  g <- rep(c("a", "b", "c"), c(15, 12, 9))
+  r <- ad_ksample_test(x, g, n_perm = 999, seed = 3)
+  ref <- withr::with_seed(3, kSamples::ad.test(split(x, g), method = "simulated", Nsim = 999))
+  ref2 <- unclass(ref$ad)[2, ]
+  expect_equal(r$p_value, (round(ref2[[4]] * 999) + 1) / 1000)
+  expect_equal(r$p_value_asymptotic, ref2[[3]])
+  expect_equal(r$statistic, ref2[[1]], tolerance = 5e-3)        # kSamples keeps 3 significant digits
+  expect_equal(r$n_perm, 999L)
+  # two clearly different samples: no permutation reaches the observed value
+  far <- ad_ksample_test(c(1:30, 101:130), rep(c("a", "b"), each = 30), n_perm = 99)
+  expect_equal(far$p_value, 1 / 100)
+  expect_error(ad_ksample_test(x, g, n_perm = 0), "number of permutations")
 })
 
 test_that("samples from one distribution are not told apart, shifted ones are", {

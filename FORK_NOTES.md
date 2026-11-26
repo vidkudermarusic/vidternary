@@ -216,10 +216,8 @@ pure entry point.
   test on those counts is given next to the Poisson test.
 * Size: k-sample Anderson-Darling statistic (Scholz & Stephens 1987,
   tie-adjusted form) with a permutation p-value; quantiles and their ratios
-  as effect size. The formula was entered from memory and checked against a
-  term-by-term implementation, not against the `kSamples` package (not
-  installed); the p-value is valid whatever the exact form, because it comes
-  from permutations.
+  as effect size. Since 2026-11-25 computed with the `kSamples` package
+  (see below).
 * Chemistry: permutation MANOVA (Anderson 2001) on ilr coordinates, checked
   to agree with `vegan::adonis2` to all digits; R2 as effect size; a separate
   test of spread; clr means per batch. Default elements leave out C, N and O;
@@ -320,6 +318,53 @@ checks the count right after the coordinate range is known (setting
 `max_rating_fields`). The error names the span, the field count and the
 coordinate unit that is set. Folder Summary lists such a file as failed
 with that reason. The other 14 findings of pass 7 are open.
+
+## Audit pass 7, fix 2 and the kSamples switch (2026-11-25)
+
+* **SEM field numbering** (`R/field_numbering_check.R`,
+  `field_numbering_notes()`). Steel Cleanliness, Batch Comparison,
+  Measurement Planning and Folder Summary count every number from the
+  smallest to the largest field ID as an inspected field, as the EVS tab
+  does. They now warn when the IDs step by a common number (the warning
+  gives the count the step implies) or when more than 10 % of the numbers
+  are missing (the EVS threshold), and note a few missing fields or text
+  IDs. The acceptance intervals that rest on the fields point to the
+  warning. Only a warning: the count itself is unchanged.
+* **k-sample Anderson-Darling** now comes from `kSamples::ad.test()`
+  (Scholz & Zhu, version 1.2-12), version 2 (tie-adjusted), simulated
+  p-value with `Nsim` = the number of permutations. Before the switch the
+  project's own statistic was compared with kSamples: 4.1796 against 4.18
+  without ties and 4.4625 against 4.46 with ties (kSamples rounds), and the
+  permutation p-values 0.052 against 0.052. kSamples keeps the version-2
+  statistic to 3 significant digits only, so it is taken back from its
+  T.AD and sigma (about 5 digits); its p-value count / Nsim is turned into
+  (count + 1) / (Nsim + 1), which is never 0 (Phipson & Smyth 2010). About
+  5 times slower than the own code (3.7 s for 7500 particles and 999
+  permutations). `kSamples` is a new import (it depends on `SuppDists`).
+
+## Audit pass 7, decisions of 2026-11-25 (blank cells, size check, worst field)
+
+* **Blank element cell = 0** (user's decision). `classify_inclusion_family()`
+  no longer marks a particle with a blank marker reading as
+  "unclassified"; a blank counts as an element that was not detected. A
+  particle whose marker readings are all blank has no signal and stays
+  unclassified. Batch Comparison and CoDA already treated blanks like zeros.
+* **Size check keeps the equivalent circle diameter** (user's decision): the
+  finding that a long thin particle (8 x 0.5 um) is classed "reliable" is
+  closed without a change. Elongated particles narrower than the electron
+  range are therefore partly matrix even when classed "reliable".
+* **Worst field by sliding window** (user's decision). `worst_window_rating()`
+  lays the 0.5 mm2 field at 16 positions (quarter-field steps; setting
+  `worst_window_steps`, 1 = fixed grid only; checkbox in the tab) and keeps
+  the highest index per series; ties go to the fixed grid. Method B stays
+  on the fixed grid. The fixed-grid values are kept as `worst_index_grid`,
+  `worst_value_grid`, `worst_field_grid`; a shifted worst window is shown
+  by its lower-left corner in mm. A cluster of 30 oxides on a field corner:
+  1.5 on the fixed grid, 2.5 with the window. On the example files the
+  window raised one series in each file by 0.5 (B fine 1.0 -> 1.5; B fine
+  and D fine; D fine 3.0 -> 3.5). Searching more positions can only raise
+  the maximum - say which was used when reporting. Cost: 1.5 s instead of
+  0.8 s for 20000 particles on 200 mm2.
 
 ## Not done yet
 

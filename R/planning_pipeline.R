@@ -147,9 +147,16 @@ plan_measurement <- function(runs, cols, settings = list(), all_runs = runs) {
                                                `Largest sqrt(area) (um)` = per_run$max_sqrt_area_um), st$level))
   }
 
+  field_checks <- if (has_field) {
+    stats::setNames(lapply(names(runs), function(name) {
+      field_numbering_notes(all_runs[[name]][[cols$field]], label = if (length(runs) > 1) sprintf("run '%s'", name))
+    }), names(runs))
+  } else NULL
+
   st$inspected_area_mm2 <- unname(inspected)
   result <- list(pilot = pilot, per_run = per_run, precision = precision, ratio = ratio, curve = curve, evs = evs,
-                 evs_problem = evs_problem, repeatability = repeatability, has_field = has_field, settings = st)
+                 evs_problem = evs_problem, repeatability = repeatability, has_field = has_field,
+                 field_checks = field_checks, settings = st)
   result$notes <- planning_notes(result)
   result
 }
@@ -164,6 +171,9 @@ planning_notes <- function(result) {
   st <- result$settings
   warn <- character(0)
   note <- character(0)
+  # Field numbering: the dispersion and the field area come from it.
+  warn <- c(warn, unlist(lapply(result$field_checks, `[[`, "warnings"), use.names = FALSE))
+  note <- c(note, unlist(lapply(result$field_checks, `[[`, "notes"), use.names = FALSE))
   if (p$n < 30) {
     warn <- c(warn, sprintf(
       "The pilot run holds %d particles. The density it gives (%.1f per mm2, interval %.1f to %.1f) is itself uncertain, and every area below scales with one over that density - treat the plan as a rough guide.",

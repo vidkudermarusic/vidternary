@@ -159,3 +159,103 @@ summarise_rating <- function(field_ratings, grid) {
   })
   do.call(rbind, rows)
 }
+
+#' Worst rating field found with a shifted (sliding) window
+#'
+#' The fixed grid of [rating_field_grid()] can split a cluster of
+#' inclusions that lies on a field border between two or four fields, and
+#' the worst field then rates lower than the cluster deserves. Method A of
+#' the chart standards asks for the worst field of the specimen, wherever it
+#' lies, so here the 0.5 mm2 field is laid at `steps` x `steps` positions:
+#' the grid is shifted by 1/`steps` of a field side at a time in each
+#' direction (the unshifted grid included), and per series the window with
+#' the highest chart index - on a tie, the larger value, then the unshifted
+#' grid - is the worst field. An object belongs to the window its centre
+#' lies in, as on the fixed grid.
+#'
+#' @param objects From [build_rating_objects()] (`$objects`): `x`, `y` (um),
+#'   `type`, `series`, `length`, `diameter`, `rated`.
+#' @param bbox Inspected area as `c(xmin, xmax, ymin, ymax)` in um.
+#' @param field_area_mm2 Area of one rating field. Default 0.5.
+#' @param steps Positions per field side. Default 4 (16 positions); 1 gives
+#'   the fixed grid only.
+#' @return A data frame with one row per series: `series`, `index`,
+#'   `value`, `n_objects`, `x_min`, `y_min` (lower-left corner of the
+#'   window, um), `shifted` (not a field of the fixed grid), `field` (field
+#'   number on the fixed grid, `NA` for a shifted window or an empty
+#'   series), `complete` (the window lies wholly inside the inspected
+#'   area).
+#' @export
+worst_window_rating <- function(objects, bbox, field_area_mm2 = 0.5, steps = 4) {
+  if (length(steps) != 1 || !is.finite(steps) || steps < 1 || steps != round(steps)) {
+    stop("The number of window positions per field side must be a whole number of 1 or more.", call. = FALSE)
+  }
+  steps <- as.integer(steps)
+  side <- sqrt(field_area_mm2) * 1000
+  nx <- max(1L, as.integer(ceiling((bbox[2] - bbox[1] - 1e-9 * side) / side)))
+  ny <- max(1L, as.integer(ceiling((bbox[4] - bbox[3] - 1e-9 * side) / side)))
+  ok <- objects$rated & is.finite(objects$x) & is.finite(objects$y)
+  ob <- objects[ok, , drop = FALSE]
+  ob_series <- ifelse(ob$type == "DS", "DS", paste(ob$type, ob$series))
+
+  best <- data.frame(series = .rating_series, index = 0, value = 0, n_objects = 0L, x_min = NA_real_,
+                     y_min = NA_real_, shifted = NA, field = NA_integer_, complete = NA, stringsAsFactors = FALSE)
+  for (i in seq_len(steps) - 1L) {
+    for (j in seq_len(steps) - 1L) {
+      x0 <- bbox[1] - i * side / steps
+      y0 <- bbox[3] - j * side / steps
+      col <- floor((ob$x - x0) / side)
+      row <- floor((ob$y - y0) / side)
+      if (i == 0L && j == 0L) {
+        # the fixed grid, exactly as rating_field_grid() cuts it
+        col <- pmin(col, nx - 1)
+        row <- pmin(row, ny - 1)
+      }
+      for (s in unique(ob_series)) {
+        sel <- ob_series == s
+        cell <- paste(col[sel], row[sel])
+        type <- sub(" .*$", "", s)
+        value <- switch(type,
+          D = tapply(rep(1, sum(sel)), cell, sum),
+          DS = tapply(ob$diameter[sel], cell, max),
+          tapply(ob$length[sel], cell, sum))
+        count <- tapply(rep(1L, sum(sel)), cell, sum)
+        index <- cleanliness_rating_index(type, value)
+        k <- order(-index, -value)[1]
+        b <- match(s, best$series)
+        if (index[k] > best$index[b] || (index[k] == best$index[b] && value[k] > best$value[b])) {
+          cr <- as.numeric(strsplit(names(value)[k], " ", fixed = TRUE)[[1]])
+          x_min <- x0 + cr[1] * side
+          y_min <- y0 + cr[2] * side
+          covered <- max(0, min(x_min + side, bbox[2]) - max(x_min, bbox[1])) *
+            max(0, min(y_min + side, bbox[4]) - max(y_min, bbox[3])) / side^2
+          best[b, c("index", "value")] <- c(unname(index[k]), unname(value[k]))
+          best$n_objects[b] <- unname(count[k])
+          best$x_min[b] <- x_min
+          best$y_min[b] <- y_min
+          best$shifted[b] <- i > 0L || j > 0L
+          best$field[b] <- if (i == 0L && j == 0L) as.integer(cr[2] * nx + cr[1] + 1) else NA_integer_
+          best$complete[b] <- covered > 1 - 1e-6
+        }
+      }
+    }
+  }
+  best
+}
+
+# Puts the sliding-window worst field into a summary from
+# summarise_rating(): the fixed-grid values are kept as *_grid columns.
+.apply_window_worst <- function(summary, window) {
+  w <- window[match(summary$series, window$series), , drop = FALSE]
+  summary$worst_index_grid <- summary$worst_index
+  summary$worst_value_grid <- summary$worst_value
+  summary$worst_field_grid <- summary$worst_field
+  summary$worst_index <- w$index
+  summary$worst_value <- w$value
+  summary$worst_field <- ifelse(w$value > 0, w$field, NA_integer_)
+  summary$worst_field_complete <- ifelse(w$value > 0, w$complete, NA)
+  summary$worst_shifted <- ifelse(w$value > 0, w$shifted, NA)
+  summary$worst_x_mm <- ifelse(w$value > 0, w$x_min / 1000, NA_real_)
+  summary$worst_y_mm <- ifelse(w$value > 0, w$y_min / 1000, NA_real_)
+  summary
+}

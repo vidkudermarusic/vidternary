@@ -70,7 +70,8 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/stereology_saltykov.R` | Particles per volume from sections: Fullman's formula and the Schwartz-Saltykov unfolding. |
 | `R/stereology_mass_balance.R` | O, S and N bound in the inclusions from area fraction, phase density and formula. |
 | `R/batch_density.R` | Number density of several batches: exact Poisson rate ratios, chi-squared against the areas, dispersion of counts per SEM field, rank test on those counts. |
-| `R/batch_size_distribution.R` | k-sample Anderson-Darling test with a permutation p-value; size quantiles per batch. |
+| `R/batch_size_distribution.R` | k-sample Anderson-Darling test (kSamples) with a permutation p-value; size quantiles per batch. |
+| `R/field_numbering_check.R` | Checks whether the SEM field IDs are one consecutive series; the warning every tab that counts fields shows. |
 | `R/batch_composition.R` | Permutation MANOVA on ilr coordinates, spread test, clr means per batch; EDS peak-overlap groups. |
 | `R/batch_evs.R` | Extreme-value return level of each batch with the same control area and return period. |
 | `R/batch_plots.R` | Interval chart per batch, size-tail plot, clr-difference plot. |

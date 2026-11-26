@@ -93,6 +93,7 @@ assess_acceptance <- function(result, limits, evs = NULL, level = 0.95) {
   }
   all_row <- result$indices[result$indices$group == "All", , drop = FALSE]
   rows <- list()
+  numbering <- if (length(result$field_check$warnings)) "; check the SEM field numbering (see the warnings)" else ""
 
   if (!is.null(limits$per_mm2)) {
     # Clustered particles: the Poisson interval is too narrow, so it is
@@ -105,7 +106,7 @@ assess_acceptance <- function(result, limits, evs = NULL, level = 0.95) {
     if (isTRUE(disp > 1)) {
       half <- stats::qnorm((1 + level) / 2) * sqrt(disp * all_row$n) / area
       lower <- max(0, all_row$per_mm2 - half); upper <- all_row$per_mm2 + half
-      kind <- sprintf("counting, widened for clustering (index of dispersion %.1f)", disp)
+      kind <- sprintf("counting, widened for clustering (index of dispersion %.1f)%s", disp, numbering)
     } else {
       lower <- all_row$per_mm2_lower; upper <- all_row$per_mm2_upper
       kind <- if (is.na(disp)) "Poisson (assumes randomly scattered particles)" else "Poisson"
@@ -115,7 +116,7 @@ assess_acceptance <- function(result, limits, evs = NULL, level = 0.95) {
   if (!is.null(limits$area_ppm)) {
     has <- is.finite(all_row$area_ppm_lower)
     rows <- c(rows, list(row("Area fraction (ppm)", limits$area_ppm, all_row$area_ppm, all_row$area_ppm_lower,
-                             all_row$area_ppm_upper, if (has) "bootstrap over SEM fields" else "none (needs a field ID column)")))
+                             all_row$area_ppm_upper, if (has) paste0("bootstrap over SEM fields", numbering) else "none (needs a field ID column)")))
   }
   if (!is.null(limits$largest_um)) {
     rows <- c(rows, list(row("Largest inclusion found, sqrt(area) (um)", limits$largest_um, all_row$max_sqrt_area_um,
@@ -134,7 +135,7 @@ assess_acceptance <- function(result, limits, evs = NULL, level = 0.95) {
   for (series in names(limits$ratings)) {
     s <- result$rating_summary[result$rating_summary$series == series, , drop = FALSE]
     rows <- c(rows, list(row(sprintf("Chart index %s, worst field", series), limits$ratings[[series]],
-                             if (nrow(s)) s$worst_index else NA_real_, interval = "none (worst of the rating fields)")))
+                             if (nrow(s)) s$worst_index else NA_real_, interval = "none (worst rating field)")))
   }
   if (length(rows) == 0) {
     return(list(table = row("x", 0, 0)[0, ], verdict = "no limits", summary = "No limits entered."))

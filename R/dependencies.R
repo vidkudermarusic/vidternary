@@ -14,7 +14,7 @@ required_packages <- c(
   "ggplot2", "corrplot", "DT",
   "isotree", "RColorBrewer", "writexl", "jsonlite", "zip",
   "viridisLite", "magick", "png", "rlang", "RANN",
-  "spatstat.geom", "spatstat.explore"
+  "spatstat.geom", "spatstat.explore", "kSamples"
 )
 
 # Essential packages that must be loaded for core functionality
