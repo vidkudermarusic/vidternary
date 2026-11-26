@@ -109,7 +109,8 @@ test_that("an unreadable file among several loads the good ones and warns by nam
     expect_false(grepl('value="bad"', html))
   }))
   msgs <- sapply(cap$get(), function(m) m$message)
-  expect_true(any(grepl("^Could not read: bad\\.xlsx$", msgs)))
+  # the file is named first, followed by the reader's reason in brackets
+  expect_true(any(grepl("^Could not read: bad\\.xlsx \\(.+\\)$", msgs)))
   expect_true(any(grepl("^Loaded 1 dataset\\(s\\)", msgs)))
 })
 

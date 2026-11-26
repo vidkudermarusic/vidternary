@@ -323,4 +323,7 @@ register_data_comparison_multivariate_handlers <- function(input, output, sessio
 
     output$mahalanobis_info <- renderPrint(cat(result, "\n"))
   })
+
+  # EDS peak overlaps (eds_overlap.R) among the columns of the outlier analysis.
+  output$comparison_mv_overlap_warning <- renderUI(eds_overlap_ui(input$comparison_mv_columns, "the outlier analysis"))
 }

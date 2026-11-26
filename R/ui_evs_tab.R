@@ -73,6 +73,7 @@ create_evs_tab <- function(id) {
           )
         ),
 
+        fluidRow(column(12, settings_io_ui(ns, "evs"))),
         centered_action_button_row(ns("evs_fit"), "Fit Extreme Value Model", margin_top = "10px"),
 
         fluidRow(
@@ -91,7 +92,11 @@ create_evs_tab <- function(id) {
             uiOutput(ns("evs_return_period_note")),
             downloadButton(ns("evs_download_plot"), "Download plot (PNG)"),
             br(), br(),
-            downloadButton(ns("evs_download_table"), "Download block maxima (xlsx)")
+            downloadButton(ns("evs_download_table"), "Download block maxima (xlsx)"),
+            br(), br(),
+            downloadButton(ns("evs_download_report"), "Download report (HTML)"),
+            br(), br(),
+            downloadButton(ns("evs_download_script"), "Download R script")
           ),
           column(8,
             # width="821px" matches server_evs.R's derived width (575px
@@ -104,6 +109,30 @@ create_evs_tab <- function(id) {
           column(12,
             h4("Fit Summary"),
             tableOutput(ns("evs_summary_table"))
+          )
+        ),
+
+        fluidRow(
+          column(12,
+            h4("Fatigue Limit Estimate (Murakami sqrt(area) model)"),
+            helpText("Turns the predicted largest inclusion into a fatigue limit: sigma_w = C (HV + 120) / sqrtArea^(1/6), with C = 1.43 for an inclusion at the surface, 1.41 just below it and 1.56 inside the part (",
+              cite_link("Murakami & Endo, 1994", "https://doi.org/10.1016/0142-1123(94)90001-9"),
+              "). The model is stated as accurate to about 10 % for HV 70 to 720. It gives the stress amplitude below which a crack starting at that inclusion does not grow; it says nothing about failures that start elsewhere."),
+            fluidRow(
+              column(3, numericInput(ns("evs_hv"), "Vickers hardness HV of the steel:", value = NA, min = 1, step = 10)),
+              column(3, selectInput(ns("evs_incl_location"), "Inclusion location:",
+                choices = c("At the surface" = "surface", "Just below the surface" = "subsurface", "Inside the part" = "internal"))),
+              column(3, numericInput(ns("evs_stress_ratio"), "Stress ratio R (min / max stress):", value = -1, max = 0.99, step = 0.1))
+            ),
+            tableOutput(ns("evs_fatigue_table")),
+            uiOutput(ns("evs_fatigue_notes")),
+            h5("Return period for a stressed volume"),
+            helpText("The fatigue limit applies to a part only if T matches its stressed volume. Murakami's rule: one control area S0 stands for the volume V0 = S0 x h, with h the mean block maximum, and T = V / V0."),
+            fluidRow(
+              column(3, numericInput(ns("evs_control_area_mm2"), "Area of one control area S0 (mm2):", value = NA, min = 0, step = 0.01)),
+              column(3, numericInput(ns("evs_volume_mm3"), "Stressed volume V (mm3):", value = NA, min = 0, step = 10))
+            ),
+            textOutput(ns("evs_volume_note"))
           )
         )
       )

@@ -21,7 +21,7 @@ create_inclusion_tab <- function(id) {
 
         info_box(" How it works",
           tags$ul(
-            tags$li("Upload one XLSX file (Sheet 1) with element wt% columns such as ", tags$code("Al.(Wt%)"), ". One file is one specimen."),
+            tags$li("Upload one data file (Excel Sheet 1, or .csv / .txt) with element wt% columns such as ", tags$code("Al.(Wt%)"), ". One file is one specimen."),
             tags$li("Optionally remove the steel matrix: choose the matrix element (and, if wanted, its alloying elements), so that small inclusions are not dominated by the surrounding steel."),
             tags$li("Elements are resolved into oxides, sulfides and nitrides (compound presets) or used as element wt% (element presets), and plotted on the corners of the chosen preset."),
             tags$li("Points are classified by rules or by the nearest reference phase; the dashed lines are the class boundaries. The rules and boundaries are conventions, not a standard - state the settings when reporting results."),

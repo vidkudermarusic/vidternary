@@ -24,7 +24,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
   observeEvent(input$hex_xlsx_file, {
     req(input$hex_xlsx_file)
     tryCatch({
-      d <- openxlsx::read.xlsx(input$hex_xlsx_file$datapath, sheet = 1)
+      d <- read_particle_table(input$hex_xlsx_file$datapath, name = input$hex_xlsx_file$name)
       cols <- names(d)
       for (i in seq_len(7)) {
         updateSelectizeInput(session, paste0("hex_element_", i), choices = cols)
@@ -67,10 +67,10 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
     orig_path <- input$hex_xlsx_file$datapath
     filters <- collect_pre_filters(input, "hex", input$hex_filter_cols)
     if (length(filters) == 0) {
-      d <- openxlsx::read.xlsx(orig_path, sheet = 1)
+      d <- read_particle_table(orig_path)
       return(list(path = orig_path, n_before = nrow(d), n_after = nrow(d)))
     }
-    d <- openxlsx::read.xlsx(orig_path, sheet = 1)
+    d <- read_particle_table(orig_path)
     n_before <- nrow(d)
     d_filtered <- apply_pre_filters(d, filters)
     if (nrow(d_filtered) == 0) {
@@ -150,6 +150,11 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
     req(hex_result_path())
     list(src = hex_result_path(), contentType = "image/png", width = "100%")
   }, deleteFile = FALSE)
+
+  # EDS peak overlaps (eds_overlap.R) anywhere in the hexagon: its six
+  # triangles are read side by side.
+  output$hex_overlap_warning <- renderUI(eds_overlap_ui(
+    unlist(lapply(1:7, function(i) input[[paste0("hex_element_", i)]])), "the hexagonal diagram"))
 
   return(list(
     module_name = "server_hex_ternary"

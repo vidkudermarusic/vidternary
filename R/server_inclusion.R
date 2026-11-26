@@ -172,6 +172,9 @@ create_server_inclusion <- function(input, output, session, rv, show_message, lo
     warn <- function(...) div(style = "color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 8px; font-size: 12px; margin-bottom: 8px;", ...)
     note <- function(...) div(style = "color: #0c5460; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 8px; font-size: 12px; margin-bottom: 8px;", ...)
     out <- list()
+    overlap <- eds_overlap_message(inclusion_preset_elements(r$preset, input$incl_ti_as %||% "TiN",
+                                                             input$incl_ignore_elements %||% character(0)), "this preset")
+    if (!is.null(overlap)) out <- c(out, list(warn(strong("EDS peak overlap: "), overlap)))
     if (!any(r$keep)) {
       out <- c(out, list(warn(strong("No particle is plotted. "),
         "Lower the coverage threshold, or check the matrix settings; the Particles table shows why particles were dropped.")))
@@ -187,11 +190,21 @@ create_server_inclusion <- function(input, output, session, rv, show_message, lo
     if (length(out) == 0) NULL else tagList(out)
   })
 
+  # Share of each class with an interval: a bootstrap over SEM fields when
+  # the file has a field column, else the Wilson interval.
+  class_shares <- reactive(inclusion_class_shares(result(), dataset()))
   output$incl_summary_table <- renderTable({
-    tab <- result()$summary
+    tab <- class_shares()
     if (nrow(tab) == 0) return(data.frame(Class = "none plotted", Particles = 0L, Percent = 0))
-    data.frame(Class = tab$class, Particles = tab$n, Percent = tab$percent)
-  }, digits = 2)
+    data.frame(Class = tab$class, Particles = tab$n, Percent = sprintf("%.2f", tab$share_pct),
+               `95% interval` = sprintf("[%.1f, %.1f]", tab$lower_pct, tab$upper_pct), stringsAsFactors = FALSE, check.names = FALSE)
+  })
+  output$incl_share_note <- renderText({
+    tab <- class_shares()
+    if (nrow(tab) == 0) return("")
+    if (tab$method[1] == "bootstrap over fields") "Interval: bootstrap over SEM fields (particles of one kind come in groups)."
+    else "Interval: Wilson, which takes the particles as independent - no SEM field column was found, so it is probably too narrow."
+  })
 
   output$incl_status_table <- renderTable({
     r <- result()
@@ -217,7 +230,9 @@ create_server_inclusion <- function(input, output, session, rv, show_message, lo
     filename = function() paste0("inclusion_", input$incl_preset, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"),
     content = function(file) {
       r <- safe_reactive_result(function() result(), placeholder)
-      writexl::write_xlsx(inclusion_result_tables(r, dataset()), file)
+      tables <- inclusion_result_tables(r, dataset())
+      tables$`Class shares` <- class_shares()
+      writexl::write_xlsx(tables, file)
       log_operation("INFO", "Inclusion results saved", r$settings[1])
     }
   )

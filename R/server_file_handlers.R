@@ -49,7 +49,7 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
   observeEvent(input$xlsx_file1, {
     req(input$xlsx_file1)
     tryCatch({
-      data <- openxlsx::read.xlsx(input$xlsx_file1$datapath, sheet = 1)
+      data <- read_particle_table(input$xlsx_file1$datapath, name = input$xlsx_file1$name)
       rv$df1 <- data
       rv$xlsx_file1 <- input$xlsx_file1$datapath  # Store the file path
 
@@ -107,7 +107,7 @@ create_server_file_handlers <- function(input, output, session, rv, show_message
   observeEvent(input$xlsx_file2, {
     req(input$xlsx_file2)
     tryCatch({
-      data <- openxlsx::read.xlsx(input$xlsx_file2$datapath, sheet = 1)
+      data <- read_particle_table(input$xlsx_file2$datapath, name = input$xlsx_file2$name)
       rv$df2 <- data
       rv$xlsx_file2 <- input$xlsx_file2$datapath  # Store the file path
 

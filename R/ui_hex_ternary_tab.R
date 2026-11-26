@@ -71,7 +71,7 @@ create_hex_ternary_tab <- function(id) {
           tags$ul(
             tags$li("Select one or more columns for each of the 7 positions (A-G) - multiple selections are summed."),
             tags$li("Element/position 3 (C) is the shared central axis and appears in all 6 triangles."),
-            tags$li("Works from a single uploaded Excel file (Sheet 1).")
+            tags$li("Works from a single uploaded data file (Excel Sheet 1, or .csv / .txt).")
           ),
           div(style = "text-align: center; margin-top: 10px;",
             HTML(HEX_LEGEND_SVG),
@@ -83,8 +83,8 @@ create_hex_ternary_tab <- function(id) {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput(ns("hex_xlsx_file"), "Select Excel File", accept = c(".xlsx", ".xls")),
-            helpText("The composite diagram is built from this file's Sheet 1.")
+            fileInput(ns("hex_xlsx_file"), "Select data file", accept = particle_file_accept()),
+            helpText("Excel (.xlsx, Sheet 1) or text (.csv, .txt, .tsv). The composite diagram is built from this file.")
           ),
           column(6,
             h4("Output Settings"),
@@ -110,7 +110,8 @@ create_hex_ternary_tab <- function(id) {
               ),
               fluidRow(
                 column(4, selectizeInput(ns("hex_element_7"), HEX_ELEMENT_SLOT_LABELS[7], choices = NULL, multiple = TRUE))
-              )
+              ),
+              uiOutput(ns("hex_overlap_warning"))
             )
           )
         ),

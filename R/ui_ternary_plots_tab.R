@@ -28,10 +28,10 @@ create_ternary_plots_tab <- function(id) {
         ),
         fluidRow(
           column(6,
-            fileInput(ns("xlsx_file1"), "Choose Primary XLSX File", accept = c(".xlsx"))
+            fileInput(ns("xlsx_file1"), "Choose primary data file (.xlsx, .csv, .txt)", accept = particle_file_accept())
           ),
           column(6,
-            fileInput(ns("xlsx_file2"), "Choose Reference XLSX File", accept = c(".xlsx"))
+            fileInput(ns("xlsx_file2"), "Choose reference data file (.xlsx, .csv, .txt)", accept = particle_file_accept())
           )
         )
       )
@@ -96,6 +96,7 @@ create_ternary_plots_tab <- function(id) {
             helpText("Enter a filter, e.g. > 0.5. Leave blank for no filter."),
 
             # Group selection for Dataset 1
+            uiOutput(ns("overlap_warning_1")),
             uiOutput(ns("group_selection_ui_1")),
 
             selectInput(ns("color_palette1"), "Color Palette for Optional Param 2:",
@@ -130,6 +131,7 @@ create_ternary_plots_tab <- function(id) {
             helpText("Enter a filter, e.g. > 0.5. Leave blank for no filter."),
 
             # Group selection for Dataset 2
+            uiOutput(ns("overlap_warning_2")),
             uiOutput(ns("group_selection_ui_2")),
 
             selectInput(ns("color_palette2"), "Color Palette for Optional Param 2:",
@@ -165,7 +167,8 @@ create_ternary_plots_tab <- function(id) {
                   " This column selection is used for BOTH outlier detection (Mahalanobis/Isolation Forest) AND statistical filtering"),
                 selectizeInput(ns("multivariate_columns"), "Columns for analysis:",
                   choices = NULL, multiple = TRUE,
-                  options = list(placeholder = "Select at least 2 numeric columns (REQUIRED)"))
+                  options = list(placeholder = "Select at least 2 numeric columns (REQUIRED)")),
+                uiOutput(ns("overlap_warning_mv"))
               ),
 
               checkboxInput(ns("use_mahalanobis"), "Use Mahalanobis Distance", value = FALSE),

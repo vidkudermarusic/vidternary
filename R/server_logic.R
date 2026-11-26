@@ -82,6 +82,35 @@ create_server_logic <- function(input, output, session) {
     create_server_evs(input, output, session, rv, show_message, log_operation)
   })
 
+  # Import steel cleanliness functions: chart rating, stringers, indices,
+  # stereology (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("cleanliness", function(input, output, session) {
+    create_server_cleanliness(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import batch comparison functions (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("batch", function(input, output, session) {
+    create_server_batch(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import folder summary functions: many files, one table
+  # (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("folder", function(input, output, session) {
+    create_server_folder(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import measurement planning functions: area needed, repeatability
+  # (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("planning", function(input, output, session) {
+    create_server_planning(input, output, session, rv, show_message, log_operation)
+  })
+
+  # Import data import functions: any particle export into the standard
+  # table (moduleServer()-wrapped, see hex_ternary's note above)
+  moduleServer("import", function(input, output, session) {
+    create_server_import(input, output, session, rv, show_message, log_operation)
+  })
+
   # Import spatial clustering analysis functions (moduleServer()-wrapped, see hex_ternary's note above)
   moduleServer("spatial", function(input, output, session) {
     create_server_spatial(input, output, session, rv, show_message, log_operation)
@@ -113,6 +142,12 @@ create_server_logic <- function(input, output, session) {
   moduleServer("data_comparison", function(input, output, session) {
     create_server_data_comparison(input, output, session, rv, show_message, log_operation)
   })
+
+  # Project file (the settings of all tabs) and example data - NOT
+  # namespaced: both sit in the page shell and the project file reads the
+  # inputs of every tab.
+  register_project_io(input, output, session)
+  register_example_data(output)
 
   # ---- Return reactive values ----
   return(rv)

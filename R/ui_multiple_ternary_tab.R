@@ -15,7 +15,7 @@ create_multiple_ternary_tab <- function(id) {
     fluidRow(
       column(12,
         h3("Create Ternary Plots for Multiple Files"),
-        helpText("This tool allows you to create ternary plots for multiple Excel files using the same parameters."),
+        helpText("This tool allows you to create ternary plots for multiple data files using the same parameters."),
 
         # Purpose and limitations note
         info_box(" Purpose & Limitations",
@@ -32,9 +32,9 @@ create_multiple_ternary_tab <- function(id) {
         fluidRow(
           column(6,
             h4("File Selection"),
-            fileInput(ns("multiple_xlsx_files"), "Select Multiple Excel Files",
-              multiple = TRUE, accept = c(".xlsx", ".xls")),
-            helpText("Select multiple Excel files to process. Each file will generate a separate ternary plot.")
+            fileInput(ns("multiple_xlsx_files"), "Select data files (.xlsx, .csv, .txt)",
+              multiple = TRUE, accept = particle_file_accept()),
+            helpText("Select several data files (Excel Sheet 1, or .csv / .txt). Each file will generate a separate ternary plot.")
           ),
           column(6,
             h4("Output Settings"),
@@ -67,6 +67,8 @@ create_multiple_ternary_tab <- function(id) {
                   uiOutput(ns("multiple_filters_C"))
                 )
               ),
+
+              uiOutput(ns("multiple_overlap_warning")),
 
               h5("Optional Parameters"),
               fluidRow(

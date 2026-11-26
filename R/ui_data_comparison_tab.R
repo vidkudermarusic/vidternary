@@ -20,8 +20,8 @@ create_data_comparison_tab <- function(id) {
         # ---- Data Source ----
         div(style = "border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #f8f9fa;",
           h5(" Data Source", style = "margin-top: 0; color: #495057;"),
-          fileInput(ns("comparison_files"), "Select Excel File(s)",
-            multiple = TRUE, accept = c(".xlsx", ".xls")),
+          fileInput(ns("comparison_files"), "Select data file(s) (.xlsx, .csv, .txt)",
+            multiple = TRUE, accept = particle_file_accept()),
           helpText("Each file's Sheet 1 is read independently. Select any 2 or more datasets below to compare them - not limited to two files."),
           uiOutput(ns("comparison_dataset_selector_ui"))
         ),
@@ -74,6 +74,7 @@ create_data_comparison_tab <- function(id) {
                 column(4, selectInput(ns("comparison_mv_reference"), "Reference:", choices = NULL)),
                 column(4, selectizeInput(ns("comparison_mv_columns"), "Columns for analysis:", choices = NULL, multiple = TRUE))
               ),
+              uiOutput(ns("comparison_mv_overlap_warning")),
 
               # Mahalanobis parameters - independent of the Ternary Plots
               # tab's own lambda/omega/threshold-mode inputs. Feeds both the
@@ -165,7 +166,7 @@ create_data_comparison_tab <- function(id) {
               h5(" Dataset Analysis Options", style = "margin-top: 0; color: #6f42c1;"),
               selectInput(ns("comparison_preview_target"), "Dataset:", choices = NULL),
               actionButton(ns("show_missing_selected"), "Missing/Outlier Summary"),
-              actionButton(ns("show_excel_selected"), "Excel File Preview"),
+              actionButton(ns("show_excel_selected"), "Data preview"),
               br(), br(),
               uiOutput(ns("comparison_preview_output"))
             )

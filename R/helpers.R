@@ -221,8 +221,8 @@ create_group_legend <- function(groups, colors, counts) {
 
 #' Build a combined-upload reactive for a multi-file `fileInput`
 #'
-#' Reads every row of `input[[file_input_id]]` via
-#' `openxlsx::read.xlsx(sheet = 1)`, drops files that failed to read, tags a
+#' Reads every row of `input[[file_input_id]]` via [read_particle_table()]
+#' (Excel sheet 1, or delimited text), drops files that failed to read, tags a
 #' `source_file` column (from each file's own name, via
 #' `tools::file_path_sans_ext()`) when more than one file was read, and - if
 #' more than one data frame remains - row-binds them on their common columns.
@@ -241,7 +241,8 @@ make_combined_upload_reactive <- function(input, file_input_id, allow_multiple =
     shiny::validate(shiny::need(allow_multiple || n_files == 1,
       "Upload one file (one specimen) only - this analysis can't pool several specimens."))
     dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(input[[file_input_id]]$datapath[i], sheet = 1), error = function(e) NULL)
+      d <- tryCatch(read_particle_table(input[[file_input_id]]$datapath[i], name = input[[file_input_id]]$name[i]),
+                    error = function(e) NULL)
       if (is.null(d)) return(NULL)
       if (n_files > 1) d$source_file <- tools::file_path_sans_ext(input[[file_input_id]]$name[i])
       d

@@ -113,7 +113,7 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
     req(input$multiple_xlsx_files)
     tryCatch({
       first_file <- input$multiple_xlsx_files$datapath[1]
-      df <- openxlsx::read.xlsx(first_file, sheet = 1)
+      df <- read_particle_table(first_file, name = input$multiple_xlsx_files$name[1])
       all_columns <- colnames(df)
 
       updateSelectizeInput(session, "multiple_element_A", choices = all_columns)
@@ -235,4 +235,9 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
       zip::zip(file, files = list.files(output_dir), root = output_dir)
     }
   )
+
+  # EDS peak overlaps (eds_overlap.R) among the axes, size and colour.
+  output$multiple_overlap_warning <- renderUI(eds_overlap_ui(
+    c(input$multiple_element_A, input$multiple_element_B, input$multiple_element_C,
+      input$multiple_optional_param1, input$multiple_optional_param2), "these diagrams (axes, size and colour)"))
 }

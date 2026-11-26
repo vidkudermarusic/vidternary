@@ -50,7 +50,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     kept_names <- file_names[keep]
     n_files <- nrow(files_df)
     dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(openxlsx::read.xlsx(files_df$datapath[i], sheet = 1), error = function(e) NULL)
+      d <- tryCatch(read_particle_table(files_df$datapath[i], name = files_df$name[i]), error = function(e) NULL)
       if (is.null(d)) return(NULL)
       if (n_files > 1) d$source_file <- kept_names[i]
       d
@@ -84,15 +84,19 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
   output$builder_axis_selectors <- renderUI({
     req(input$builder_type)
     num_cols <- numeric_cols()
-    cat_cols <- categorical_cols()
-    # X axis (group/category) accepts any column, numeric or categorical
-    # (all_cols); build_custom_plot() wraps whatever's chosen in factor() so
-    # a numeric column still produces one discrete violin/box/bar per
-    # distinct value instead of being treated as a continuous axis.
-    all_cols <- union(cat_cols, num_cols)
+    # X axis (group/category) accepts text and numeric columns, but only
+    # those with at most BUILDER_MAX_GROUPS distinct values
+    # (plot_builder_columns.R): build_custom_plot() wraps X in factor(), so a
+    # continuous column (a diameter) would become thousands of groups and
+    # freeze the app for minutes.
+    all_cols <- builder_group_columns(combined_data())
+    group_help <- helpText(paste0(
+      "X axis lists only columns with at most ", BUILDER_MAX_GROUPS,
+      " different values (file, class). For a continuous column use a histogram or scatter plot."))
     switch(input$builder_type,
       "violin" = tagList(
         selectInput(session$ns("builder_x"), "X axis (group)", choices = all_cols),
+        group_help,
         # A plain multi-select selectizeInput starts with no selection by
         # default (unlike single-select, which auto-picks the first choice) -
         # without an explicit default, req(input$builder_y) below would block
@@ -104,6 +108,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       ),
       "box" = tagList(
         selectInput(session$ns("builder_x"), "X axis (group)", choices = all_cols),
+        group_help,
         # A plain multi-select selectizeInput starts with no selection by
         # default (unlike single-select, which auto-picks the first choice) -
         # without an explicit default, req(input$builder_y) below would block
@@ -115,6 +120,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
       ),
       "bar" = tagList(
         selectInput(session$ns("builder_x"), "X axis (category)", choices = all_cols),
+        group_help,
         uiOutput(session$ns("builder_bar_value_selector")),
         checkboxInput(session$ns("builder_percent"), "Show percentages instead of counts", value = FALSE)
       ),
@@ -315,6 +321,17 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     if (length(missing_cols) > 0) {
       show_message(paste0("Preset '", input$builder_preset_select, "' references column(s) not in the current data: ",
                            paste(unique(missing_cols), collapse = ", "), ". Those selections were left unset."), "warning")
+    }
+    # An older preset can have a continuous column as the grouping X axis;
+    # it is no longer among the X choices, so say why it was not restored.
+    if (!is.null(preset$x) && preset$x %in% available_cols && isTRUE(preset$type %in% BUILDER_GROUPED_X_TYPES)) {
+      group_ok <- tryCatch(builder_group_columns(combined_data()), error = function(e) character(0))
+      if (!(preset$x %in% group_ok)) {
+        show_message(paste0("Preset '", input$builder_preset_select, "': column '", preset$x,
+                             "' has more than ", BUILDER_MAX_GROUPS,
+                             " different values and cannot be the X axis of a ", preset$type,
+                             " chart. Choose another X column."), "warning")
+      }
     }
 
     updateSelectInput(session, "builder_type", selected = preset$type)

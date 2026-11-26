@@ -105,3 +105,21 @@ inclusion_result_tables <- function(result, data) {
     Sources = if (nrow(src) > 0) src[, c("citation", "url")] else data.frame(citation = character(0), url = character(0))
   )
 }
+
+#' Share of each inclusion class with a confidence interval
+#'
+#' The classes of the plotted particles, with a bootstrap over SEM fields
+#' when `data` has a field / frame column and the Wilson interval otherwise
+#' (see [class_share_intervals()]).
+#'
+#' @param result From [analyze_inclusion_preset()].
+#' @param data The data frame that was analysed.
+#' @param n_boot Bootstrap samples. Default 2000.
+#' @return A data frame: `class`, `n`, `share_pct`, `lower_pct`,
+#'   `upper_pct`, `method`.
+#' @export
+inclusion_class_shares <- function(result, data, n_boot = 2000) {
+  field_col <- first_match_or_null(names(data), "field|frame|fov")
+  field <- if (is.null(field_col)) NULL else data[[field_col]]
+  class_share_intervals(result$class, field, n_boot = n_boot)
+}

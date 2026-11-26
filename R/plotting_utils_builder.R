@@ -27,13 +27,18 @@
 #'   categories are shown for `type = "bar"`.
 #' @param rose_bin_width Bin width in degrees, for `type = "rose"`. Default 10.
 #' @param hist_bins Number of bins, for `type = "hist"`. Default 30.
+#' @param max_groups For `"violin"`, `"box"` and `"bar"`, the largest number
+#'   of distinct `x` values allowed; more gives an error (see
+#'   `check_builder_group_count()`). Default `BUILDER_MAX_GROUPS` (50).
 #' @return A `ggplot` object.
 #' @export
 build_custom_plot <- function(data, type, x, y = NULL, color_by = "none",
                                log_x = FALSE, log_y = FALSE, percent = FALSE,
-                               bar_values = NULL, rose_bin_width = 10, hist_bins = 30) {
+                               bar_values = NULL, rose_bin_width = 10, hist_bins = 30,
+                               max_groups = BUILDER_MAX_GROUPS) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 package is required for plotting")
   if (!requireNamespace("rlang", quietly = TRUE)) stop("rlang package is required for plotting")
+  check_builder_group_count(data, x, type, max_groups)
 
   has_color <- !is.null(color_by) && color_by != "none"
   fill_var <- if (has_color) color_by else x

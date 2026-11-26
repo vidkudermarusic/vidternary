@@ -2,25 +2,19 @@
 # This module handles output directory creation, file naming, and timestamp logic
 # for ternary plots and other analysis outputs
 
-#' Extract a base filename (no `.xlsx` extension) for plot titles/filenames
+#' Extract a base filename (no data-file extension) for plot titles/filenames
 #'
-#' @param xlsx_file Path to the uploaded `.xlsx` file (temp upload path).
+#' @param xlsx_file Path to the uploaded data file (temp upload path).
 #' @param xlsx_display_name Optional original filename to prefer over
 #'   `xlsx_file`'s (temp, often non-descriptive) basename.
-#' @return The base filename, with any `.xlsx` extension removed.
+#' @return The base filename, with the extension of a readable data file
+#'   (see [particle_file_accept()], any letter case) removed; other dots in
+#'   the name are kept.
 #' @export
 extract_file_base <- function(xlsx_file, xlsx_display_name = NULL) {
-
-  
-  if (!is.null(xlsx_display_name)) {
-    file_base <- gsub("\\.xlsx$", "", basename(xlsx_display_name))
-  } else {
-    file_base <- gsub("\\.xlsx$", "", basename(xlsx_file))
-  }
-  
-
-  
-  return(file_base)
+  name <- basename(if (!is.null(xlsx_display_name)) xlsx_display_name else xlsx_file)
+  exts <- sub("^[.]", "", particle_file_accept())
+  sub(paste0("[.](", paste(exts, collapse = "|"), ")$"), "", name, ignore.case = TRUE)
 }
 
 #' Resolve/create the output folder for a ternary plot save

@@ -40,12 +40,47 @@ run_app()
 
 ## File format
 
-Every tab that accepts data reads an **Excel file** (`.xlsx`, and on most
-tabs also `.xls`) and always reads **Sheet 1 only** - there is no sheet
-picker anywhere in the app, so put your data on the first sheet. Column
+Every tab that accepts particle data reads the same file types, with the
+same reader:
+
+- **Excel:** `.xlsx`, and `.xlsm` (its macros are not run). Only **Sheet 1**
+  is read - there is no sheet picker anywhere in the app, so put your data
+  on the first sheet.
+- **Delimited text:** `.csv`, `.txt`, `.tsv`, `.tab`, `.dat`. The column
+  delimiter (tab, semicolon or comma) and the decimal mark (point or comma)
+  are detected from the file; the first line holds the column headers.
+- **Old Excel `.xls`** is not read: open it in Excel and save it as `.xlsx`
+  or `.csv`. The upload boxes do not offer it, and a renamed `.xls` gives a
+  message saying so.
+
+Files from another SEM system with different column names, or in atomic
+percent, go through **Data Import** first. Column
 headers become the column names shown in every dropdown, so short,
 consistent, spreadsheet-safe names (e.g. `Al2O3_Wt%`, `ECD_um`,
 `StageX_mm`, `Field`, `Area_mm2`) work best.
+
+## SEM field IDs
+
+Tabs that use a SEM field ID column (Extreme Value Analysis, Steel
+Cleanliness, Batch Comparison, Measurement Planning, Folder Summary) count
+every number from the smallest to the largest ID as an inspected field: a
+number missing from the file is a field where nothing was detected. Number
+the fields 1, 2, 3, ... as the instrument visited them. The tabs warn when
+the IDs step by a common number (10, 20, 30, ...) or when more than 10 % of
+the numbers are missing (e.g. two plates numbered 101-106 and 201-206),
+because the number of fields, the intervals over fields and the index of
+dispersion are then wrong. Text IDs work too, but then only fields with at
+least one particle can be counted. IDs that would count more than 100,000
+fields (one mistyped ID, or a wrong column such as a time stamp) are refused
+with a message before the analysis starts.
+
+## Blank element cells
+
+A blank cell in an element column (e.g. `Al.(Wt%)`) counts as 0: the element
+was not detected. The blanks are filled when a file is read, so every tab -
+Ternary Plots, Inclusion Presets, the hexagonal diagram and the newer tabs
+alike - sees the same particles. Only columns named as weight or atomic
+percent of an element are filled; a bare `Y` or `B` column is left alone.
 
 ## Uploads are per tab, not global
 
@@ -61,6 +96,9 @@ on any other tab. The table below shows what each tab expects:
 | Hexagonal Ternary Diagram | one upload box | exactly 1 |
 | Plot Builder | one upload box | any number (rows combined) |
 | Extreme Value Analysis | one upload box | any number (rows combined) |
+| Steel Cleanliness | one upload box | one file (one specimen) |
+| Batch Comparison | one upload box | 2 or more files, one per batch (kept apart) |
+| Data Import | one upload box | any number (converted one by one) |
 | Spatial Clustering | one upload box | any number (rows combined) |
 | Compositional Analysis | one upload box | any number (rows combined) |
 | Analysis Log | *(none - reads the session's activity log)* | - |
@@ -201,12 +239,16 @@ save/load preset system for repeat use.
 1. Upload one or more files; pick which of them to include via the dataset
    selector (defaults to all).
 2. Choose a chart type. The axis controls rebuild for each type:
-   - **Violin / Box:** X = group column (any type); Y = one or more
+   - **Violin / Box:** X = group column; Y = one or more
      numeric columns (selecting 2+ compares several elements side by side
      within each X group, and overrides Color-by).
    - **Bar (counts):** X = category column, plus a "categories to show"
      selector (drawn from Color-by if set, else from X), plus a
      show-percentages toggle.
+   - The X list of Violin, Box and Bar shows only columns with at most 50
+     different values (file, class; a field number only on small maps). Each
+     value is one group, so a continuous column such as ECD would give
+     thousands of groups; use a histogram or scatter plot for it.
    - **Histogram:** one numeric variable + a bin-count field (default 30).
    - **Scatter:** X and Y, both numeric.
    - **Rose diagram:** a direction column in degrees + a bin width in
@@ -264,6 +306,261 @@ it is not the size of the largest inclusion in T areas).
   assumption, a warning box appears; the fit line is still drawn, but the
   tail prediction should be treated cautiously (it may indicate a mixed
   inclusion population or one outlier control area skewing the fit).
+
+## Fatigue limit from the largest inclusion (in Extreme Value Analysis)
+
+Below the Fit Summary, the **Fatigue Limit Estimate** panel turns the
+predicted largest inclusion into a fatigue limit with Murakami's
+$\sqrt{area}$ model.
+
+1. Fit the extreme value model and set the return period T.
+2. Enter the **Vickers hardness** of the steel, where the inclusion lies
+   (at the surface, just below it, inside the part) and the stress ratio R.
+3. Read the table: fatigue limit for the return level, and the range that
+   follows from each of the two size intervals.
+4. Optional: enter the area of one control area and the stressed volume of
+   the part to get the return period T = V / V0 that belongs to that volume,
+   then type it into the return-period box.
+
+The model is stated as accurate to about 10 % for HV 70 to 720; outside it a
+warning appears. The value is the stress amplitude below which a crack
+starting at that inclusion does not grow - it says nothing about failures
+that start elsewhere.
+
+## Steel Cleanliness
+
+**Purpose:** turns an automated SEM/EDS particle list into the numbers
+steelmakers report: a chart rating after ISO 4967 / ASTM E45, stringers,
+particles per mm2 and area fraction, and the O, S and N bound in the
+inclusions.
+
+**Steps:**
+
+1. Upload one file (one specimen). The area, length, breadth, direction,
+   position and field columns are picked automatically where their names
+   are recognisable - check them.
+2. Check the **inspected area** (filled in from the range of the
+   coordinates) and the coordinate unit.
+3. Choose the standard. This sets the stringer distances and the elongation
+   limit; change them only if you have a reason.
+4. Set the **working direction** (degrees from the X axis) - stringers are
+   searched along it.
+5. Optional: a pre-analysis filter such as `Area > 1`, and the bulk O / S /
+   N analysis to compare the mass balance with.
+6. Click **Run Cleanliness Analysis** and read the four result tabs.
+   **Download all tables** saves everything, settings and notes included.
+
+**Tips & gotchas:**
+
+- An SEM run covers a few mm2; the standards ask for 160 to 200 mm2 under a
+  light microscope. Read the result as an estimate for the inspected area,
+  not as a rating to the standard - the yellow box says how many rating
+  fields the result rests on.
+- The **worst field** (method A) is searched with a shifted window, so a
+  cluster on a field border is not split; it is never lower than on the
+  fixed grid and often one step (0.5) higher. Untick *Worst field: search
+  with a shifted window* to rate the fixed fields only, e.g. to compare
+  with older results. The tables keep both values (`worst_index` and
+  `worst_index_grid`).
+- Only particles from 2 um width are rated. All particles count in the
+  indices and the stereology, so filter out the sub-micrometre detections
+  there: their EDS spectrum is mostly steel and their family is unreliable.
+- "Ti-rich" covers nitrides, carbonitrides and Ti oxides alike, because N, O
+  and C are not used for the classification.
+- Without a SEM field ID column the area fraction has no confidence
+  interval.
+
+## Batch Comparison
+
+**Purpose:** decides whether batches (heats, specimens) differ in their
+inclusions, and says by how much.
+
+**Steps:**
+
+1. Upload one file per batch (two or more). The file name is the batch
+   label; only columns present in every file can be chosen.
+2. Check the area column, the SEM field ID column and - for the inspected
+   area - the coordinate columns, or type the inspected area(s) in mm2.
+3. Choose the elements to compare (optional). Pre-selected are the element
+   columns with at most 10 % zero readings, without C, N and O.
+4. Set the fields per control area and the return period T for the
+   largest-inclusion estimate, as in the Extreme Value Analysis tab.
+5. Add a pre-analysis filter if needed (e.g. `Area > 1`) and click
+   **Compare Batches**.
+
+**Reading the result:**
+
+- **Overview** lists the batches side by side and answers "do they differ?"
+  for amount, size and chemistry.
+- **Amount**, **Size**, **Composition** and **Largest inclusion** show a
+  plot, the numbers per batch and every pair of batches.
+- Look at the ratios, quantiles and R2 first. With many particles a
+  difference too small to matter is still "significant".
+- If the yellow box says the particles are clustered, do not rely on the
+  Poisson p-values for the number density; use the test on counts per field.
+- The size and chemistry tests permute **whole SEM fields** between the
+  batches (the default when a field column is chosen), so that clustered
+  particles do not make the p-values too small. *Single particles* is still
+  offered, e.g. to compare with older results, but its p-values are too
+  small whenever the particles cluster. With fewer than 10 fields per batch
+  the field test has little power; the yellow box says so.
+
+## Acceptance limits (in Steel Cleanliness and Folder Summary)
+
+Enter the upper limits of your specification in the **Acceptance limits**
+box: particles per mm2, area fraction, the largest inclusion found, the
+largest inclusion expected (the extreme-value return level) and chart
+indices typed as `A=2, B=1.5, D fine=1, DS=1`. Empty boxes mean no limit.
+
+The **Acceptance** tab of the result gives one row per limit:
+
+| Verdict | Meaning |
+|---|---|
+| pass | value and its whole interval are within the limit |
+| pass, not certain | value within the limit, but the interval reaches above it |
+| fail, not certain | value above the limit, but the interval reaches below it |
+| fail | value and its whole interval are above the limit |
+
+"Not certain" means a repeat of the measurement could give the other
+verdict; a larger inspected area narrows the interval. Chart indices and
+the largest inclusion found have no interval and are judged by their value
+alone. Limits can be changed without running the analysis again.
+
+## Folder Summary
+
+For many files at once - the specimens of a week, a heat, a trial.
+
+1. Click **Select all files of the folder**, open the folder and select
+   everything (Ctrl+A).
+2. Check the columns (only columns present in every file are offered).
+3. Optionally enter acceptance limits and a pre-analysis filter.
+4. Click **Analyse All Files**.
+
+Each file is analysed on its own, as in Steel Cleanliness, and gets one
+row: particles, number density and area fraction with intervals, sizes,
+chart indices, the largest-inclusion estimate and, with limits, a verdict.
+A file that cannot be analysed is listed with the reason. Downloads: all
+tables, one summary report, and a zip with a full report per file.
+
+The files are set side by side, not tested against each other - use Batch
+Comparison to ask whether batches differ. From a script:
+
+```{r folder-example, eval = FALSE}
+result <- process_folder("C:/data/week_46", report = "week_46.html",
+                         limits = acceptance_limits(per_mm2 = 300, ratings = parse_rating_limits("DS=1")))
+result$summary
+```
+
+## Measurement Planning
+
+Answers "how much area is enough?" before more instrument time is spent.
+Upload a pilot run - or several repeated runs of the same specimen - and
+click **Make the Plan**.
+
+- **Number density**: how precise the density is now, the area needed for
+  the precision you want, and the area each of two batches needs so that a
+  given density ratio is detected. Halving the interval takes four times
+  the area.
+- **Clustering**: with a SEM field column the plan measures how much the
+  counts per field vary beyond random scatter (index of dispersion) and
+  enlarges every area by that factor. Without the column, or with fewer
+  than 2 fields, the areas are a lower bound (the tab warns). With several
+  runs the index is measured within each run and pooled, so a difference
+  between the runs is not taken for clustering; it is judged under
+  Repeated runs.
+- **Largest inclusion**: how the interval of the extreme-value return level
+  narrows with 2, 4, 8 and 16 times the control areas.
+- **Repeated runs**: whether the runs differ by more than counting scatter,
+  and the repeatability limit - the difference two runs of one specimen
+  stay within. A difference between batches below that limit cannot be
+  told from a mere repeat. When the runs differ significantly, the warning
+  also gives the best precision a single run can reach, whatever its area.
+
+The plan covers counting statistics on one specimen. Differences between
+sections, positions in the product or heats need their own specimens.
+
+## Data Import
+
+**Purpose:** makes a particle export from any automated SEM system usable
+in the other tabs.
+
+**Steps:**
+
+1. Upload the file(s): `.xlsx`, `.csv`, `.txt` or `.tsv`. The line under the
+   upload box says how each file was read (delimiter, decimal mark).
+2. Check the proposed **column roles** and correct them. Set the unit by
+   hand where the column name does not say it.
+3. Check the **element columns** and say whether they are weight or atomic
+   percent.
+4. Click **Convert**, look at the preview and the notes, and download the
+   standard table. Upload that file in the analysis tabs.
+5. Optional: name the mapping and **save it as a profile**; next time load
+   the profile instead of mapping by hand.
+
+**Tips & gotchas:**
+
+- Only the Oxford AZtec Feature export has been checked against real files.
+  For other systems the proposal is a guess from the column names.
+- The file must start with the header line; remove title lines above it.
+- Text files can also be uploaded directly in the single-file analysis tabs;
+  the Data Import tab is needed when names, units or the percent basis
+  differ.
+
+## Reliability of the EDS analysis
+
+Three checks run by themselves and tell you when a result may be an
+artefact of the measurement:
+
+- **EDS peak overlap** (yellow box next to the element choices): the chosen
+  columns hold elements whose lines overlap - Ti with N, Cr with O, Ti with
+  V, or two of S, Mo, Pb, Bi. One can be reported in place of the other, so
+  do not read a pattern that involves both as real. Leave one out or check a
+  few spectra.
+- **Is the particle large enough?** (Steel Cleanliness, tab *Indices*; Data
+  Import, option *Add size-reliability columns*): a particle smaller than
+  the electron range of the beam - about 1 um in steel at 15 kV - gives a
+  spectrum that is mostly matrix. Steel Cleanliness gives such particles no
+  chemical family. Set the accelerating voltage you measured with. In the
+  standard table from Data Import, filter with `Size.to.range > 1`.
+- **Interval of a class share** (Steel Cleanliness and Inclusion Presets):
+  "62 % TiN" is an estimate. The interval next to it resamples whole SEM
+  fields, because particles of one kind come in groups; a class that sits in
+  a few fields gets a wide interval. Without a field column the interval
+  assumes independent particles and is too narrow - the note says which one
+  you see.
+
+## Saving settings, reports and scripts
+
+The analysis tabs (Extreme Value Analysis, Steel Cleanliness, Batch
+Comparison, Spatial Clustering, Point Pattern Analysis, Compositional
+Analysis) have a **Settings of this tab** box:
+
+- **Save settings (JSON)** writes every input of the tab to a small file.
+- **Load settings** sets them again. Upload the data file first - column
+  choices can only be restored once the columns are known. Anything that
+  could not be set is listed under the box.
+
+Extreme Value Analysis, Steel Cleanliness and Batch Comparison also offer:
+
+- **Download report (HTML)**: one file with the tables, plots, settings and
+  notes of the run, the name and MD5 checksum of the data file, and the
+  script. It opens in any browser and needs no internet connection.
+- **Download R script**: an R script that repeats the run without the app.
+  Set the file path at its top and run it with the package installed.
+
+## Project file and example data (top of the page)
+
+- **Save project (JSON)** writes the settings of every tab into one file,
+  with the names of the data files each tab had loaded. **Load project**
+  sets them again. Data files are not stored in the project and a web page
+  cannot open them for you: the status line names the files each tab is
+  waiting for, and the settings of a tab are filled in as soon as its file
+  is loaded - before or after the project.
+- **Load example data into the open tab** puts simulated particle files
+  into the upload box of the tab you are looking at, so every tab can be
+  tried without a measurement of your own. The files are two runs of one
+  specimen and one other heat. They are simulated and describe no real
+  steel. **Download the example files (zip)** gives the same files.
 
 ## Spatial Clustering
 
@@ -364,6 +661,11 @@ narrow it down, and **Clear Log / Export Log** to manage it.
 | Flag unusual values in one or two elements | **Ternary Plots** -> IQR / Z-score / MAD |
 | Flag unusual points across several elements at once | **Ternary Plots** or **Data Comparison** -> Mahalanobis or Isolation Forest |
 | Predict the largest inclusion in a bigger inspection area than you sampled | **Extreme Value Analysis** |
+| Estimate a fatigue limit from the predicted largest inclusion | **Extreme Value Analysis** (fatigue panel) |
+| Rate inclusions after ISO 4967 / ASTM E45, find stringers, report particles per mm2 and area fraction | **Steel Cleanliness** |
+| Decide whether two or more batches differ in amount, size or chemistry of inclusions | **Batch Comparison** |
+| Use a file from another SEM system, a .csv export, or atomic percent | **Data Import** |
+| Repeat an analysis later, or hand it to someone else | **Save settings**, **Download report**, **Download R script** in the analysis tabs |
 | Check whether inclusions are clustered/banded in space | **Spatial Clustering** |
 | Run PCA on Wt% chemistry without breaking the sum-to-100% constraint | **Compositional Analysis** |
 | Review or save what happened this session, or debug an error | **Analysis Log** |
@@ -391,8 +693,8 @@ through the app:
    stats and a correlation heatmap, then run Mahalanobis distance with
    "Self" as reference on each heat to see which one has the most unusual
    inclusion population.
-4. **Plot Builder** - build a box plot of `ECD_um` grouped by `Field` (or
-   `source_file`, i.e. heat) to compare inclusion size distributions
+4. **Plot Builder** - build a box plot of `ECD_um` grouped by
+   `source_file` (i.e. heat) to compare inclusion size distributions
    visually; save this configuration as a preset for next time.
 5. **Spatial Clustering** - using `StageX_mm`/`StageY_mm`, test whether
    inclusions are randomly scattered or clustered (banding) within each

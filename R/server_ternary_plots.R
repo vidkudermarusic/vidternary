@@ -717,6 +717,17 @@ create_server_ternary_plots <- function(input, output, session, rv, show_message
   )
 
   # Return the ternary plot functions for integration
+  # EDS peak overlaps (eds_overlap.R): everything read together in one
+  # diagram - the three axes, size and colour - and the columns of the
+  # outlier analysis.
+  output$overlap_warning_1 <- renderUI(eds_overlap_ui(
+    c(input$element_A1, input$element_B1, input$element_C1, input$optional_param1_1, input$optional_param2_1),
+    "diagram 1 (axes, size and colour)"))
+  output$overlap_warning_2 <- renderUI(eds_overlap_ui(
+    c(input$element_A2, input$element_B2, input$element_C2, input$optional_param1_2, input$optional_param2_2),
+    "diagram 2 (axes, size and colour)"))
+  output$overlap_warning_mv <- renderUI(eds_overlap_ui(input$multivariate_columns, "the outlier analysis"))
+
   return(list(
     # All functions are already set up as observeEvent and renderPlot
     # This function just sets up the event handlers

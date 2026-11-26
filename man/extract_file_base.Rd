@@ -2,19 +2,21 @@
 % Please edit documentation in R/file_management.R
 \name{extract_file_base}
 \alias{extract_file_base}
-\title{Extract a base filename (no \code{.xlsx} extension) for plot titles/filenames}
+\title{Extract a base filename (no data-file extension) for plot titles/filenames}
 \usage{
 extract_file_base(xlsx_file, xlsx_display_name = NULL)
 }
 \arguments{
-\item{xlsx_file}{Path to the uploaded \code{.xlsx} file (temp upload path).}
+\item{xlsx_file}{Path to the uploaded data file (temp upload path).}
 
 \item{xlsx_display_name}{Optional original filename to prefer over
 \code{xlsx_file}'s (temp, often non-descriptive) basename.}
 }
 \value{
-The base filename, with any \code{.xlsx} extension removed.
+The base filename, with the extension of a readable data file
+(see \code{\link[=particle_file_accept]{particle_file_accept()}}, any letter case) removed; other dots in
+the name are kept.
 }
 \description{
-Extract a base filename (no \code{.xlsx} extension) for plot titles/filenames
+Extract a base filename (no data-file extension) for plot titles/filenames
 }

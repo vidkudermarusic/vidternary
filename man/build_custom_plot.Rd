@@ -15,7 +15,8 @@ build_custom_plot(
   percent = FALSE,
   bar_values = NULL,
   rose_bin_width = 10,
-  hist_bins = 30
+  hist_bins = 30,
+  max_groups = BUILDER_MAX_GROUPS
 )
 }
 \arguments{
@@ -43,6 +44,10 @@ categories are shown for \code{type = "bar"}.}
 \item{rose_bin_width}{Bin width in degrees, for \code{type = "rose"}. Default 10.}
 
 \item{hist_bins}{Number of bins, for \code{type = "hist"}. Default 30.}
+
+\item{max_groups}{For \code{"violin"}, \code{"box"} and \code{"bar"}, the largest number
+of distinct \code{x} values allowed; more gives an error (see
+\code{check_builder_group_count()}). Default \code{BUILDER_MAX_GROUPS} (50).}
 }
 \value{
 A \code{ggplot} object.
