@@ -11,7 +11,7 @@
 #' @export
 batch_default_settings <- function() {
   list(coord_unit = "mm", inspected_area_mm2 = NULL, n_perm = 999, n_boot = 2000,
-       fields_per_area = 1, return_period = 100, seed = 42)
+       fields_per_area = 1, return_period = 100, seed = 42, max_sem_fields = 100000)
 }
 
 # Inspected area of each batch: the entered value(s), else the area
@@ -67,6 +67,9 @@ run_batch_comparison <- function(batches, cols, settings = list(), all_batches =
   }
   has_field <- !is.null(cols$field) && all(vapply(batches, function(d) cols$field %in% names(d), logical(1)))
   inspected <- .batch_areas(all_batches, cols, st)
+  if (has_field) {
+    for (name in names(batches)) check_sem_field_count(all_batches[[name]][[cols$field]], st$max_sem_fields, sprintf("batch '%s'", name))
+  }
 
   per_batch <- lapply(names(batches), function(name) {
     d <- batches[[name]]

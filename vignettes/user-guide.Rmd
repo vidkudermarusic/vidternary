@@ -58,7 +58,17 @@ the IDs step by a common number (10, 20, 30, ...) or when more than 10 % of
 the numbers are missing (e.g. two plates numbered 101-106 and 201-206),
 because the number of fields, the intervals over fields and the index of
 dispersion are then wrong. Text IDs work too, but then only fields with at
-least one particle can be counted.
+least one particle can be counted. IDs that would count more than 100,000
+fields (one mistyped ID, or a wrong column such as a time stamp) are refused
+with a message before the analysis starts.
+
+## Blank element cells
+
+A blank cell in an element column (e.g. `Al.(Wt%)`) counts as 0: the element
+was not detected. The blanks are filled when a file is read, so every tab -
+Ternary Plots, Inclusion Presets, the hexagonal diagram and the newer tabs
+alike - sees the same particles. Only columns named as weight or atomic
+percent of an element are filled; a bare `Y` or `B` column is left alone.
 
 ## Uploads are per tab, not global
 
@@ -336,7 +346,6 @@ inclusions.
   with a shifted window* to rate the fixed fields only, e.g. to compare
   with older results. The tables keep both values (`worst_index` and
   `worst_index_grid`).
-- A blank element cell counts as 0 (the element was not detected).
 - Only particles from 2 um width are rated. All particles count in the
   indices and the stereology, so filter out the sub-micrometre detections
   there: their EDS spectrum is mostly steel and their family is unreliable.

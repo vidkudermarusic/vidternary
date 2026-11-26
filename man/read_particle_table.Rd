@@ -17,7 +17,7 @@ messages). Default: \code{path}.}
 }
 \value{
 A data frame, with an \code{import_info} attribute: \code{format}, \code{sep},
-\code{dec}, \code{n_rows}, \code{n_cols}.
+\code{dec}, \code{n_rows}, \code{n_cols}, \code{blank_element_cells}.
 }
 \description{
 \code{.xlsx} files are read with \code{openxlsx} (first sheet by default); \code{.csv},
@@ -25,4 +25,6 @@ A data frame, with an \code{import_info} attribute: \code{format}, \code{sep},
 delimiter and decimal mark worked out by \code{\link[=detect_text_format]{detect_text_format()}}. Column
 names are trimmed and their spaces replaced by dots, as \code{openxlsx} does,
 so the same file gives the same column names whichever way it was saved.
+Blank cells of the element columns are set to 0 (an element that was not
+detected), see \code{\link[=fill_blank_element_cells]{fill_blank_element_cells()}}.
 }

@@ -366,6 +366,25 @@ with that reason. The other 14 findings of pass 7 are open.
   the maximum - say which was used when reporting. Cost: 1.5 s instead of
   0.8 s for 20000 particles on 200 mm2.
 
+## Audit pass 8 fixes (2026-11-26)
+
+* **Limit on the number of SEM fields** (`check_sem_field_count()`, settings
+  `max_sem_fields` = 100000 in cleanliness, batch and planning). One field ID
+  of 3,000,000 took 10 GB and 68 s; one of 100,000,000 failed with "cannot
+  allocate 74.5 Gb". The check runs on the whole file before anything is
+  built per field; Folder Summary lists such a file as failed.
+* **Blank element cell = 0 when a file is read** (user's decision:
+  `fill_blank_element_cells()` inside `read_particle_table()`). Every direct
+  `openxlsx::read.xlsx()` of the older tabs (Ternary Plots, Multiple Ternary
+  Creator, Hexagonal diagram, Plot Builder, Data Comparison) now goes
+  through `read_particle_table()`. Before, with blanks instead of zeros,
+  Ternary Plots drew 71 of 860 points and Inclusion Presets classified none
+  of 268. Only columns named as wt% or at% of an element are filled. The
+  number of filled cells is in the `import_info` attribute. The file
+  dialogs of the older tabs still offer only `.xlsx`.
+* **Anderson-Darling with all values equal**: statistic 0 and p = 1, without
+  calling kSamples (which stops on that case).
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

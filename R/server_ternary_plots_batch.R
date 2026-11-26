@@ -113,7 +113,7 @@ register_ternary_plots_batch_handlers <- function(input, output, session, rv, sh
     req(input$multiple_xlsx_files)
     tryCatch({
       first_file <- input$multiple_xlsx_files$datapath[1]
-      df <- openxlsx::read.xlsx(first_file, sheet = 1)
+      df <- read_particle_table(first_file)
       all_columns <- colnames(df)
 
       updateSelectizeInput(session, "multiple_element_A", choices = all_columns)

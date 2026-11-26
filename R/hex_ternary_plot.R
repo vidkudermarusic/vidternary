@@ -59,7 +59,7 @@ create_hex_ternary_diagram <- function(xlsx_file, output_dir, working_dir = NULL
   elements_labels <- paste(all_symbols, collapse = ",")
   elements_labels_safe <- gsub("[^A-Za-z0-9]", "_", elements_labels)
 
-  M <- openxlsx::read.xlsx(xlsx_file, sheet = 1)
+  M <- read_particle_table(xlsx_file)
   file_base <- gsub("\\.xlsx$", "", basename(xlsx_file))
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
   custom_folder <- output_dir

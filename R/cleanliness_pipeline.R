@@ -17,7 +17,7 @@ cleanliness_default_settings <- function(standard = "ISO 4967") {
        min_signal_pct = 5, beam_kv = 15, range_matrix = "Fe", min_size_to_range = 1,
        size_breaks = c(1, 2, 5, 10, 20), saltykov_classes = 10,
        steel_density = 7.9, measured_ppm = NULL, n_boot = 2000, max_rating_fields = 20000,
-       worst_window_steps = 4)
+       worst_window_steps = 4, max_sem_fields = 100000)
 }
 
 # Inspected area as c(xmin, xmax, ymin, ymax) in um.
@@ -78,6 +78,9 @@ run_cleanliness_analysis <- function(data, cols, settings = list(), all_data = d
   valid <- is.finite(area) & area > 0 & is.finite(len) & len > 0 & is.finite(breadth) & breadth > 0 &
     is.finite(x) & is.finite(y)
   if (!any(valid)) stop("No particle has a valid area, length, breadth and position.", call. = FALSE)
+
+  # A stray field ID would make the counts per field absurdly large.
+  if (has("field")) check_sem_field_count(all_data[[cols$field]], st$max_sem_fields)
 
   family <- if (has("family")) {
     f <- as.character(data[[cols$family]])

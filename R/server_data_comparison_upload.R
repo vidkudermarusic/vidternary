@@ -22,7 +22,7 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
       dfs <- list()
       failed <- c()
       for (i in seq_len(n)) {
-        d <- tryCatch(openxlsx::read.xlsx(input$comparison_files$datapath[i], sheet = 1), error = function(e) NULL)
+        d <- tryCatch(read_particle_table(input$comparison_files$datapath[i]), error = function(e) NULL)
         if (is.null(d)) {
           failed <- c(failed, input$comparison_files$name[i])
         } else {

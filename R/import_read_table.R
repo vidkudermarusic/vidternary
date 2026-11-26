@@ -51,6 +51,39 @@ detect_text_format <- function(lines) {
   list(sep = sep, dec = dec, n_fields = as.integer(names(which.max(table(lengths(strsplit(lines, sep, fixed = TRUE)))))))
 }
 
+#' Fill the blank cells of the element columns with 0
+#'
+#' An EDS export may leave the cell of an element that was not detected
+#' empty instead of writing 0. The app treats such a blank as 0 everywhere,
+#' and does so once, when a file is read ([read_particle_table()]), so that
+#' every tab sees the same particles. Only columns named as weight or
+#' atomic percent of an element (e.g. `Al.(Wt%)`, `Wt% Al`, `Fe at%`) are
+#' filled - not a bare `Y` or `B`, which may be a coordinate or something
+#' else. A column that is blank in every row (read as logical) becomes a
+#' column of zeros.
+#'
+#' @param data A data frame.
+#' @return `data` with the blanks of its element columns set to 0, and an
+#'   attribute `blank_element_cells` (number of cells filled).
+#' @export
+fill_blank_element_cells <- function(data) {
+  all_blank <- vapply(data, function(v) length(v) > 0 && all(is.na(v)), logical(1))
+  probe <- data
+  probe[all_blank] <- lapply(probe[all_blank], as.numeric)
+  el <- detect_element_columns(probe)
+  cols <- el$column[el$basis %in% c("wt", "at")]
+  filled <- 0
+  for (cn in cols) {
+    v <- probe[[cn]]
+    blank <- is.na(v)
+    filled <- filled + sum(blank)
+    v[blank] <- 0
+    data[[cn]] <- v
+  }
+  attr(data, "blank_element_cells") <- filled
+  data
+}
+
 #' Read a particle table from an Excel or delimited text file
 #'
 #' `.xlsx` files are read with `openxlsx` (first sheet by default); `.csv`,
@@ -58,6 +91,8 @@ detect_text_format <- function(lines) {
 #' delimiter and decimal mark worked out by [detect_text_format()]. Column
 #' names are trimmed and their spaces replaced by dots, as `openxlsx` does,
 #' so the same file gives the same column names whichever way it was saved.
+#' Blank cells of the element columns are set to 0 (an element that was not
+#' detected), see [fill_blank_element_cells()].
 #'
 #' @param path Path of the file.
 #' @param name File name to take the extension from (an uploaded file's
@@ -65,7 +100,7 @@ detect_text_format <- function(lines) {
 #'   messages). Default: `path`.
 #' @param sheet Sheet of an Excel file. Default 1.
 #' @return A data frame, with an `import_info` attribute: `format`, `sep`,
-#'   `dec`, `n_rows`, `n_cols`.
+#'   `dec`, `n_rows`, `n_cols`, `blank_element_cells`.
 #' @export
 read_particle_table <- function(path, name = path, sheet = 1) {
   ext <- tolower(tools::file_ext(name))
@@ -92,6 +127,9 @@ read_particle_table <- function(path, name = path, sheet = 1) {
     stop("'", basename(name), "' is not an Excel (.xlsx) or text (.csv, .txt, .tsv) file.", call. = FALSE)
   }
   if (is.null(d) || ncol(d) == 0) stop("'", basename(name), "' holds no table.", call. = FALSE)
-  attr(d, "import_info") <- c(info, list(n_rows = nrow(d), n_cols = ncol(d)))
+  d <- fill_blank_element_cells(d)
+  filled <- attr(d, "blank_element_cells")
+  attr(d, "blank_element_cells") <- NULL
+  attr(d, "import_info") <- c(info, list(n_rows = nrow(d), n_cols = ncol(d), blank_element_cells = filled))
   d
 }

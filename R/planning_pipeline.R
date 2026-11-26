@@ -14,7 +14,7 @@
 planning_default_settings <- function() {
   list(coord_unit = "mm", inspected_area_mm2 = NULL, target_precision_pct = 10, target_ratio = 1.2,
        power = 0.8, alpha = 0.05, level = 0.95, fields_per_area = 1, return_period = 100,
-       n_sim = 400, seed = 42)
+       n_sim = 400, seed = 42, max_sem_fields = 100000)
 }
 
 #' Plan a measurement from a pilot run
@@ -48,6 +48,10 @@ plan_measurement <- function(runs, cols, settings = list(), all_runs = runs) {
   all_runs <- all_runs[names(runs)]
   has_field <- !is.null(cols$field) && all(vapply(runs, function(d) cols$field %in% names(d), logical(1)))
   inspected <- .batch_areas(all_runs, cols, st)
+  if (has_field) {
+    for (name in names(runs)) check_sem_field_count(all_runs[[name]][[cols$field]], st$max_sem_fields,
+                                                    if (length(runs) > 1) sprintf("run '%s'", name))
+  }
 
   per_run <- do.call(rbind, lapply(names(runs), function(name) {
     d <- runs[[name]]

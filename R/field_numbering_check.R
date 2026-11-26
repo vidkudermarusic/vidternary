@@ -20,6 +20,43 @@
   a
 }
 
+#' Refuse a field ID column that would count an absurd number of fields
+#'
+#' Whole-number field IDs count every number from the smallest to the
+#' largest as an inspected field, and the counts per field and the
+#' bootstrap over fields are built at that size. One stray ID (a typing
+#' error, or a wrong column such as a time stamp or spectrum number) would
+#' then exhaust the memory: an ID of 3,000,000 took 10 GB. This stops
+#' before anything is built per field.
+#'
+#' @param field Field ID of every inspected row.
+#' @param max_fields Largest number of fields allowed. Default 100000 (a
+#'   200 mm2 specimen in fields of 0.003 mm2 is about 64000); `Inf`
+#'   switches the check off.
+#' @param label Name of the batch or run for the message, or `NULL`.
+#' @return The number of fields that would be counted, invisibly.
+#' @export
+check_sem_field_count <- function(field, max_fields = 100000, label = NULL) {
+  ids <- field[!is.na(field)]
+  if (length(ids) == 0) return(invisible(0))
+  num <- suppressWarnings(as.numeric(as.character(ids)))
+  whole <- all(is.finite(num)) && all(num == round(num))
+  n <- if (whole) max(num) - min(num) + 1 else length(unique(as.character(ids)))
+  if (is.finite(max_fields) && n > max_fields) {
+    of <- if (is.null(label)) "" else sprintf(" of %s", label)
+    big <- function(v) format(v, big.mark = ",", scientific = FALSE, trim = TRUE)
+    what <- if (whole) {
+      sprintf("The SEM field IDs%s run from %s to %s, so %s fields would be counted (%s of them hold particles; at most %s are allowed).",
+              of, big(min(num)), big(max(num)), big(n), big(length(unique(num))), big(max_fields))
+    } else {
+      sprintf("The SEM field column%s holds %s different IDs (at most %s are allowed).", of, big(n), big(max_fields))
+    }
+    stop(what, " Check the field ID column: a wrong column (a time stamp, a spectrum or particle number) or one mistyped ID does this.",
+         call. = FALSE)
+  }
+  invisible(n)
+}
+
 #' Messages about the numbering of the SEM field IDs
 #'
 #' @param field Field ID of every inspected row (before any filter).

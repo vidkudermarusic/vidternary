@@ -21,7 +21,7 @@
 #' @export
 load_and_validate_ternary_source_data <- function(xlsx_file, element_A, element_B, element_C, output_format, preview) {
   log_operation("INFO", "Loading source data", paste("File:", xlsx_file))
-  M <- openxlsx::read.xlsx(xlsx_file, sheet = 1)
+  M <- read_particle_table(xlsx_file)
 
   if (getOption("ternary.debug", FALSE)) {
     cat("DEBUG: Initial data loaded, dimensions:", dim(M), "\n")

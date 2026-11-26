@@ -44,6 +44,12 @@ ad_ksample_test <- function(x, group, n_perm = 999, seed = 42) {
   if (nlevels(group) < 2 || any(n < 2)) stop("At least 2 samples with 2 or more values each are needed.", call. = FALSE)
   if (length(n_perm) != 1 || !is.finite(n_perm) || n_perm < 1) stop("The number of permutations must be 1 or more.", call. = FALSE)
   n_perm <- as.integer(n_perm)
+  # All values equal: no sample can differ from another. kSamples stops on
+  # this case (its sigma is 0), so it is answered here.
+  if (length(unique(x)) == 1) {
+    return(list(statistic = 0, p_value = 1, p_value_asymptotic = 1, n_perm = n_perm,
+                n = stats::setNames(as.integer(n), names(n))))
+  }
 
   samples <- split(x, group)
   res <- .evs_with_seed(seed, kSamples::ad.test(samples, method = "simulated", Nsim = n_perm))
