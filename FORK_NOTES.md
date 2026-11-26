@@ -450,6 +450,34 @@ with that reason. The other 14 findings of pass 7 are open.
   Inclusion Presets, Data Comparison, Multiple Ternary Creator, Hexagonal
   and Plot Builder (plots and downloads), and with a .xls file.
 
+## Planning: index of dispersion pooled within runs (audit pass 7, medium + low; 2026-11-26)
+
+* plan_measurement() put the counts per field of all repeated runs into
+  one pile, so a difference between the runs' densities was counted as
+  clustering (0.73 and 1.14 alone, 1.70 together) and every planned area
+  grew by that factor. It also mixed runs at different field sizes, and the
+  repeatability test, which divides by the index, was weakened by the very
+  difference it tests.
+* New R/planning_dispersion.R: pooled_within_dispersion() takes the variance
+  around each run's own mean, D = sum (x - run mean)^2 / sum (fields - 1) *
+  run mean (decision of the user: this weighted mean, not the largest
+  run's index). One run gives the same value as before. The display table
+  says "within the runs" when there are several.
+* Decision of the user: the scatter between runs stays outside the plan
+  (shown under Repeated runs). When it is significant, the warning now
+  gives the best precision a single run can reach, z * s_excess / mean.
+* Low finding fixed with it: a plan whose index cannot be measured (fewer
+  than 2 fields, or no particles in them) now warns that it assumes random
+  scatter and the areas are a lower bound.
+* Simulation (300 pairs of Poisson runs): new index about 1.05 whether the
+  runs differ or not, the one-pile index 1.49 for runs 10 vs 15 per field;
+  with 5 fields of ~100 particles 15 % apart the repeatability test found
+  the difference in 55 % of the cases instead of 43 %; equal runs keep the
+  level (under 5 %). On the three example files the index goes from 2.76
+  to 2.54 (plan areas 8 % smaller).
+* New test-planning-dispersion.R; statistical appendix (formula, example),
+  user guide and tab help updated.
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

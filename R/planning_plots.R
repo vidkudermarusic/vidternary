@@ -38,7 +38,8 @@ planning_display_tables <- function(res) {
   area_fmt <- function(a) ifelse(a >= 100, sprintf("%.0f", a), sprintf("%.3g", a))
   pilot <- data.frame(
     Quantity = c("Runs", "Particles", "Inspected area (mm2)", "Particles per mm2", "95% interval (Poisson)",
-                 "SEM fields", "Area of one field (mm2)", "Index of dispersion (counts per field)",
+                 "SEM fields", "Area of one field (mm2)",
+                 if (isTRUE(p$runs > 1)) "Index of dispersion (counts per field, within the runs)" else "Index of dispersion (counts per field)",
                  "Precision now (half-width of the 95% interval)",
                  "Smallest density ratio found between two batches inspected on this area each"),
     Value = c(p$runs, p$n, sprintf("%.2f", p$inspected_area_mm2), sprintf("%.1f", p$per_mm2),

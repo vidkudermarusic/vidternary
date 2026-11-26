@@ -23,7 +23,7 @@ create_planning_tab <- function(id) {
         info_box(" How it works",
           tags$ul(
             tags$li(strong("Precision: "), "the number density is a count over an area. Its relative uncertainty is the square root of (index of dispersion / number of particles), so halving the interval takes four times the area."),
-            tags$li(strong("Clustering: "), "inclusions come in groups, so counts per SEM field vary more than random scatter. The index of dispersion (variance over mean of the counts per field) measures that, and every area in the plan grows by that factor."),
+            tags$li(strong("Clustering: "), "inclusions come in groups, so counts per SEM field vary more than random scatter. The index of dispersion (variance over mean of the counts per field) measures that, and every area in the plan grows by that factor. With several runs it is measured within each run and pooled; a difference between the runs is judged under Repeated runs."),
             tags$li(strong("Difference between batches: "), "the area each of two batches needs so that a given density ratio is found with the chosen probability."),
             tags$li(strong("Largest inclusion: "), "the return level of the extreme-value fit is refitted on simulated measurements with more control areas, to show how slowly its interval narrows."),
             tags$li(strong("Repeated runs: "), "with two or more runs of one specimen, the scatter between them is compared with what counting alone would give. A difference between batches smaller than the repeatability limit cannot be told from a mere repeat."),

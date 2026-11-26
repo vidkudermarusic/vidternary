@@ -984,7 +984,32 @@ with power $1-\beta$ in a two-sided test at level $\alpha$ when
 $$A = \frac{(z_{1-\alpha/2} + z_{1-\beta})^2\, D\, (1 + 1/\rho)}{\lambda\, (\ln \rho)^2}.$$
 
 $D$ belongs to the field size it was measured at, so the plan assumes more
-fields of the same size. A measured $D < 1$ is replaced by 1.
+fields of the same size. A measured $D < 1$ is replaced by 1. When $D$
+cannot be measured (fewer than 2 fields, or no particles in them) the plan
+uses 1 and warns that the areas are a lower bound.
+
+With several runs of one specimen, $D$ is pooled **within** the runs: with
+$x_{ri}$ the count in field $i$ of run $r$, $\bar x_r$ the run's mean and
+$k_r$ its number of fields,
+
+$$D = \frac{\sum_r \sum_i (x_{ri} - \bar x_r)^2}{\sum_r (k_r - 1)\,\bar x_r},$$
+
+the mean of the runs' own indices weighted by $(k_r - 1)\bar x_r$. Putting
+all counts into one pile would add the difference between the runs' means
+to the variance and call it clustering: two runs with 0.73 and 1.14 on
+their own gave 1.70 together. It would also mix runs taken at different
+field sizes, and - because the repeatability test below divides by $D$ - a
+real difference between the runs would inflate $D$ and so weaken the test
+of that very difference (by about $X^2/k$ per field; with 5 fields of
+about 100 particles and runs 15 % apart, the test found the difference in
+55 % of simulated cases with the pooled-within $D$ and in 43 % with the
+one-pile value).
+
+```{r planning-dispersion-example}
+a <- c(4, 6, 5, 5, 3, 7, 5, 5)
+pooled_within_dispersion(list(a, a + 10))$dispersion   # within: no clustering
+x <- c(a, a + 10); var(x) / mean(x)                      # one pile: the shift counted as clustering
+```
 
 ```{r planning-example}
 area_for_density_precision(density_per_mm2 = 100, rel_halfwidth = 0.10)                  # random scatter
@@ -1002,6 +1027,11 @@ is compared with a chi-squared distribution with $k-1$ degrees of freedom.
 The variance between the run densities is split into the part counting
 explains, $D\hat\lambda / A$, and the rest; the repeatability limit is
 $1.96\sqrt{2}$ times the total standard deviation.
+
+The rest, $s_\text{excess}$, is in every single run however large its area,
+so when the runs differ significantly the notes give the best precision one
+run can reach, $z_{1-\alpha/2}\, s_\text{excess} / \hat\lambda$, next to the
+plan (which covers counting and clustering only).
 
 ```{r repeatability-example}
 r <- density_repeatability(c(run_1 = 200, run_2 = 215, run_3 = 190), area_mm2 = 2)

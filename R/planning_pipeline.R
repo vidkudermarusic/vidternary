@@ -74,17 +74,19 @@ plan_measurement <- function(runs, cols, settings = list(), all_runs = runs) {
   density <- n_total / area_total
   ci <- poisson_count_ci(n_total, st$level) / area_total
 
-  # Counts per field of all runs together: one index of dispersion.
-  field_counts <- if (has_field) unlist(lapply(names(runs), function(name) {
+  # Counts per field, one vector per run. The index of dispersion is pooled
+  # WITHIN the runs (pooled_within_dispersion()): a difference between the
+  # runs' densities is not clustering and is tested by the repeatability
+  # part below.
+  field_counts <- if (has_field) lapply(names(runs), function(name) {
     d <- runs[[name]]
     area <- suppressWarnings(as.numeric(d[[cols$area]]))
     field_count_dispersion(d[[cols$field]][is.finite(area) & area > 0],
                            .cleanliness_n_fields(all_runs[[name]][[cols$field]]))$counts
-  })) else NULL
-  n_fields <- if (has_field) length(field_counts) else NA_integer_
-  measured_dispersion <- if (has_field && length(field_counts) > 1 && mean(field_counts) > 0) {
-    stats::var(field_counts) / mean(field_counts)
-  } else NA_real_
+  }) else NULL
+  pooled_disp <- if (has_field) pooled_within_dispersion(field_counts) else NULL
+  n_fields <- if (has_field) pooled_disp$n_fields else NA_integer_
+  measured_dispersion <- if (has_field) pooled_disp$dispersion else NA_real_
   # Under-dispersion is not used to promise a better precision than Poisson.
   dispersion <- if (is.na(measured_dispersion)) 1 else max(1, measured_dispersion)
   field_area <- if (has_field) area_total / n_fields else NA_real_
@@ -185,6 +187,10 @@ planning_notes <- function(result) {
   }
   if (!result$has_field) {
     warn <- c(warn, "No SEM field ID column: the plan assumes randomly scattered particles. Inclusions usually cluster, so the areas given are a lower bound; choose the field column to measure the clustering.")
+  } else if (is.na(p$field_dispersion)) {
+    warn <- c(warn, sprintf(
+      "The clustering could not be measured: %s. The plan assumes randomly scattered particles (index of dispersion 1), so the areas given are a lower bound.",
+      if (isTRUE(p$runs > 1)) "no run has at least 2 SEM fields with particles" else "the run has fewer than 2 SEM fields, or no particles in them"))
   } else if (isTRUE(p$field_dispersion > 2)) {
     warn <- c(warn, sprintf(
       "The counts per SEM field vary %.1f times more than random scatter allows: the particles are clustered. Every area in the plan is %.1f times larger than it would be for randomly scattered particles.",
@@ -201,9 +207,14 @@ planning_notes <- function(result) {
   rep <- result$repeatability
   if (!is.null(rep)) {
     if (isTRUE(rep$density$p_value < 0.05)) {
+      # The scatter between runs beyond counting stays in any single run,
+      # however large: z * (that scatter / mean) is the best precision one
+      # run can reach.
+      excess_rel <- rep$density$sd_excess / rep$density$mean_per_mm2
       warn <- c(warn, sprintf(
-        "The repeated runs differ by more than counting scatter explains (%s): scatter between runs of %.1f per mm2 beyond counting. Something other than chance changes between runs - check threshold, focus, the scanned region and the filter. More area does not remove this part of the uncertainty.",
-        p_text(rep$density$p_value), rep$density$sd_excess))
+        "The repeated runs differ by more than counting scatter explains (%s): scatter between runs of %.1f per mm2 (%.0f %% of the density) beyond counting. Something other than chance changes between runs - check threshold, focus, the scanned region and the filter. More area does not remove this part: no area in a single run brings the precision below about +/- %.0f %% (%g %% interval), whatever the plan below says.",
+        p_text(rep$density$p_value), rep$density$sd_excess, 100 * excess_rel,
+        100 * stats::qnorm((1 + st$level) / 2) * excess_rel, 100 * st$level))
     } else {
       note <- c(note, sprintf("The repeated runs agree within counting scatter (%s).", p_text(rep$density$p_value)))
     }

@@ -88,6 +88,7 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/planning_precision.R` | Precision of a number density on a given area; area for a wanted precision or for detecting a density ratio; detectable ratio. |
 | `R/planning_evs.R` | Precision of the EVS return level against the number of control areas, by simulation from the pilot fit. |
 | `R/repeatability.R` | Repeated runs of one specimen: scatter between runs against counting scatter, repeatability limit. |
+| `R/planning_dispersion.R` | Index of dispersion of the counts per SEM field pooled within repeated runs (a difference between runs is not counted as clustering). |
 | `R/planning_pipeline.R` | `plan_measurement()`: the whole plan as one pure function, its notes and export tables. |
 | `R/planning_plots.R` | Precision-against-area curve; display tables of the plan. |
 | `R/ui_planning_tab.R`, `R/server_planning.R` | "Measurement Planning" tab. |

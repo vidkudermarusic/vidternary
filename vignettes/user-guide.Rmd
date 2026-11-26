@@ -463,14 +463,18 @@ click **Make the Plan**.
   the area.
 - **Clustering**: with a SEM field column the plan measures how much the
   counts per field vary beyond random scatter (index of dispersion) and
-  enlarges every area by that factor. Without the column the areas are a
-  lower bound.
+  enlarges every area by that factor. Without the column, or with fewer
+  than 2 fields, the areas are a lower bound (the tab warns). With several
+  runs the index is measured within each run and pooled, so a difference
+  between the runs is not taken for clustering; it is judged under
+  Repeated runs.
 - **Largest inclusion**: how the interval of the extreme-value return level
   narrows with 2, 4, 8 and 16 times the control areas.
 - **Repeated runs**: whether the runs differ by more than counting scatter,
   and the repeatability limit - the difference two runs of one specimen
   stay within. A difference between batches below that limit cannot be
-  told from a mere repeat.
+  told from a mere repeat. When the runs differ significantly, the warning
+  also gives the best precision a single run can reach, whatever its area.
 
 The plan covers counting statistics on one specimen. Differences between
 sections, positions in the product or heats need their own specimens.
