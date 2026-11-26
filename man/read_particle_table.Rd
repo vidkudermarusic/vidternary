@@ -20,7 +20,8 @@ A data frame, with an \code{import_info} attribute: \code{format}, \code{sep},
 \code{dec}, \code{n_rows}, \code{n_cols}, \code{blank_element_cells}.
 }
 \description{
-\code{.xlsx} files are read with \code{openxlsx} (first sheet by default); \code{.csv},
+\code{.xlsx} and \code{.xlsm} files are read with \code{openxlsx} (first sheet by
+default; macros are not run); \code{.csv},
 \code{.txt}, \code{.tsv}, \code{.tab} and \code{.dat} files as delimited text with the
 delimiter and decimal mark worked out by \code{\link[=detect_text_format]{detect_text_format()}}. Column
 names are trimmed and their spaces replaced by dots, as \code{openxlsx} does,

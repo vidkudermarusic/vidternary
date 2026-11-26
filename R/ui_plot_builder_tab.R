@@ -20,8 +20,8 @@ create_plot_builder_tab <- function(id) {
       sidebarPanel(
         width = 4,
         h4("Data"),
-        fileInput(ns("builder_files"), "Select Excel File(s)", multiple = TRUE, accept = c(".xlsx", ".xls")),
-        helpText("Each file's Sheet 1 is read and combined. When multiple files are selected, rows are tagged with a 'source_file' column."),
+        fileInput(ns("builder_files"), "Select data file(s)", multiple = TRUE, accept = particle_file_accept()),
+        helpText("Excel (.xlsx, Sheet 1) or text (.csv, .txt, .tsv); the files are combined. When multiple files are selected, rows are tagged with a 'source_file' column."),
         uiOutput(ns("builder_dataset_selector_ui")),
         tags$hr(),
 

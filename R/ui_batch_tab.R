@@ -34,7 +34,7 @@ create_batch_tab <- function(id) {
         fluidRow(
           column(4,
             h4("Files"),
-            fileInput(ns("batch_files"), "Select one file per batch (2 or more)", multiple = TRUE, accept = c(".xlsx", ".csv", ".txt", ".tsv")),
+            fileInput(ns("batch_files"), "Select one file per batch (2 or more)", multiple = TRUE, accept = particle_file_accept()),
             helpText("The file name is the batch label. Only columns present in every file can be chosen."),
             verbatimTextOutput(ns("batch_file_info"))
           ),

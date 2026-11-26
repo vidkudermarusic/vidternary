@@ -96,7 +96,7 @@ test_that("create_file_selection_column(multiple = FALSE) builds a single-file p
   single <- as.character(create_file_selection_column("f", multiple = FALSE))
   expect_match(multi, "multiple", fixed = TRUE)
   expect_false(grepl("multiple=\"multiple\"", single, fixed = TRUE))
-  expect_match(single, "Select Excel File", fixed = TRUE)
+  expect_match(single, "Select data file", fixed = TRUE)
 })
 
 pass9_upload <- function(n_files) {

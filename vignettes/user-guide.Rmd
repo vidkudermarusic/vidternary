@@ -40,9 +40,21 @@ run_app()
 
 ## File format
 
-Every tab that accepts data reads an **Excel file** (`.xlsx`, and on most
-tabs also `.xls`) and always reads **Sheet 1 only** - there is no sheet
-picker anywhere in the app, so put your data on the first sheet. Column
+Every tab that accepts particle data reads the same file types, with the
+same reader:
+
+- **Excel:** `.xlsx`, and `.xlsm` (its macros are not run). Only **Sheet 1**
+  is read - there is no sheet picker anywhere in the app, so put your data
+  on the first sheet.
+- **Delimited text:** `.csv`, `.txt`, `.tsv`, `.tab`, `.dat`. The column
+  delimiter (tab, semicolon or comma) and the decimal mark (point or comma)
+  are detected from the file; the first line holds the column headers.
+- **Old Excel `.xls`** is not read: open it in Excel and save it as `.xlsx`
+  or `.csv`. The upload boxes do not offer it, and a renamed `.xls` gives a
+  message saying so.
+
+Files from another SEM system with different column names, or in atomic
+percent, go through **Data Import** first. Column
 headers become the column names shown in every dropdown, so short,
 consistent, spreadsheet-safe names (e.g. `Al2O3_Wt%`, `ECD_um`,
 `StageX_mm`, `Field`, `Area_mm2`) work best.

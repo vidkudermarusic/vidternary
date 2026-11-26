@@ -33,7 +33,7 @@ create_import_tab <- function(id) {
 
         info_box(" How it works",
           tags$ul(
-            tags$li(strong("Files: "), "Excel (.xlsx) and delimited text (.csv, .txt, .tsv). The delimiter and a decimal comma are detected."),
+            tags$li(strong("Files: "), "Excel (.xlsx, .xlsm) and delimited text (.csv, .txt, .tsv, .tab, .dat). The delimiter and a decimal comma are detected."),
             tags$li(strong("Roles: "), "each column the analyses need (area, length, position ...) is matched to a column of the file from its name. Check the proposal and correct it - only the Oxford AZtec Feature export has been checked against real files; for other systems the proposal is an educated guess."),
             tags$li(strong("Units: "), "lengths become um, the area um2, positions mm. The unit is read from the column name; set it by hand when the name does not say."),
             tags$li(strong("Chemistry: "), "element columns are renamed to 'El.(Wt%)'. Atomic percent is converted to weight percent."),
@@ -45,7 +45,7 @@ create_import_tab <- function(id) {
         fluidRow(
           column(6,
             h4("Files"),
-            fileInput(ns("import_files"), "Select file(s) to import", multiple = TRUE, accept = c(".xlsx", ".csv", ".txt", ".tsv", ".tab", ".dat")),
+            fileInput(ns("import_files"), "Select file(s) to import", multiple = TRUE, accept = particle_file_accept()),
             verbatimTextOutput(ns("import_file_info"))
           ),
           column(6,

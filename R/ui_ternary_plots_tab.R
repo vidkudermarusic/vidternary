@@ -28,10 +28,10 @@ create_ternary_plots_tab <- function(id) {
         ),
         fluidRow(
           column(6,
-            fileInput(ns("xlsx_file1"), "Choose Primary XLSX File", accept = c(".xlsx"))
+            fileInput(ns("xlsx_file1"), "Choose primary data file (.xlsx, .csv, .txt)", accept = particle_file_accept())
           ),
           column(6,
-            fileInput(ns("xlsx_file2"), "Choose Reference XLSX File", accept = c(".xlsx"))
+            fileInput(ns("xlsx_file2"), "Choose reference data file (.xlsx, .csv, .txt)", accept = particle_file_accept())
           )
         )
       )

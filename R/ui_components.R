@@ -180,12 +180,12 @@ info_box <- function(title, ...) {
 #' @return A `shiny::tagList()`.
 #' @export
 create_file_selection_column <- function(file_input_id, label = NULL, multiple = TRUE) {
-  if (is.null(label)) label <- if (multiple) "Select Excel File(s)" else "Select Excel File"
+  if (is.null(label)) label <- if (multiple) "Select data file(s)" else "Select data file"
   tagList(
     h4("File Selection"),
-    fileInput(file_input_id, label, multiple = multiple, accept = c(".xlsx", ".csv", ".txt", ".tsv")),
-    helpText(if (multiple) "Each file's Sheet 1 is read and combined. Text files (.csv, .txt) are read too."
-             else "One file (one specimen) - Sheet 1 is read. Analyse each specimen separately. Text files (.csv, .txt) are read too.")
+    fileInput(file_input_id, label, multiple = multiple, accept = particle_file_accept()),
+    helpText(if (multiple) "Excel (.xlsx, Sheet 1) or text (.csv, .txt, .tsv). The files are combined."
+             else "One file (one specimen): Excel (.xlsx, Sheet 1) or text (.csv, .txt, .tsv). Analyse each specimen separately.")
   )
 }
 

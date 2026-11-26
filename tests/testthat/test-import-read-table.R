@@ -101,7 +101,7 @@ test_that("the extension is taken from the given name when the path has none", {
 
 test_that("unreadable kinds of file are refused with a way out", {
   expect_error(read_particle_table(tempfile(fileext = ".xls")), "old-format .xls file")
-  expect_error(read_particle_table(tempfile(fileext = ".pdf")), "not an Excel \\(.xlsx\\) or text")
+  expect_error(read_particle_table(tempfile(fileext = ".pdf")), "not an Excel [(][.]xlsx, [.]xlsm[)] or text")
 })
 
 test_that("uploads of text files reach the tabs through the shared upload reader", {

@@ -426,6 +426,30 @@ with that reason. The other 14 findings of pass 7 are open.
   unchanged.
 * New test-plot-builder-columns.R.
 
+## Same file types in every tab (audit pass 7, medium; 2026-11-26)
+
+* Since f594387 every tab read files with read_particle_table(), but five
+  older tabs (Ternary Plots, Multiple Ternary Creator, Hexagonal, Plot
+  Builder, Data Comparison) still offered only .xlsx (and .xls, which
+  cannot be read) in the file dialog, and the user guide said every tab
+  reads Excel only.
+* particle_file_accept() (import_read_table.R) gives the extensions the
+  reader reads (.xlsx, .xlsm, .csv, .txt, .tsv, .tab, .dat); every data
+  upload box uses it. Decision of the user: .xls stays unsupported (no
+  readxl dependency), .xlsm stays. Labels and help texts no longer say
+  "Excel"; input IDs (xlsx_file1 ...) are unchanged so saved settings and
+  projects still load.
+* The older tabs pass the original file name to the reader, so a message
+  names "heat_7.xls" rather than the temp name; Data Comparison shows the
+  reason for a file it could not read. extract_file_base() strips every
+  readable extension (before, only .xlsx was removed, so a .csv name kept
+  ".csv" inside plot and folder names).
+* test-file-types.R scans every fileInput() in R/ and fails if one does not
+  use particle_file_accept() (or .json). Checked live with semicolon /
+  decimal-comma .csv copies of the example files in Ternary Plots,
+  Inclusion Presets, Data Comparison, Multiple Ternary Creator, Hexagonal
+  and Plot Builder (plots and downloads), and with a .xls file.
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

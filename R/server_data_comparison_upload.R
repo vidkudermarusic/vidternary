@@ -22,9 +22,17 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
       dfs <- list()
       failed <- c()
       for (i in seq_len(n)) {
-        d <- tryCatch(read_particle_table(input$comparison_files$datapath[i]), error = function(e) NULL)
-        if (is.null(d)) {
-          failed <- c(failed, input$comparison_files$name[i])
+        d <- tryCatch(read_particle_table(input$comparison_files$datapath[i], name = input$comparison_files$name[i]),
+                      error = function(e) conditionMessage(e))
+        if (is.character(d)) {
+          # Name the file first, then say why. The reader's own messages
+          # (e.g. an old .xls file) already name it; an error from openxlsx
+          # on a damaged file does not.
+          fname <- input$comparison_files$name[i]
+          reason <- d[1]
+          failed <- c(failed, if (!nzchar(reason)) fname
+                              else if (grepl(fname, reason, fixed = TRUE)) reason
+                              else paste0(fname, " (", reason, ")"))
         } else {
           dfs[[dataset_names[i]]] <- d
         }
@@ -33,7 +41,7 @@ register_data_comparison_upload_handlers <- function(input, output, session, rv,
       rv$comparison_data <- dfs
 
       if (length(failed) > 0) {
-        show_message(paste("Could not read:", paste(failed, collapse = ", ")), "warning")
+        show_message(paste("Could not read:", paste(failed, collapse = "; ")), "warning")
       }
       if (length(dfs) > 0) {
         show_message(paste("Loaded", length(dfs), "dataset(s) for comparison"), "success")

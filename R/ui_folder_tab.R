@@ -30,7 +30,7 @@ create_folder_tab <- function(id) {
         fluidRow(
           column(4,
             h4("Files"),
-            fileInput(ns("folder_files"), "Select all files of the folder", multiple = TRUE, accept = c(".xlsx", ".csv", ".txt", ".tsv")),
+            fileInput(ns("folder_files"), "Select all files of the folder", multiple = TRUE, accept = particle_file_accept()),
             helpText("Open the folder in the file dialog and select everything (Ctrl+A). Only columns present in every file can be chosen."),
             verbatimTextOutput(ns("folder_file_info")),
             selectInput(ns("folder_standard"), "Rating standard:", choices = c("ISO 4967", "ASTM E45"), selected = "ISO 4967")

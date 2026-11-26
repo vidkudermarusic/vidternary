@@ -35,7 +35,7 @@ create_planning_tab <- function(id) {
           column(4,
             h4("Files"),
             div(`data-example-files` = "example_run_1.xlsx,example_run_2.xlsx",
-              fileInput(ns("plan_files"), "Pilot run, or repeated runs of one specimen", multiple = TRUE, accept = c(".xlsx", ".csv", ".txt", ".tsv"))),
+              fileInput(ns("plan_files"), "Pilot run, or repeated runs of one specimen", multiple = TRUE, accept = particle_file_accept())),
             helpText("One file = one run. Several files are taken as repeats of the same specimen and pooled for the plan."),
             verbatimTextOutput(ns("plan_file_info"))
           ),

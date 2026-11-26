@@ -50,7 +50,7 @@ create_server_plot_builder <- function(input, output, session, rv, show_message,
     kept_names <- file_names[keep]
     n_files <- nrow(files_df)
     dfs <- lapply(seq_len(n_files), function(i) {
-      d <- tryCatch(read_particle_table(files_df$datapath[i]), error = function(e) NULL)
+      d <- tryCatch(read_particle_table(files_df$datapath[i], name = files_df$name[i]), error = function(e) NULL)
       if (is.null(d)) return(NULL)
       if (n_files > 1) d$source_file <- kept_names[i]
       d

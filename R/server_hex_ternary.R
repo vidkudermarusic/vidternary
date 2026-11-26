@@ -24,7 +24,7 @@ create_server_hex_ternary <- function(input, output, session, rv, show_message, 
   observeEvent(input$hex_xlsx_file, {
     req(input$hex_xlsx_file)
     tryCatch({
-      d <- read_particle_table(input$hex_xlsx_file$datapath)
+      d <- read_particle_table(input$hex_xlsx_file$datapath, name = input$hex_xlsx_file$name)
       cols <- names(d)
       for (i in seq_len(7)) {
         updateSelectizeInput(session, paste0("hex_element_", i), choices = cols)

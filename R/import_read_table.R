@@ -7,6 +7,22 @@
 
 # Text extensions read as delimited text.
 .text_extensions <- c("csv", "txt", "tsv", "tab", "dat")
+# Excel extensions read with openxlsx (.xlsm: macros are not run).
+.excel_extensions <- c("xlsx", "xlsm")
+
+#' File types the particle-data upload boxes offer
+#'
+#' Every tab that reads particle data offers exactly the extensions that
+#' [read_particle_table()] can read, so the file dialogs cannot drift apart
+#' from the reader (or from each other). An old `.xls` file is not offered;
+#' the reader says to save it as `.xlsx` or `.csv`.
+#'
+#' @return A character vector such as `c(".xlsx", ".xlsm", ".csv", ...)`, for
+#'   the `accept` argument of `shiny::fileInput()`.
+#' @export
+particle_file_accept <- function() {
+  paste0(".", c(.excel_extensions, .text_extensions))
+}
 
 # Lines of a text file as UTF-8, whatever it was saved as.
 .read_text_lines <- function(path, n = -1L) {
@@ -86,7 +102,8 @@ fill_blank_element_cells <- function(data) {
 
 #' Read a particle table from an Excel or delimited text file
 #'
-#' `.xlsx` files are read with `openxlsx` (first sheet by default); `.csv`,
+#' `.xlsx` and `.xlsm` files are read with `openxlsx` (first sheet by
+#' default; macros are not run); `.csv`,
 #' `.txt`, `.tsv`, `.tab` and `.dat` files as delimited text with the
 #' delimiter and decimal mark worked out by [detect_text_format()]. Column
 #' names are trimmed and their spaces replaced by dots, as `openxlsx` does,
@@ -105,7 +122,7 @@ fill_blank_element_cells <- function(data) {
 read_particle_table <- function(path, name = path, sheet = 1) {
   ext <- tolower(tools::file_ext(name))
   if (!nzchar(ext)) ext <- tolower(tools::file_ext(path))
-  if (ext %in% c("xlsx", "xlsm")) {
+  if (ext %in% .excel_extensions) {
     d <- openxlsx::read.xlsx(path, sheet = sheet)
     info <- list(format = "Excel", sep = NA_character_, dec = NA_character_)
   } else if (ext %in% .text_extensions) {
@@ -124,7 +141,7 @@ read_particle_table <- function(path, name = path, sheet = 1) {
   } else if (ext == "xls") {
     stop("'", basename(name), "' is an old-format .xls file, which cannot be read. Save it as .xlsx or .csv and upload that.", call. = FALSE)
   } else {
-    stop("'", basename(name), "' is not an Excel (.xlsx) or text (.csv, .txt, .tsv) file.", call. = FALSE)
+    stop("'", basename(name), "' is not an Excel (.xlsx, .xlsm) or text (.csv, .txt, .tsv, .tab, .dat) file.", call. = FALSE)
   }
   if (is.null(d) || ncol(d) == 0) stop("'", basename(name), "' holds no table.", call. = FALSE)
   d <- fill_blank_element_cells(d)
