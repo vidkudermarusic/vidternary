@@ -71,15 +71,23 @@ ad_ksample_test <- function(x, group, n_perm = 999, seed = 42) {
 #' @param size Particle sizes (e.g. equivalent circle diameters, um).
 #' @param batch Batch of each particle.
 #' @param n_perm,seed See [ad_ksample_test()].
+#' @param field SEM field ID of each particle, to permute whole fields
+#'   ([ad_field_permutation_test()]); `NULL` permutes single particles
+#'   ([ad_ksample_test()]).
 #' @return A list: `overall` (from [ad_ksample_test()]), `pairs` (data
 #'   frame: `batch_a`, `batch_b`, `statistic`, `p_value`, `p_adjusted`,
 #'   `median_ratio`, `p90_ratio`) and `quantiles` (data frame per batch:
 #'   `n`, `median`, `p90`, `p99`, `max`).
 #' @export
-compare_size_distributions <- function(size, batch, n_perm = 999, seed = 42) {
+compare_size_distributions <- function(size, batch, n_perm = 999, seed = 42, field = NULL) {
   ok <- is.finite(size) & !is.na(batch)
   size <- size[ok]
   batch <- as.character(batch[ok])
+  if (!is.null(field)) field <- field[ok]
+  test <- function(sel) {
+    if (is.null(field)) ad_ksample_test(size[sel], batch[sel], n_perm, seed)
+    else ad_field_permutation_test(size[sel], batch[sel], field[sel], n_perm, seed)
+  }
   batches <- unique(batch)
   if (length(batches) < 2) stop("At least 2 batches are needed for a comparison.", call. = FALSE)
 
@@ -90,12 +98,13 @@ compare_size_distributions <- function(size, batch, n_perm = 999, seed = 42) {
                max = max(v), stringsAsFactors = FALSE)
   }))
 
-  overall <- ad_ksample_test(size, batch, n_perm, seed)
+  overall <- test(rep(TRUE, length(size)))
+  overall$unit <- overall$unit %||% "particles"
   idx <- utils::combn(length(batches), 2)
   pairs <- do.call(rbind, lapply(seq_len(ncol(idx)), function(k) {
     a <- batches[idx[1, k]]; b <- batches[idx[2, k]]
     sel <- batch %in% c(a, b)
-    t <- ad_ksample_test(size[sel], batch[sel], n_perm, seed)
+    t <- test(sel)
     qa <- quantiles[quantiles$batch == a, ]; qb <- quantiles[quantiles$batch == b, ]
     data.frame(batch_a = a, batch_b = b, statistic = t$statistic, p_value = t$p_value,
                median_ratio = qa$median / qb$median, p90_ratio = qa$p90 / qb$p90, stringsAsFactors = FALSE)

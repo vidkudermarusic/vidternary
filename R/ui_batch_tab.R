@@ -21,7 +21,7 @@ create_batch_tab <- function(id) {
         info_box(" How it works",
           tags$ul(
             tags$li(strong("Amount: "), "particles per mm2 and area fraction per batch with intervals; density ratios per pair with the exact Poisson test. Inclusions cluster, which makes Poisson p-values too small - the index of dispersion of the counts per SEM field shows it, and a rank test on those counts is given as well."),
-            tags$li(strong("Size: "), "the whole distributions are compared with the k-sample Anderson-Darling test (kSamples package), which is sensitive in the tail (the large inclusions); the p-value comes from permuting the batch labels."),
+            tags$li(strong("Size: "), "the whole distributions are compared with the k-sample Anderson-Darling test, which is sensitive in the tail (the large inclusions); the p-value comes from permuting the batch labels of whole SEM fields, so clustered particles do not make it too small."),
             tags$li(strong("Chemistry: "), "the chosen elements are compared in log-ratio coordinates with a permutation MANOVA; R2 says how much of the variation the batches explain, and the clr means show which elements differ."),
             tags$li(strong("Largest inclusion: "), "the extreme-value fit of the EVS tab, run on each batch with the same control area and return period."),
             tags$li(strong("Reading the result: "), "with many particles every difference is 'significant'. Look at the ratios, quantiles and R2 first, and at the p-value only to rule out chance."),
@@ -63,6 +63,9 @@ create_batch_tab <- function(id) {
           column(4,
             h4("Permutation tests"),
             numericInput(ns("batch_n_perm"), "Number of permutations:", value = 999, min = 99, max = 9999, step = 100),
+            radioButtons(ns("batch_permute"), "Size and chemistry tests permute:",
+                         choices = c("Whole SEM fields (recommended)" = "field", "Single particles" = "particle"), selected = "field"),
+            helpText("Particles of one field cluster, so permuting single particles gives p-values that are too small. Fields need a SEM field ID column."),
             helpText("The smallest p-value that can be reported is 1 / (permutations + 1).")
           )
         ),

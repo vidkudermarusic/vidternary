@@ -11,7 +11,8 @@
 #' @export
 batch_default_settings <- function() {
   list(coord_unit = "mm", inspected_area_mm2 = NULL, n_perm = 999, n_boot = 2000,
-       fields_per_area = 1, return_period = 100, seed = 42, max_sem_fields = 100000)
+       fields_per_area = 1, return_period = 100, seed = 42, max_sem_fields = 100000,
+       permute = "field")
 }
 
 # Inspected area of each batch: the entered value(s), else the area
@@ -102,9 +103,15 @@ run_batch_comparison <- function(batches, cols, settings = list(), all_batches =
 
   particles <- do.call(rbind, lapply(names(batches), function(name) {
     data.frame(batch = name, row = per_batch[[name]]$rows, area = per_batch[[name]]$area,
-               ecd = per_batch[[name]]$ecd, stringsAsFactors = FALSE)
+               ecd = per_batch[[name]]$ecd, field = if (has_field) as.character(per_batch[[name]]$field) else NA_character_,
+               stringsAsFactors = FALSE)
   }))
-  size <- compare_size_distributions(particles$ecd, particles$batch, st$n_perm, st$seed)
+  # Size and composition: whole SEM fields are permuted when the field of
+  # each particle is known (R/field_permutation.R), single particles
+  # otherwise or when asked for.
+  by_field <- has_field && !identical(st$permute, "particle")
+  perm_field <- if (by_field) particles$field else NULL
+  size <- compare_size_distributions(particles$ecd, particles$batch, st$n_perm, st$seed, field = perm_field)
 
   composition <- NULL
   parts <- cols$parts
@@ -118,7 +125,7 @@ run_batch_comparison <- function(batches, cols, settings = list(), all_batches =
       d[] <- lapply(d, function(v) suppressWarnings(as.numeric(v)))
       d
     }))
-    composition <- compare_compositions(chem, parts, particles$batch, st$n_perm, st$seed)
+    composition <- compare_compositions(chem, parts, particles$batch, st$n_perm, st$seed, field = perm_field)
   }
 
   evs <- if (has_field) {
@@ -134,7 +141,8 @@ run_batch_comparison <- function(batches, cols, settings = list(), all_batches =
   st$inspected_area_mm2 <- unname(inspected)
   result <- list(summary = summary, density = density, field_counts = field_counts, size = size,
                  composition = composition, evs = evs, particles = particles, parts = parts,
-                 has_field = has_field, field_checks = field_checks, settings = st)
+                 has_field = has_field, field_checks = field_checks,
+                 permutation_unit = if (by_field) "SEM fields" else "particles", settings = st)
   result$notes <- batch_notes(result)
   result
 }
@@ -194,7 +202,19 @@ batch_notes <- function(result) {
     bad <- result$evs[!is.na(result$evs$problem), ]
     warn <- c(warn, sprintf("No extreme-value estimate for: %s.", paste(sprintf("%s (%s)", bad$batch, bad$problem), collapse = "; ")))
   }
-  note <- c(note, "Pairwise p-values are adjusted for the number of pairs (Holm). Size and composition tests use permutations of the batch labels, so they treat particles as independent; batches that differ only through one cluster of particles can still come out as different.")
+  if (identical(result$permutation_unit, "SEM fields")) {
+    few <- result$size$overall$n_fields
+    few <- few[few < 10]
+    if (length(few)) {
+      warn <- c(warn, sprintf(
+        "Few SEM fields hold particles in: %s. The size and composition tests permute whole fields, so with this few fields they have little power and their smallest possible p-value is limited.",
+        paste(sprintf("%s (%d)", names(few), few), collapse = ", ")))
+    }
+    note <- c(note, "Pairwise p-values are adjusted for the number of pairs (Holm). The size and composition tests permute whole SEM fields between the batches, so the particles of one field stay together and clustering does not make the p-values too small. The Anderson-Darling statistic is the tie-adjusted one of Scholz & Stephens, computed by the app (it agrees with the kSamples package to about 5 digits; kSamples can only permute single particles).")
+  } else {
+    note <- c(note, sprintf("Pairwise p-values are adjusted for the number of pairs (Holm). The size and composition tests permute single particles, so they treat particles as independent; particles of one SEM field cluster, so these p-values are too small.%s",
+                            if (result$has_field) " Choose \"whole SEM fields\" to permute fields instead." else " Choose a SEM field ID column to permute whole fields instead."))
+  }
   list(warnings = warn, notes = note)
 }
 
@@ -205,6 +225,7 @@ batch_notes <- function(result) {
 #' @export
 batch_result_tables <- function(result) {
   st <- result$settings
+  unit <- result$permutation_unit %||% "particles"
   flat <- function(v) if (is.null(v)) "" else paste(format(v), collapse = ", ")
   test_row <- function(name, t, stat) {
     data.frame(test = name, statistic = t[[stat]] %||% NA_real_, p_value = t$p_value %||% NA_real_, stringsAsFactors = FALSE)
@@ -212,9 +233,9 @@ batch_result_tables <- function(result) {
   overall <- rbind(
     test_row("Number density: counts in proportion to the areas (chi-squared)", result$density$overall, "statistic"),
     if (!is.null(result$field_counts)) test_row("Counts per SEM field (Kruskal-Wallis)", result$field_counts, "statistic"),
-    test_row("Size distribution (k-sample Anderson-Darling, permutation)", result$size$overall, "statistic"),
-    if (!is.null(result$composition)) test_row("Composition (permutation MANOVA on ilr, pseudo-F)", result$composition$overall, "f"),
-    if (!is.null(result$composition)) test_row("Spread of composition (distance to batch centroid, F)", result$composition$dispersion, "f")
+    test_row(sprintf("Size distribution (k-sample Anderson-Darling, permutation of %s)", unit), result$size$overall, "statistic"),
+    if (!is.null(result$composition)) test_row(sprintf("Composition (permutation MANOVA on ilr, pseudo-F, permutation of %s)", unit), result$composition$overall, "f"),
+    if (!is.null(result$composition)) test_row(sprintf("Spread of composition (distance to batch centroid, F, permutation of %s)", unit), result$composition$dispersion, "f")
   )
   empty <- data.frame(note = "not computed", stringsAsFactors = FALSE)
   list(

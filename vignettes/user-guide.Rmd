@@ -227,12 +227,16 @@ save/load preset system for repeat use.
 1. Upload one or more files; pick which of them to include via the dataset
    selector (defaults to all).
 2. Choose a chart type. The axis controls rebuild for each type:
-   - **Violin / Box:** X = group column (any type); Y = one or more
+   - **Violin / Box:** X = group column; Y = one or more
      numeric columns (selecting 2+ compares several elements side by side
      within each X group, and overrides Color-by).
    - **Bar (counts):** X = category column, plus a "categories to show"
      selector (drawn from Color-by if set, else from X), plus a
      show-percentages toggle.
+   - The X list of Violin, Box and Bar shows only columns with at most 50
+     different values (file, class; a field number only on small maps). Each
+     value is one group, so a continuous column such as ECD would give
+     thousands of groups; use a histogram or scatter plot for it.
    - **Histogram:** one numeric variable + a bin-count field (default 30).
    - **Scatter:** X and Y, both numeric.
    - **Rose diagram:** a direction column in degrees + a bin width in
@@ -382,6 +386,12 @@ inclusions, and says by how much.
   difference too small to matter is still "significant".
 - If the yellow box says the particles are clustered, do not rely on the
   Poisson p-values for the number density; use the test on counts per field.
+- The size and chemistry tests permute **whole SEM fields** between the
+  batches (the default when a field column is chosen), so that clustered
+  particles do not make the p-values too small. *Single particles* is still
+  offered, e.g. to compare with older results, but its p-values are too
+  small whenever the particles cluster. With fewer than 10 fields per batch
+  the field test has little power; the yellow box says so.
 
 ## Acceptance limits (in Steel Cleanliness and Folder Summary)
 
@@ -667,8 +677,8 @@ through the app:
    stats and a correlation heatmap, then run Mahalanobis distance with
    "Self" as reference on each heat to see which one has the most unusual
    inclusion population.
-4. **Plot Builder** - build a box plot of `ECD_um` grouped by `Field` (or
-   `source_file`, i.e. heat) to compare inclusion size distributions
+4. **Plot Builder** - build a box plot of `ECD_um` grouped by
+   `source_file` (i.e. heat) to compare inclusion size distributions
    visually; save this configuration as a preset for next time.
 5. **Spatial Clustering** - using `StageX_mm`/`StageY_mm`, test whether
    inclusions are randomly scattered or clustered (banding) within each

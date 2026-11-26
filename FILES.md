@@ -71,6 +71,7 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/stereology_mass_balance.R` | O, S and N bound in the inclusions from area fraction, phase density and formula. |
 | `R/batch_density.R` | Number density of several batches: exact Poisson rate ratios, chi-squared against the areas, dispersion of counts per SEM field, rank test on those counts. |
 | `R/batch_size_distribution.R` | k-sample Anderson-Darling test (kSamples) with a permutation p-value; size quantiles per batch. |
+| `R/field_permutation.R` | Size (Anderson-Darling) and composition (PERMANOVA) tests that permute whole SEM fields between the batches; the app's own tie-adjusted AD statistic used for it. |
 | `R/field_numbering_check.R` | Checks whether the SEM field IDs are one consecutive series (the warning every tab that counts fields shows) and refuses an ID range of more than 100,000 fields. |
 | `R/batch_composition.R` | Permutation MANOVA on ilr coordinates, spread test, clr means per batch; EDS peak-overlap groups. |
 | `R/batch_evs.R` | Extreme-value return level of each batch with the same control area and return period. |
@@ -139,6 +140,7 @@ A short description of every file in the package, grouped by functional area. Fo
 | `R/options.R` | App-wide constants – the min/max point-size bounds shared by every plot's point-size legend/scaling. |
 | `R/dependencies.R` | Checks (does not install) the required R packages. |
 | `R/file_management.R` | Output-directory creation, file naming, timestamp logic. |
+| `R/plot_builder_columns.R` | Which columns the Plot Builder offers as the grouping X axis of violin / box / bar charts (at most 50 different values), and the matching check in the chart builder. |
 | `R/plot_builder_presets.R` | Save / load user presets for the Plot Builder tab (`plot_builder_presets.json`). |
 
 ## Package structure (outside `R/`)

@@ -4,7 +4,7 @@
 \alias{compare_compositions}
 \title{Compare the inclusion chemistry of several batches}
 \usage{
-compare_compositions(data, parts, batch, n_perm = 999, seed = 42)
+compare_compositions(data, parts, batch, n_perm = 999, seed = 42, field = NULL)
 }
 \arguments{
 \item{data}{Data frame with the compositional columns.}
@@ -14,6 +14,9 @@ compare_compositions(data, parts, batch, n_perm = 999, seed = 42)
 \item{batch}{Batch of each row.}
 
 \item{n_perm, seed}{See \code{\link[=permanova_test]{permanova_test()}}.}
+
+\item{field}{SEM field ID of each row, to permute whole fields
+(\code{\link[=permanova_field_test]{permanova_field_test()}}); \code{NULL} permutes single particles.}
 }
 \value{
 A list: \code{overall}, \code{pairs} (data frame: \code{batch_a}, \code{batch_b},

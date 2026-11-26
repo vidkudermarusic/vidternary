@@ -137,8 +137,9 @@ test_that("the export and display tables cover the result", {
 
   d <- batch_display_tables(r)
   expect_equal(d$summary$Batch, c("A", "B", "C"))
-  expect_equal(d$overall$Test, c("chi-squared", "Kruskal-Wallis", "k-sample Anderson-Darling, permutation",
-                                 "permutation MANOVA on ilr, pseudo-F", "distance to batch centroid, F"))
+  expect_equal(d$overall$Test, c("chi-squared", "Kruskal-Wallis", "k-sample Anderson-Darling, permutation of SEM fields",
+                                 "permutation MANOVA on ilr, pseudo-F, permutation of SEM fields",
+                                 "distance to batch centroid, F, permutation of SEM fields"))
   expect_equal(d$density_pairs$`Density ratio`[2], "2.00")
   expect_match(d$overall$`Share of variation explained (R2)`[4], "%$")
   expect_equal(names(d$clr), c("Element", "A", "B", "C", "Zero readings (%)"))

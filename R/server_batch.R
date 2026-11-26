@@ -98,6 +98,7 @@ create_server_batch <- function(input, output, session, rv, show_message, log_op
       coord_unit = input$batch_coord_unit %||% "mm",
       inspected_area_mm2 = parse_inspected_areas(input$batch_inspected_area),
       n_perm = num_or(input$batch_n_perm, 999),
+      permute = input$batch_permute %||% "field",
       fields_per_area = num_or(input$batch_fields_per_area, 1),
       return_period = num_or(input$batch_return_period, 100)
     ), error = function(e) shiny::validate(e$message))

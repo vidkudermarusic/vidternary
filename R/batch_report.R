@@ -167,8 +167,8 @@ batch_report <- function(result, provenance = NULL, script = NULL, filters = lis
       tab$evs)),
     list(title = "Methods", content = list(report_list(c(
       "Number density: exact Poisson rate-ratio test per pair; chi-squared test of counts against the inspected areas; Kruskal-Wallis test on the counts per SEM field.",
-      "Size distribution: k-sample Anderson-Darling statistic (Scholz & Stephens, 1987, tie-adjusted), computed with the kSamples R package (Scholz & Zhu); p-value by permutation of the batch labels, (count + 1) / (permutations + 1).",
-      "Composition: permutation MANOVA (Anderson, 2001) on isometric log-ratio coordinates, i.e. on Aitchison distances; spread tested on the distances to the batch centroid.",
+      "Size distribution: k-sample Anderson-Darling statistic (Scholz & Stephens, 1987, tie-adjusted). p-value by permutation of the batch labels, (count + 1) / (permutations + 1): of whole SEM fields when the field column is known (statistic computed by the app, agrees with kSamples to about 5 digits), else of single particles (kSamples R package, Scholz & Zhu).",
+      "Composition: permutation MANOVA (Anderson, 2001) on isometric log-ratio coordinates, i.e. on Aitchison distances; spread tested on the distances to the batch centroid; the same permutation unit as the size test.",
       "Largest inclusion: Murakami / ASTM E2283 block maxima and Gumbel fit per batch, bootstrap intervals.",
       "Pairwise p-values adjusted by Holm's method."))))
   )

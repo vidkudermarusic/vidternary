@@ -67,6 +67,8 @@ permanova_test <- function(coords, group, n_perm = 999, seed = 42) {
 #' @param parts Column names of the parts (at least 2).
 #' @param batch Batch of each row.
 #' @param n_perm,seed See [permanova_test()].
+#' @param field SEM field ID of each row, to permute whole fields
+#'   ([permanova_field_test()]); `NULL` permutes single particles.
 #' @return A list: `overall`, `pairs` (data frame: `batch_a`, `batch_b`,
 #'   `f`, `r2`, `p_value`, `p_adjusted`), `dispersion` (list: `per_batch`
 #'   data frame with the mean distance to the batch centroid, and the
@@ -74,7 +76,7 @@ permanova_test <- function(coords, group, n_perm = 999, seed = 42) {
 #'   `part`, `clr_mean`, `difference`), `zeros` (from [coda_zero_summary()])
 #'   and `n` (rows per batch).
 #' @export
-compare_compositions <- function(data, parts, batch, n_perm = 999, seed = 42) {
+compare_compositions <- function(data, parts, batch, n_perm = 999, seed = 42, field = NULL) {
   if (length(parts) < 2) stop("At least 2 compositional parts (columns) are required.", call. = FALSE)
   batch <- as.character(batch)
   batches <- unique(batch)
@@ -82,13 +84,19 @@ compare_compositions <- function(data, parts, batch, n_perm = 999, seed = 42) {
 
   ilr <- as.matrix(ilr_transform(data, parts)$ilr)
   clr <- as.matrix(clr_transform(data, parts))
-  overall <- permanova_test(ilr, batch, n_perm, seed)
+  test <- function(coords, sel) {
+    if (is.null(field)) permanova_test(coords[sel, , drop = FALSE], batch[sel], n_perm, seed)
+    else permanova_field_test(coords[sel, , drop = FALSE], batch[sel], field[sel], n_perm, seed)
+  }
+  everyone <- rep(TRUE, length(batch))
+  overall <- test(ilr, everyone)
+  overall$unit <- overall$unit %||% "particles"
 
   idx <- utils::combn(length(batches), 2)
   pairs <- do.call(rbind, lapply(seq_len(ncol(idx)), function(k) {
     a <- batches[idx[1, k]]; b <- batches[idx[2, k]]
     sel <- batch %in% c(a, b)
-    t <- permanova_test(ilr[sel, , drop = FALSE], batch[sel], n_perm, seed)
+    t <- test(ilr, sel)
     data.frame(batch_a = a, batch_b = b, f = t$f, r2 = t$r2, p_value = t$p_value, stringsAsFactors = FALSE)
   }))
   pairs$p_adjusted <- stats::p.adjust(pairs$p_value, method = "holm")
@@ -97,7 +105,7 @@ compare_compositions <- function(data, parts, batch, n_perm = 999, seed = 42) {
   g <- match(batch, batches)
   centroids <- rowsum(ilr, g) / tabulate(g, nbins = length(batches))
   distance <- sqrt(rowSums((ilr - centroids[g, , drop = FALSE])^2))
-  spread <- permanova_test(matrix(distance, ncol = 1), batch, n_perm, seed)
+  spread <- test(matrix(distance, ncol = 1), everyone)
   dispersion <- list(
     per_batch = data.frame(batch = batches, mean_distance = as.numeric(tapply(distance, g, mean)), stringsAsFactors = FALSE),
     f = spread$f, p_value = spread$p_value)

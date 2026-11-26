@@ -385,6 +385,47 @@ with that reason. The other 14 findings of pass 7 are open.
 * **Anderson-Darling with all values equal**: statistic 0 and p = 1, without
   calling kSamples (which stops on that case).
 
+## Size and composition tests permute whole SEM fields (2026-11-26)
+
+* `R/field_permutation.R`: `ad_field_permutation_test()` and
+  `permanova_field_test()` permute the batch labels of whole SEM fields
+  (each batch keeps its number of fields; a particle without a field ID is
+  a unit of its own). Batch Comparison uses them by default when a field
+  column is chosen (setting `permute = "field"`, radio button in the tab);
+  "particle" keeps the old tests. The pairs and the spread test use the
+  same unit.
+* The AD statistic for the field test is the app's own tie-adjusted
+  formula (restored from before the kSamples switch): kSamples cannot
+  permute fields and is too slow to call once per permutation. It agrees
+  with kSamples to about 5 digits (test-field-permutation.R).
+* Simulation (60 pairs of batches from one population, 20 fields x 15
+  particles, field effect sd 0.6 on log size and on Ti): the particle test
+  rejected at the 5 % level in more than 30 % of the runs, the field test in
+  under 15 % (nominal 5 %); the same for the MANOVA (40 runs). A real shift
+  is still found (p < 0.01).
+* On the example files both units give the same conclusions (their sizes
+  are not clustered by field). The field test is also faster: 2.9 s
+  instead of 13.9 s for the three example files, 2.8 s instead of 66 s for
+  three batches of 10000 particles.
+* Fewer than 10 fields with particles in a batch gives a warning.
+
+## Plot Builder: no continuous grouping X axis (2026-11-26)
+
+* Found in the full live check of all tabs: violin, box and bar charts
+  offered every column as the X (group) axis, and build_custom_plot()
+  wraps X in factor(), so a continuous column (ECD) became one group per
+  particle. On the 2316 example particles a violin chart took 21 s to draw
+  and 48 s to save, a box chart 2 s and 28 s, a bar chart 0.1 s and 8 s;
+  the app did not respond meanwhile.
+* New R/plot_builder_columns.R: builder_group_columns() lists only columns
+  with at most BUILDER_MAX_GROUPS (50) different values (text first, then
+  numeric such as the field number); check_builder_group_count() makes
+  build_custom_plot() stop with an explanation above the limit (argument
+  max_groups), so an older preset or a direct call cannot bring it back.
+  Loading such a preset gives a warning. Histogram, scatter and rose are
+  unchanged.
+* New test-plot-builder-columns.R.
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

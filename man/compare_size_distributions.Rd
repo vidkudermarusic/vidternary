@@ -4,7 +4,7 @@
 \alias{compare_size_distributions}
 \title{Compare the size distributions of several batches}
 \usage{
-compare_size_distributions(size, batch, n_perm = 999, seed = 42)
+compare_size_distributions(size, batch, n_perm = 999, seed = 42, field = NULL)
 }
 \arguments{
 \item{size}{Particle sizes (e.g. equivalent circle diameters, um).}
@@ -12,6 +12,10 @@ compare_size_distributions(size, batch, n_perm = 999, seed = 42)
 \item{batch}{Batch of each particle.}
 
 \item{n_perm, seed}{See \code{\link[=ad_ksample_test]{ad_ksample_test()}}.}
+
+\item{field}{SEM field ID of each particle, to permute whole fields
+(\code{\link[=ad_field_permutation_test]{ad_field_permutation_test()}}); \code{NULL} permutes single particles
+(\code{\link[=ad_ksample_test]{ad_ksample_test()}}).}
 }
 \value{
 A list: \code{overall} (from \code{\link[=ad_ksample_test]{ad_ksample_test()}}), \code{pairs} (data

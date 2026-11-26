@@ -905,6 +905,32 @@ size <- c(rlnorm(100, log(2), 0.5), rlnorm(100, log(2.6), 0.5))
 ad_ksample_test(size, rep(c("A", "B"), each = 100), n_perm = 199)[c("statistic", "p_value")]
 ```
 
+**Whole SEM fields as the unit.** Particles of one SEM field are not
+independent: inclusions come in clusters and stringers, and the counts per
+field vary more than random scatter. Relabelling single particles then
+gives p-values that are too small (pseudoreplication). When the field of
+each particle is known, the app therefore permutes the batch labels of
+**whole fields** - every particle of a field moves with it, and each batch
+keeps its number of fields. The statistic is unchanged; for this test it is
+computed by the app itself, because kSamples can only relabel single
+particles (the two agree to about 5 digits). In a simulation with field
+effects (two batches of 20 fields x 15 particles from one population) the
+particle test rejected the true null hypothesis in more than 30 % of the
+runs at the 5 % level, the field test at about the nominal rate. The price
+is power: with few fields per batch the field test can hardly reject, and
+its smallest p-value is limited by the number of ways the fields can be
+relabelled.
+
+```{r batch-field-example}
+set.seed(2)
+field <- rep(1:20, each = 10)
+effect <- rnorm(20, 0, 0.6)[field]                 # particles of a field share a size shift
+size <- exp(log(2) + effect + rnorm(200, 0, 0.3))
+batch <- rep(c("A", "B"), each = 100)             # one population, fields 1-10 vs 11-20
+c(particles = ad_ksample_test(size, batch, n_perm = 199)$p_value,
+  fields = ad_field_permutation_test(size, batch, field, n_perm = 199)$p_value)
+```
+
 ## Chemistry
 
 The chosen elements are transformed to isometric log-ratio coordinates, in
