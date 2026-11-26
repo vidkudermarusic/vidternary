@@ -36,6 +36,23 @@ cite_link <- function(label, doi_url = NULL) {
   }
 }
 
+# One line under the title: what the app is for.
+APP_SUBTITLE <- paste(
+  "Analysis of non-metallic inclusions from SEM/EDS particle data: ternary and hexagonal diagrams,",
+  "steel cleanliness rating, extreme values, batch comparison, measurement planning and spatial statistics.")
+
+#' Title of the app page, with the package version
+#'
+#' Shown at the top of the page and in the browser tab, so a screenshot or
+#' a saved page tells which version produced it.
+#'
+#' @return A string such as `"vidternary 1.0.0 - SEM/EDS inclusion analysis"`.
+#' @export
+app_title <- function() {
+  version <- tryCatch(as.character(utils::packageVersion("vidternary")), error = function(e) "")
+  paste0("vidternary", if (nzchar(version)) paste0(" ", version), " - SEM/EDS inclusion analysis")
+}
+
 # Main UI function
 #' Build the full app UI: page shell, header, and tabset
 #'
@@ -47,7 +64,7 @@ cite_link <- function(label, doi_url = NULL) {
 #' @export
 create_main_ui <- function() {
   fluidPage(
-    titlePanel("Ternary Plot Generator with Advanced Filtering"),
+    titlePanel(app_title(), windowTitle = app_title()),
 
     # Add error handling and user feedback
     tags$head(
@@ -105,7 +122,7 @@ create_main_ui <- function() {
 
     fluidRow(
       column(12,
-        h2("Custom Ternary Builder v6 - Individual Element Filtering", style = "margin-bottom: 20px;")
+        p(APP_SUBTITLE, style = "font-size: 15px; color: #495057; margin-bottom: 10px;")
       )
     ),
 

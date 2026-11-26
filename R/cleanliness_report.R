@@ -7,10 +7,29 @@
 #' @param settings The settings of the finished run (`result$settings`), so
 #'   every value - the inspected area included - is written out.
 #' @param filters Pre-analysis filters, column -> condition (may be empty).
+#' @param acceptance The acceptance limits entered in the tab, as returned
+#'   by [read_acceptance_limits()] (`limits`, `fields_per_area`,
+#'   `return_period`), or `NULL`. When limits are given, the script also
+#'   repeats the comparison with them.
 #' @return The script as a character vector of lines.
 #' @export
-cleanliness_script <- function(file_name, cols, settings, filters = list()) {
+cleanliness_script <- function(file_name, cols, settings, filters = list(), acceptance = NULL) {
   cols <- cols[!vapply(cols, is.null, logical(1))]
+  limits <- acceptance$limits
+  acceptance_lines <- if (length(limits)) {
+    # The extreme-value limit needs the fit of this specimen, as in the tab.
+    evs_line <- if (!is.null(limits$return_level_um) && !is.null(cols$field)) {
+      sprintf("evs <- acceptance_evs(suppressWarnings(as.numeric(data[[cols$area]])), data[[cols$field]], all_data[[cols$field]], %s, %s)",
+              .r_literal(acceptance$fields_per_area %||% 1), .r_literal(acceptance$return_period %||% 100))
+    } else "evs <- NULL"
+    c("",
+      "# Acceptance limits entered in the tab",
+      sprintf("limits <- %s", .r_literal(limits)),
+      evs_line,
+      "acceptance <- assess_acceptance(result, limits, evs)",
+      "acceptance$summary",
+      "acceptance_display_table(acceptance)")
+  }
   c(.script_header("Steel cleanliness analysis", "Steel Cleanliness"),
     sprintf("file <- %s", .r_literal(file_name)),
     "all_data <- read_particle_table(file)",
@@ -23,6 +42,7 @@ cleanliness_script <- function(file_name, cols, settings, filters = list()) {
     "result$rating_summary      # chart rating per type and width series",
     "result$indices             # particles per mm2, area fraction",
     "result$notes               # warnings and notes",
+    acceptance_lines,
     "# writexl::write_xlsx(cleanliness_result_tables(result), \"steel_cleanliness.xlsx\")")
 }
 

@@ -478,6 +478,27 @@ with that reason. The other 14 findings of pass 7 are open.
 * New test-planning-dispersion.R; statistical appendix (formula, example),
   user guide and tab help updated.
 
+## Audit pass 7, three low findings (2026-11-26)
+
+* Page shell: the title "Ternary Plot Generator with Advanced Filtering"
+  and the heading "Custom Ternary Builder v6 - Individual Element
+  Filtering" are replaced by app_title() ("vidternary <version> -
+  SEM/EDS inclusion analysis", also the browser-tab title) and one line on
+  what the app covers. The project_status output ("No project loaded"),
+  rendered nowhere since the sidebar went, is removed with its module
+  (server_status_outputs.R) and test.
+* Reproduction: cleanliness_script() takes the acceptance limits entered in
+  the tab (read_acceptance_limits()) and repeats assess_acceptance(), the
+  extreme-value limit included (same fit as the tab, seeded bootstrap);
+  the script gives the same acceptance table as the app. Measurement
+  Planning gets a report (HTML) and an R script (new R/planning_report.R,
+  two download buttons); the script gives the same plan.
+* create_stringer_map(): with no rated object the colour layers and scale
+  are left out (ggplot2 warned "No shared levels found"), and a caption
+  says no particle is wide enough to be rated.
+* New test-audit-low-shell-scripts.R; user guide (reports and scripts)
+  updated.
+
 ## Not done yet
 
 * Hooking presets into the Multiple Ternary Creator (batch) tab.

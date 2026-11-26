@@ -10,7 +10,9 @@
 #' Particles too narrow to be rated are drawn as small grey dots, rated
 #' objects as points coloured by type, and objects of more than one
 #' particle as a line from end to end. Dashed squares are the rating
-#' fields.
+#' fields. When no particle is wide enough to be rated, the map shows the
+#' particles and fields only, with a line saying so (no colour scale, which
+#' would otherwise warn about having no data).
 #'
 #' @param result From [run_cleanliness_analysis()].
 #' @return A `ggplot` object (coordinates in mm).
@@ -23,14 +25,21 @@ create_stringer_map <- function(result) {
   lines <- o[o$n_members > 1, , drop = FALSE]
   mm <- function(v) v / 1000
 
-  ggplot2::ggplot() +
+  g <- ggplot2::ggplot() +
     ggplot2::geom_rect(data = f, ggplot2::aes(xmin = mm(x_min), xmax = mm(x_max), ymin = mm(y_min), ymax = mm(y_max)),
                        fill = NA, colour = "grey60", linetype = "dashed", linewidth = 0.3) +
-    ggplot2::geom_point(data = thin, ggplot2::aes(x = mm(x), y = mm(y)), colour = "grey75", size = 0.2) +
-    ggplot2::geom_segment(data = lines, ggplot2::aes(x = mm(x_start), y = mm(y_start), xend = mm(x_end), yend = mm(y_end), colour = type),
-                          linewidth = 1.1) +
-    ggplot2::geom_point(data = o, ggplot2::aes(x = mm(x), y = mm(y), colour = type), size = 1.8) +
-    ggplot2::scale_colour_manual(values = .inclusion_type_colors, drop = FALSE, name = "Type") +
+    ggplot2::geom_point(data = thin, ggplot2::aes(x = mm(x), y = mm(y)), colour = "grey75", size = 0.2)
+  if (nrow(o) > 0) {
+    g <- g +
+      ggplot2::geom_segment(data = lines, ggplot2::aes(x = mm(x_start), y = mm(y_start), xend = mm(x_end), yend = mm(y_end), colour = type),
+                            linewidth = 1.1) +
+      ggplot2::geom_point(data = o, ggplot2::aes(x = mm(x), y = mm(y), colour = type), size = 1.8) +
+      ggplot2::scale_colour_manual(values = .inclusion_type_colors, drop = FALSE, name = "Type")
+  } else {
+    g <- g + ggplot2::labs(caption = sprintf("No particle is wide enough to be rated (narrowest rated width %s um).",
+                                             format(result$settings$min_width %||% NA)))
+  }
+  g +
     ggplot2::coord_fixed() +
     ggplot2::labs(x = "X (mm)", y = "Y (mm)", title = "Rated inclusions and stringers",
                   subtitle = sprintf("%d rated objects, %d stringers; dashed squares = %g mm2 rating fields",

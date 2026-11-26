@@ -37,8 +37,6 @@ test_that("create_server_logic() wires the whole app without error and initializ
     expect_false(rv$is_categorical_group_2)
     # No plot_builder_presets.json in this fresh isolated directory.
     expect_equal(rv$plot_presets, list())
-
-    expect_equal(output[["project_status"]], "Project status: No project loaded")
   })
 })
 

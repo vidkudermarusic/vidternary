@@ -16,5 +16,7 @@ A \code{ggplot} object (coordinates in mm).
 Particles too narrow to be rated are drawn as small grey dots, rated
 objects as points coloured by type, and objects of more than one
 particle as a line from end to end. Dashed squares are the rating
-fields.
+fields. When no particle is wide enough to be rated, the map shows the
+particles and fields only, with a line saying so (no colour scale, which
+would otherwise warn about having no data).
 }

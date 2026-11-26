@@ -540,13 +540,18 @@ Analysis) have a **Settings of this tab** box:
   choices can only be restored once the columns are known. Anything that
   could not be set is listed under the box.
 
-Extreme Value Analysis, Steel Cleanliness and Batch Comparison also offer:
+Extreme Value Analysis, Steel Cleanliness, Batch Comparison and
+Measurement Planning also offer:
 
 - **Download report (HTML)**: one file with the tables, plots, settings and
   notes of the run, the name and MD5 checksum of the data file, and the
   script. It opens in any browser and needs no internet connection.
 - **Download R script**: an R script that repeats the run without the app.
-  Set the file path at its top and run it with the package installed.
+  Set the file path at its top and run it with the package installed. The
+  Steel Cleanliness script also repeats the comparison with the acceptance
+  limits entered in the tab.
+
+Folder Summary has its own report (one zip file with the per-file reports).
 
 ## Project file and example data (top of the page)
 

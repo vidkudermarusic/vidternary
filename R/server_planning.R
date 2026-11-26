@@ -79,6 +79,11 @@ create_server_planning <- function(input, output, session, rv, show_message, log
 
     res <- tryCatch(plan_measurement(runs, cols, settings, all_runs = all_runs),
                     error = function(e) shiny::validate(paste("Planning failed:", e$message)))
+    # What the report and the script need to repeat this plan.
+    res$cols <- cols
+    res$filters <- filters
+    res$files <- list(name = input$plan_files$name, datapath = input$plan_files$datapath,
+                      rows = vapply(all_runs, nrow, integer(1)), run = names(all_runs))
     log_operation("INFO", "Measurement plan", sprintf("%d run(s), %d particles, %.2f mm2", length(runs), res$pilot$n, res$pilot$inspected_area_mm2))
     res
   })
@@ -120,6 +125,24 @@ create_server_planning <- function(input, output, session, rv, show_message, log
     content = function(file) {
       res <- safe_reactive_result(function() result(), "Upload the pilot run and click \"Make the Plan\" before downloading.")
       writexl::write_xlsx(planning_result_tables(res), file)
+    }
+  )
+
+  plan_placeholder <- "Upload the pilot run and click \"Make the Plan\" before downloading."
+  script_lines <- function(res) planning_script(res$files$name, res$cols, res$settings, res$filters, run_names = res$files$run)
+  output$plan_download_report <- downloadHandler(
+    filename = function() paste0("measurement_plan_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html"),
+    content = function(file) {
+      res <- safe_reactive_result(function() result(), plan_placeholder)
+      provenance <- report_provenance(res$files$name, res$files$datapath, res$files$rows)
+      writeLines(planning_report(res, provenance, script_lines(res), res$filters), file, useBytes = TRUE)
+    }
+  )
+  output$plan_download_script <- downloadHandler(
+    filename = function() paste0("measurement_plan_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".R"),
+    content = function(file) {
+      res <- safe_reactive_result(function() result(), plan_placeholder)
+      writeLines(enc2utf8(script_lines(res)), file, useBytes = TRUE)
     }
   )
 

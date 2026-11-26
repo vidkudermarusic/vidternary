@@ -78,7 +78,6 @@ The package is organized into logical modules, each handling specific functional
 - **`R/server_planning.R`** — Measurement Planning tab
 - **`R/server_data_comparison.R`** (+ `_upload.R`, `_stats.R`, `_multivariate.R`, `_preview.R`) — Data Comparison tab
 - **`R/server_analysis_log.R`** — Analysis Log tab
-- **`R/server_status_outputs.R`** — app-shell status text
 
 ### Application Entry
 - **`R/app.R`** — `run_app()` / `create_app()`

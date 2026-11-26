@@ -197,7 +197,12 @@ register_cleanliness_outputs <- function(input, output, result, acceptance = NUL
       ggplot2::ggsave(file, plot = create_stringer_map(res), width = 10, height = 7, dpi = 300)
     }
   )
-  script_lines <- function(res) cleanliness_script(res$file$name %||% "data.xlsx", res$cols, res$settings, res$filters)
+  # The acceptance limits are read from the boxes when the script is
+  # written, like the acceptance table itself.
+  script_lines <- function(res) {
+    acc <- tryCatch(read_acceptance_limits(input, "clean"), error = function(e) NULL)
+    cleanliness_script(res$file$name %||% "data.xlsx", res$cols, res$settings, res$filters, acceptance = acc)
+  }
   output$clean_download_report <- downloadHandler(
     filename = function() paste0("steel_cleanliness_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html"),
     content = function(file) {

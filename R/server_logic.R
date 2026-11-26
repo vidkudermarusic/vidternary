@@ -129,10 +129,6 @@ create_server_logic <- function(input, output, session) {
 
   # Ternary core functionality now integrated into server_ternary_plots
 
-  # Import status output functions - NOT namespaced: project_status is a
-  # genuinely app-shell output (ui_components.R's sidebar, outside any tab).
-  create_server_status_outputs(input, output, session, rv)
-
   # Import analysis log functions (moduleServer()-wrapped, see hex_ternary's note above)
   moduleServer("analysis_log", function(input, output, session) {
     create_server_analysis_log(input, output, session, rv, show_message, log_operation)

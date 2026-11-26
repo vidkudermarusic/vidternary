@@ -68,7 +68,9 @@ create_planning_tab <- function(id) {
           column(12,
             verbatimTextOutput(ns("plan_status")),
             uiOutput(ns("plan_notes")),
-            downloadButton(ns("plan_download_tables"), "Download all tables (xlsx)")
+            downloadButton(ns("plan_download_tables"), "Download all tables (xlsx)"),
+            downloadButton(ns("plan_download_report"), "Download report (HTML)"),
+            downloadButton(ns("plan_download_script"), "Download R script")
           )
         ),
 

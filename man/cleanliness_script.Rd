@@ -4,7 +4,13 @@
 \alias{cleanliness_script}
 \title{R script that repeats a cleanliness analysis}
 \usage{
-cleanliness_script(file_name, cols, settings, filters = list())
+cleanliness_script(
+  file_name,
+  cols,
+  settings,
+  filters = list(),
+  acceptance = NULL
+)
 }
 \arguments{
 \item{file_name}{Name of the data file.}
@@ -15,6 +21,11 @@ cleanliness_script(file_name, cols, settings, filters = list())
 every value - the inspected area included - is written out.}
 
 \item{filters}{Pre-analysis filters, column -> condition (may be empty).}
+
+\item{acceptance}{The acceptance limits entered in the tab, as returned
+by \code{\link[=read_acceptance_limits]{read_acceptance_limits()}} (\code{limits}, \code{fields_per_area},
+\code{return_period}), or \code{NULL}. When limits are given, the script also
+repeats the comparison with them.}
 }
 \value{
 The script as a character vector of lines.
